@@ -1,6 +1,6 @@
 ===== [100/104] wasteland =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: wasteland.map26  Seed: 1  Replay: /tmp/ball/100_wasteland.replay26  TLE: off
+  Map: wasteland.map26  Seed: 1  Replay: /tmp/ball_ig/100_wasteland.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -21,151 +21,19 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/100_wasteland.replay26
+Replay written to /tmp/ball_ig/100_wasteland.replay26
 
   Winner: drewfett_v1000 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    69 (2110)                14110 (19120)
-    Axionite                        0 (0)                        0 (0)
-       Units                            8                           33
-   Buildings                          200                          279
-
-===== [101/104] wasteland_oasis =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: wasteland_oasis.map26  Seed: 1  Replay: /tmp/ball/101_wasteland_oasis.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/101_wasteland_oasis.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   175 (1000)                 9832 (23942)
-    Axionite                        0 (0)                  2402 (2402)
-       Units                           11                           33
-   Buildings                          168                          489
-
-===== [102/104] we_love_tetris =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: we_love_tetris.map26  Seed: 1  Replay: /tmp/ball/102_we_love_tetris.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/102_we_love_tetris.replay26
-
-  Winner: v56 (rust)  (core_destroyed, turn 1933)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    92 (2830)                   165 (1150)
-    Axionite                        0 (0)                        0 (0)
-       Units                           18                           17
-   Buildings                          290                          204
-
-===== [103/104] window_shopping =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: window_shopping.map26  Seed: 1  Replay: /tmp/ball/103_window_shopping.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/103_window_shopping.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    36 (8280)                  1847 (9630)
-    Axionite                        0 (0)                        0 (0)
-       Units                           18                           21
-   Buildings                          119                          148
-
-===== [104/104] wormhole =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: wormhole.map26  Seed: 1  Replay: /tmp/ball/104_wormhole.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/104_wormhole.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                      253 (0)                  787 (16270)
+    Titanium                    11 (2390)                11957 (18400)
     Axionite                        0 (0)                        0 (0)
        Units                            6                           32
-   Buildings                          431                          794
+   Buildings                          174                          242
 
 ===== [10/104] blob =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: blob.map26  Seed: 1  Replay: /tmp/ball/10_blob.replay26  TLE: off
+  Map: blob.map26  Seed: 1  Replay: /tmp/ball_ig/10_blob.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -186,284 +54,19 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/10_blob.replay26
+Replay written to /tmp/ball_ig/10_blob.replay26
 
   Winner: v56 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  638 (38352)                   311 (7044)
-    Axionite                  3852 (3852)                  1154 (1154)
-       Units                           23                           16
-   Buildings                          568                          228
-
-===== [11/104] bubbles =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: bubbles.map26  Seed: 1  Replay: /tmp/ball/11_bubbles.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/11_bubbles.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    14 (2640)                       11 (0)
-    Axionite                        0 (0)                        0 (0)
-       Units                           22                           11
-   Buildings                          464                          422
-
-===== [12/104] building_blocks =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: building_blocks.map26  Seed: 1  Replay: /tmp/ball/12_building_blocks.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/12_building_blocks.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                23126 (29222)                20196 (29020)
-    Axionite                  4467 (4467)                    500 (500)
-       Units                           25                           35
-   Buildings                          335                          354
-
-===== [13/104] butterfly =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: butterfly.map26  Seed: 1  Replay: /tmp/ball/13_butterfly.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/13_butterfly.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                 2593 (50694)                12114 (26870)
-    Axionite                    599 (599)                        0 (0)
-       Units                           21                           21
-   Buildings                          315                           99
-
-===== [14/104] castle_keep =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: castle_keep.map26  Seed: 1  Replay: /tmp/ball/14_castle_keep.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Replay written to /tmp/ball/14_castle_keep.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 377)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   187 (6120)                10487 (17620)
-    Axionite                        0 (0)                        0 (0)
-       Units                           12                           17
-   Buildings                          303                          284
-
-===== [15/104] chemistry_class =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: chemistry_class.map26  Seed: 1  Replay: /tmp/ball/15_chemistry_class.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/15_chemistry_class.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    100 (190)                  877 (18120)
-    Axionite                        0 (0)                  3090 (3090)
-       Units                           17                           27
-   Buildings                          325                          583
-
-===== [16/104] chess =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: chess.map26  Seed: 1  Replay: /tmp/ball/16_chess.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Replay written to /tmp/ball/16_chess.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 384)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    12 (6880)                   393 (9310)
-    Axionite                        0 (0)                        0 (0)
-       Units                            4                           30
-   Buildings                          152                          227
-
-===== [17/104] chrysanthemum =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: chrysanthemum.map26  Seed: 1  Replay: /tmp/ball/17_chrysanthemum.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/17_chrysanthemum.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  341 (14600)                   528 (8640)
-    Axionite                        0 (0)                        0 (0)
-       Units                           11                           32
-   Buildings                          440                          443
-
-===== [18/104] cinnamon_roll =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: cinnamon_roll.map26  Seed: 1  Replay: /tmp/ball/18_cinnamon_roll.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/18_cinnamon_roll.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   203 (2770)                  4057 (9606)
-    Axionite                        0 (0)                  2456 (2456)
-       Units                            5                           27
-   Buildings                          299                          219
-
-===== [19/104] clash_arena =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: clash_arena.map26  Seed: 1  Replay: /tmp/ball/19_clash_arena.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/19_clash_arena.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                 4877 (32960)                    23 (1670)
-    Axionite                  1270 (1270)                        0 (0)
-       Units                           34                           12
-   Buildings                          348                          111
+    Titanium                  684 (40030)                   114 (3760)
+    Axionite                      80 (80)                        0 (0)
+       Units                           22                            7
+   Buildings                          661                          118
 
 ===== [1/104] ancient_tile =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: ancient_tile.map26  Seed: 1  Replay: /tmp/ball/1_ancient_tile.replay26  TLE: off
+  Map: ancient_tile.map26  Seed: 1  Replay: /tmp/ball_ig/1_ancient_tile.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -471,19 +74,32 @@ Completed turn 300
 Completed turn 400
 Completed turn 500
 Completed turn 600
-Replay written to /tmp/ball/1_ancient_tile.replay26
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/1_ancient_tile.replay26
 
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 623)
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1967)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     0 (5750)                   254 (8740)
-    Axionite                        0 (0)                        0 (0)
-       Units                           13                           29
-   Buildings                          350                          326
+    Titanium                    9 (14820)                  835 (26248)
+    Axionite                        0 (0)                  3278 (3278)
+       Units                            6                           42
+   Buildings                          361                          375
 
 ===== [20/104] climbing_wall =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: climbing_wall.map26  Seed: 1  Replay: /tmp/ball/20_climbing_wall.replay26  TLE: off
+  Map: climbing_wall.map26  Seed: 1  Replay: /tmp/ball_ig/20_climbing_wall.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -504,291 +120,19 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/20_climbing_wall.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  118 (16640)                 3007 (22922)
-    Axionite                        0 (0)                  1057 (1057)
-       Units                            8                           31
-   Buildings                          389                          372
-
-===== [21/104] coffee =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: coffee.map26  Seed: 1  Replay: /tmp/ball/21_coffee.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Replay written to /tmp/ball/21_coffee.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1110)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   135 (5510)                  316 (10920)
-    Axionite                        0 (0)                        0 (0)
-       Units                           12                           37
-   Buildings                          427                          413
-
-===== [22/104] cold =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: cold.map26  Seed: 1  Replay: /tmp/ball/22_cold.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/22_cold.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     131 (10)                  611 (17866)
-    Axionite                        0 (0)                  1096 (1096)
-       Units                           16                           27
-   Buildings                          150                          392
-
-===== [23/104] corridors =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: corridors.map26  Seed: 1  Replay: /tmp/ball/23_corridors.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/23_corridors.replay26
+Replay written to /tmp/ball_ig/20_climbing_wall.replay26
 
   Winner: v56 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  450 (50990)                  492 (29710)
+    Titanium                 2259 (29530)                 9537 (19460)
     Axionite                        0 (0)                        0 (0)
-       Units                           16                           22
-   Buildings                          334                          249
-
-===== [24/104] crab_nebula =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: crab_nebula.map26  Seed: 1  Replay: /tmp/ball/24_crab_nebula.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Replay written to /tmp/ball/24_crab_nebula.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1027)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  254 (42222)                 3333 (52050)
-    Axionite                    592 (592)                  1390 (1390)
-       Units                           15                           34
-   Buildings                          552                          377
-
-===== [25/104] craters =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: craters.map26  Seed: 1  Replay: /tmp/ball/25_craters.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/25_craters.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium               63535 (159990)               64689 (119150)
-    Axionite                  3380 (3380)                  1430 (1430)
-       Units                           12                           28
-   Buildings                          488                          377
-
-===== [26/104] cubes =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: cubes.map26  Seed: 1  Replay: /tmp/ball/26_cubes.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Replay written to /tmp/ball/26_cubes.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1165)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    69 (4890)                 1122 (23490)
-    Axionite                        0 (0)                    250 (250)
-       Units                           12                           41
-   Buildings                          327                          899
-
-===== [27/104] default_large1 =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: default_large1.map26  Seed: 1  Replay: /tmp/ball/27_default_large1.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/27_default_large1.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     74 (670)                   423 (8514)
-    Axionite                        0 (0)                  6584 (6584)
-       Units                            7                           27
-   Buildings                          221                          696
-
-===== [28/104] default_large2 =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: default_large2.map26  Seed: 1  Replay: /tmp/ball/28_default_large2.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/28_default_large2.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                23268 (43050)                 7783 (16280)
-    Axionite                        0 (0)                        0 (0)
-       Units                           30                           13
-   Buildings                          730                          178
-
-===== [29/104] default_medium1 =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: default_medium1.map26  Seed: 1  Replay: /tmp/ball/29_default_medium1.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/29_default_medium1.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     31 (870)                   627 (4702)
-    Axionite                        0 (0)                  3427 (3427)
-       Units                            3                           27
-   Buildings                          172                          282
+       Units                           23                           35
+   Buildings                          530                          248
 
 ===== [2/104] arena =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: arena.map26  Seed: 1  Replay: /tmp/ball/2_arena.replay26  TLE: off
+  Map: arena.map26  Seed: 1  Replay: /tmp/ball_ig/2_arena.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -800,19 +144,28 @@ Completed turn 700
 Completed turn 800
 Completed turn 900
 Completed turn 1000
-Replay written to /tmp/ball/2_arena.replay26
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/2_arena.replay26
 
-  Winner: v56 (rust)  (core_destroyed, turn 1077)
+  Winner: v56 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                 2769 (11110)                    128 (290)
+    Titanium                   64 (13870)                     64 (260)
     Axionite                        0 (0)                        0 (0)
-       Units                           25                            4
-   Buildings                          435                           34
+       Units                           10                           20
+   Buildings                          276                           95
 
 ===== [30/104] default_medium2 =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: default_medium2.map26  Seed: 1  Replay: /tmp/ball/30_default_medium2.replay26  TLE: off
+  Map: default_medium2.map26  Seed: 1  Replay: /tmp/ball_ig/30_default_medium2.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -833,277 +186,19 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/30_default_medium2.replay26
+Replay written to /tmp/ball_ig/30_default_medium2.replay26
 
   Winner: drewfett_v1000 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    169 (560)                  2825 (9030)
-    Axionite                        0 (0)                      40 (40)
-       Units                            2                           28
-   Buildings                          214                          426
-
-===== [31/104] default_small1 =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: default_small1.map26  Seed: 1  Replay: /tmp/ball/31_default_small1.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Replay written to /tmp/ball/31_default_small1.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1810)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     32 (990)                17629 (16750)
+    Titanium                    175 (560)                 3238 (10930)
     Axionite                        0 (0)                        0 (0)
-       Units                            5                           21
-   Buildings                          172                          116
-
-===== [32/104] default_small2 =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: default_small2.map26  Seed: 1  Replay: /tmp/ball/32_default_small2.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/32_default_small2.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   28 (12340)                15206 (26140)
-    Axionite                        0 (0)                        0 (0)
-       Units                            6                           27
-   Buildings                          108                          183
-
-===== [33/104] dna =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: dna.map26  Seed: 1  Replay: /tmp/ball/33_dna.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/33_dna.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   153 (8000)                18959 (56540)
-    Axionite                        0 (0)                        0 (0)
-       Units                            3                           34
-   Buildings                          203                          401
-
-===== [34/104] donut =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: donut.map26  Seed: 1  Replay: /tmp/ball/34_donut.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Replay written to /tmp/ball/34_donut.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1460)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     54 (490)                   851 (9600)
-    Axionite                        0 (0)                  2635 (2635)
-       Units                            2                           24
-   Buildings                          110                          491
-
-===== [35/104] drawing_circles_is_hard =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: drawing_circles_is_hard.map26  Seed: 1  Replay: /tmp/ball/35_drawing_circles_is_hard.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/35_drawing_circles_is_hard.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    118 (150)                 1160 (15516)
-    Axionite                        0 (0)                  1341 (1341)
-       Units                           11                           36
-   Buildings                          178                         1494
-
-===== [37/104] face =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: face.map26  Seed: 1  Replay: /tmp/ball/37_face.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/37_face.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    51 (1000)                11284 (11790)
-    Axionite                        0 (0)                        0 (0)
-       Units                            7                           24
-   Buildings                           68                          228
-
-===== [38/104] fan =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: fan.map26  Seed: 1  Replay: /tmp/ball/38_fan.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/38_fan.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  179 (13780)                25547 (59260)
-    Axionite                        0 (0)                  3380 (3380)
-       Units                            2                           35
-   Buildings                          215                          435
-
-===== [39/104] far_lands =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: far_lands.map26  Seed: 1  Replay: /tmp/ball/39_far_lands.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/39_far_lands.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                      139 (0)                      332 (0)
-    Axionite                        0 (0)                        0 (0)
-       Units                           16                           18
-   Buildings                          169                          417
+       Units                            4                           29
+   Buildings                          211                          507
 
 ===== [3/104] bar_chart =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: bar_chart.map26  Seed: 1  Replay: /tmp/ball/3_bar_chart.replay26  TLE: off
+  Map: bar_chart.map26  Seed: 1  Replay: /tmp/ball_ig/3_bar_chart.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -1124,54 +219,789 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/3_bar_chart.replay26
+Replay written to /tmp/ball_ig/3_bar_chart.replay26
 
   Winner: drewfett_v1000 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   179 (2332)                 7495 (14060)
-    Axionite                        2 (2)                  5150 (5150)
-       Units                            3                           34
-   Buildings                          139                          198
+    Titanium                   179 (6160)                 4411 (11230)
+    Axionite                        0 (0)                        0 (0)
+       Units                            1                           40
+   Buildings                          227                          267
 
 ===== [40/104] first_sound =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: first_sound.map26  Seed: 1  Replay: /tmp/ball/40_first_sound.replay26  TLE: off
+  Map: first_sound.map26  Seed: 1  Replay: /tmp/ball_ig/40_first_sound.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
-Replay written to /tmp/ball/40_first_sound.replay26
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/40_first_sound.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   112 (2310)                  702 (13682)
+    Axionite                        0 (0)                  1857 (1857)
+       Units                            3                           28
+   Buildings                          271                          254
+
+===== [4/104] battlebot =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: battlebot.map26  Seed: 1  Replay: /tmp/ball_ig/4_battlebot.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/4_battlebot.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    50 (4190)                   133 (1080)
+    Axionite                        0 (0)                        0 (0)
+       Units                            8                           20
+   Buildings                           47                          170
+
+===== [50/104] hopscotch =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: hopscotch.map26  Seed: 1  Replay: /tmp/ball_ig/50_hopscotch.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/50_hopscotch.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                  309 (10100)                    43 (4800)
+    Axionite                        0 (0)                        0 (0)
+       Units                           20                           15
+   Buildings                          540                          251
+
+===== [5/104] beanstalk =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: beanstalk.map26  Seed: 1  Replay: /tmp/ball_ig/5_beanstalk.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Replay written to /tmp/ball_ig/5_beanstalk.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 975)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   165 (7850)                  456 (10998)
+    Axionite                        0 (0)                    573 (573)
+       Units                           16                           31
+   Buildings                          507                          285
+
+===== [60/104] merchant_ship =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: merchant_ship.map26  Seed: 1  Replay: /tmp/ball_ig/60_merchant_ship.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/60_merchant_ship.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   156 (2840)                24866 (24550)
+    Axionite                        0 (0)                        0 (0)
+       Units                            4                           21
+   Buildings                          235                          222
+
+===== [6/104] bear_of_doom =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: bear_of_doom.map26  Seed: 1  Replay: /tmp/ball_ig/6_bear_of_doom.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Replay written to /tmp/ball_ig/6_bear_of_doom.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 208)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     46 (280)                   399 (3260)
+    Axionite                        0 (0)                        0 (0)
+       Units                            1                           19
+   Buildings                           42                           99
+
+===== [70/104] pointing =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: pointing.map26  Seed: 1  Replay: /tmp/ball_ig/70_pointing.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/70_pointing.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                      201 (0)                       37 (0)
+    Axionite                        0 (0)                        0 (0)
+       Units                            9                           14
+   Buildings                          307                          414
+
+===== [7/104] beats =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: beats.map26  Seed: 1  Replay: /tmp/ball_ig/7_beats.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/7_beats.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    74 (8490)                23666 (39310)
+    Axionite                        0 (0)                        0 (0)
+       Units                            4                           28
+   Buildings                          118                          336
+
+===== [80/104] skyscraper =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: skyscraper.map26  Seed: 1  Replay: /tmp/ball_ig/80_skyscraper.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/80_skyscraper.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                       11 (0)                      246 (0)
+    Axionite                        0 (0)                        0 (0)
+       Units                           14                           14
+   Buildings                          251                          323
+
+===== [8/104] binary_tree =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: binary_tree.map26  Seed: 1  Replay: /tmp/ball_ig/8_binary_tree.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Replay written to /tmp/ball_ig/8_binary_tree.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 538)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     65 (600)                   944 (2590)
+    Axionite                        0 (0)                        0 (0)
+       Units                            3                           18
+   Buildings                          137                          161
+
+===== [90/104] sunset =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: sunset.map26  Seed: 1  Replay: /tmp/ball_ig/90_sunset.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Replay written to /tmp/ball_ig/90_sunset.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1150)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   92 (18240)                  407 (26720)
+    Axionite                        0 (0)                        0 (0)
+       Units                            1                           31
+   Buildings                          206                          339
+
+===== [9/104] blackhole =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: blackhole.map26  Seed: 1  Replay: /tmp/ball_ig/9_blackhole.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/9_blackhole.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   176 (3180)                16915 (27410)
+    Axionite                        0 (0)                        0 (0)
+       Units                            2                           39
+   Buildings                          223                          379
+
+===== [101/104] wasteland_oasis =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: wasteland_oasis.map26  Seed: 1  Replay: /tmp/ball_ig/101_wasteland_oasis.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/101_wasteland_oasis.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   47 (10270)                12596 (23600)
+    Axionite                        0 (0)                        0 (0)
+       Units                            7                           34
+   Buildings                          372                          204
+
+===== [11/104] bubbles =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: bubbles.map26  Seed: 1  Replay: /tmp/ball_ig/11_bubbles.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/11_bubbles.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    34 (4190)                       49 (0)
+    Axionite                        0 (0)                        0 (0)
+       Units                           21                           11
+   Buildings                          566                          377
+
+===== [21/104] coffee =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: coffee.map26  Seed: 1  Replay: /tmp/ball_ig/21_coffee.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Replay written to /tmp/ball_ig/21_coffee.replay26
+
+  Winner: v56 (rust)  (core_destroyed, turn 1391)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    54 (9930)                   79 (11570)
+    Axionite                        0 (0)                        0 (0)
+       Units                           35                           13
+   Buildings                          546                          340
+
+===== [31/104] default_small1 =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: default_small1.map26  Seed: 1  Replay: /tmp/ball_ig/31_default_small1.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/31_default_small1.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    22 (2780)                12451 (18250)
+    Axionite                        0 (0)                        0 (0)
+       Units                            7                           23
+   Buildings                          156                          164
+
+===== [41/104] fish =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: fish.map26  Seed: 1  Replay: /tmp/ball_ig/41_fish.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Replay written to /tmp/ball_ig/41_fish.replay26
 
   Winner: drewfett_v1000 (rust)  (core_destroyed, turn 242)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                      13 (40)                      148 (0)
+    Titanium                    13 (1880)                   182 (4310)
     Axionite                        0 (0)                        0 (0)
-       Units                            6                            9
-   Buildings                           70                           76
+       Units                            3                           21
+   Buildings                          121                          157
 
-===== [41/104] fish =====
+===== [51/104] hourglass =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: fish.map26  Seed: 1  Replay: /tmp/ball/41_fish.replay26  TLE: off
+  Map: hourglass.map26  Seed: 1  Replay: /tmp/ball_ig/51_hourglass.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Replay written to /tmp/ball_ig/51_hourglass.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 370)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    12 (3290)                   128 (3470)
+    Axionite                        0 (0)                        0 (0)
+       Units                           12                           15
+   Buildings                          101                          217
+
+===== [61/104] metropolitan_dystopia =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: metropolitan_dystopia.map26  Seed: 1  Replay: /tmp/ball_ig/61_metropolitan_dystopia.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
 Completed turn 300
 Completed turn 400
 Completed turn 500
-Replay written to /tmp/ball/41_fish.replay26
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/61_metropolitan_dystopia.replay26
 
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 568)
+  Winner: v56 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    10 (5970)                  223 (10950)
+    Titanium                  450 (29350)                  958 (13090)
     Axionite                        0 (0)                        0 (0)
-       Units                           11                           27
-   Buildings                          273                          219
+       Units                           25                           38
+   Buildings                          959                          494
+
+===== [71/104] pong =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: pong.map26  Seed: 1  Replay: /tmp/ball_ig/71_pong.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/71_pong.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                41068 (69414)                 1752 (14510)
+    Axionite                  7114 (7114)                  9580 (9580)
+       Units                           29                           21
+   Buildings                          636                          347
+
+===== [81/104] s =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: s.map26  Seed: 1  Replay: /tmp/ball_ig/81_s.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/81_s.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                      421 (0)                       61 (0)
+    Axionite                        0 (0)                        0 (0)
+       Units                           20                           18
+   Buildings                          188                          256
+
+===== [91/104] tea =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: tea.map26  Seed: 1  Replay: /tmp/ball_ig/91_tea.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/91_tea.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   154 (1770)                  1956 (3140)
+    Axionite                        0 (0)                    930 (930)
+       Units                            4                           22
+   Buildings                          314                          240
+
+===== [102/104] we_love_tetris =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: we_love_tetris.map26  Seed: 1  Replay: /tmp/ball_ig/102_we_love_tetris.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/102_we_love_tetris.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   249 (2670)                15213 (22400)
+    Axionite                        0 (0)                    560 (560)
+       Units                            1                           27
+   Buildings                          231                          294
+
+===== [12/104] building_blocks =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: building_blocks.map26  Seed: 1  Replay: /tmp/ball_ig/12_building_blocks.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/12_building_blocks.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                23585 (29222)                19091 (29092)
+    Axionite                  4467 (4467)                        2 (2)
+       Units                           26                           34
+   Buildings                          333                          356
+
+===== [22/104] cold =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: cold.map26  Seed: 1  Replay: /tmp/ball_ig/22_cold.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/22_cold.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                      47 (10)                 1445 (27752)
+    Axionite                        0 (0)                  3512 (3512)
+       Units                            8                           29
+   Buildings                          100                          937
+
+===== [32/104] default_small2 =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: default_small2.map26  Seed: 1  Replay: /tmp/ball_ig/32_default_small2.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/32_default_small2.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1921)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    54 (2250)                   94 (23580)
+    Axionite                        0 (0)                        0 (0)
+       Units                            4                           16
+   Buildings                           74                          131
 
 ===== [42/104] flappy_bird =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: flappy_bird.map26  Seed: 1  Replay: /tmp/ball/42_flappy_bird.replay26  TLE: off
+  Map: flappy_bird.map26  Seed: 1  Replay: /tmp/ball_ig/42_flappy_bird.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -1192,19 +1022,325 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/42_flappy_bird.replay26
+Replay written to /tmp/ball_ig/42_flappy_bird.replay26
 
   Winner: v56 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                13353 (20852)                  4483 (9660)
-    Axionite                  3722 (3722)                        0 (0)
-       Units                           20                            9
-   Buildings                          230                          113
+    Titanium                  315 (21930)                 7899 (19740)
+    Axionite                  3570 (3570)                        0 (0)
+       Units                           19                           20
+   Buildings                          163                          165
+
+===== [52/104] impossible_knot =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: impossible_knot.map26  Seed: 1  Replay: /tmp/ball_ig/52_impossible_knot.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/52_impossible_knot.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                  255 (27050)                 1192 (15564)
+    Axionite                    605 (605)                  3129 (3129)
+       Units                           19                           33
+   Buildings                          732                          665
+
+===== [62/104] minimaze =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: minimaze.map26  Seed: 1  Replay: /tmp/ball_ig/62_minimaze.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/62_minimaze.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     10 (500)                 1913 (14120)
+    Axionite                        0 (0)                        0 (0)
+       Units                            8                           19
+   Buildings                          180                          113
+
+===== [72/104] raindrop =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: raindrop.map26  Seed: 1  Replay: /tmp/ball_ig/72_raindrop.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/72_raindrop.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    11 (3050)                    92 (1840)
+    Axionite                        0 (0)                        0 (0)
+       Units                           14                            9
+   Buildings                          128                          155
+
+===== [82/104] socket =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: socket.map26  Seed: 1  Replay: /tmp/ball_ig/82_socket.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/82_socket.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     29 (300)                 6395 (16280)
+    Axionite                        0 (0)                      40 (40)
+       Units                            7                           25
+   Buildings                          104                          263
+
+===== [92/104] teleporter =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: teleporter.map26  Seed: 1  Replay: /tmp/ball_ig/92_teleporter.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/92_teleporter.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   215 (4360)                 4044 (14540)
+    Axionite                        0 (0)                        0 (0)
+       Units                            2                           38
+   Buildings                          362                          592
+
+===== [103/104] window_shopping =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: window_shopping.map26  Seed: 1  Replay: /tmp/ball_ig/103_window_shopping.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/103_window_shopping.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                 3913 (19880)                   100 (5180)
+    Axionite                        0 (0)                        0 (0)
+       Units                           22                            6
+   Buildings                          172                           92
+
+===== [13/104] butterfly =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: butterfly.map26  Seed: 1  Replay: /tmp/ball_ig/13_butterfly.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Replay written to /tmp/ball_ig/13_butterfly.replay26
+
+  Winner: v56 (rust)  (core_destroyed, turn 1029)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                 1598 (19900)                   63 (15010)
+    Axionite                        0 (0)                        0 (0)
+       Units                           23                            6
+   Buildings                          385                           62
+
+===== [23/104] corridors =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: corridors.map26  Seed: 1  Replay: /tmp/ball_ig/23_corridors.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/23_corridors.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                  138 (46710)                 5931 (42640)
+    Axionite                        0 (0)                        0 (0)
+       Units                           10                           30
+   Buildings                          246                          290
+
+===== [33/104] dna =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: dna.map26  Seed: 1  Replay: /tmp/ball_ig/33_dna.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/33_dna.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                 1033 (58070)                  229 (18122)
+    Axionite                    660 (660)                  2757 (2757)
+       Units                           26                            3
+   Buildings                          533                          210
 
 ===== [43/104] flowers =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: flowers.map26  Seed: 1  Replay: /tmp/ball/43_flowers.replay26  TLE: off
+  Map: flowers.map26  Seed: 1  Replay: /tmp/ball_ig/43_flowers.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Replay written to /tmp/ball_ig/43_flowers.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 496)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    24 (2700)                   353 (4750)
+    Axionite                        0 (0)                        0 (0)
+       Units                            6                           25
+   Buildings                          202                          439
+
+===== [53/104] labyrinth =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: labyrinth.map26  Seed: 1  Replay: /tmp/ball_ig/53_labyrinth.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -1225,360 +1361,259 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/43_flowers.replay26
+Replay written to /tmp/ball_ig/53_labyrinth.replay26
 
   Winner: v56 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                 8887 (85820)                13115 (50300)
+    Titanium                11343 (38430)                18135 (17590)
+    Axionite                  3700 (3700)                        0 (0)
+       Units                           25                           24
+   Buildings                          653                          119
+
+===== [63/104] mugs =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: mugs.map26  Seed: 1  Replay: /tmp/ball_ig/63_mugs.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Replay written to /tmp/ball_ig/63_mugs.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 275)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     14 (950)                   211 (2590)
     Axionite                        0 (0)                        0 (0)
-       Units                           29                           25
-   Buildings                          637                          527
+       Units                            6                           19
+   Buildings                          137                          136
+
+===== [73/104] rush_bait =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: rush_bait.map26  Seed: 1  Replay: /tmp/ball_ig/73_rush_bait.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/73_rush_bait.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                 1571 (49910)                12588 (22670)
+    Axionite                        0 (0)                      70 (70)
+       Units                           25                           26
+   Buildings                          432                          306
+
+===== [83/104] spikes =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: spikes.map26  Seed: 1  Replay: /tmp/ball_ig/83_spikes.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/83_spikes.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    80 (8340)                  2556 (4960)
+    Axionite                        0 (0)                        0 (0)
+       Units                            9                           30
+   Buildings                          332                          195
+
+===== [93/104] the_great_divide =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: the_great_divide.map26  Seed: 1  Replay: /tmp/ball_ig/93_the_great_divide.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/93_the_great_divide.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     30 (390)                    10 (6140)
+    Axionite                        0 (0)                        0 (0)
+       Units                            9                           33
+   Buildings                          367                          545
+
+===== [104/104] wormhole =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: wormhole.map26  Seed: 1  Replay: /tmp/ball_ig/104_wormhole.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/104_wormhole.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                  623 (25030)                       71 (0)
+    Axionite                        0 (0)                        0 (0)
+       Units                            8                            4
+   Buildings                          744                          113
+
+===== [14/104] castle_keep =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: castle_keep.map26  Seed: 1  Replay: /tmp/ball_ig/14_castle_keep.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Replay written to /tmp/ball_ig/14_castle_keep.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 349)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    11 (3220)                   166 (8230)
+    Axionite                        0 (0)                        0 (0)
+       Units                           16                           26
+   Buildings                          201                          463
+
+===== [24/104] crab_nebula =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: crab_nebula.map26  Seed: 1  Replay: /tmp/ball_ig/24_crab_nebula.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/24_crab_nebula.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                41710 (74900)                  992 (84590)
+    Axionite                  3490 (3490)                  3490 (3490)
+       Units                           24                           31
+   Buildings                          400                          452
+
+===== [34/104] donut =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: donut.map26  Seed: 1  Replay: /tmp/ball_ig/34_donut.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Replay written to /tmp/ball_ig/34_donut.replay26
+
+  Winner: v56 (rust)  (core_destroyed, turn 1353)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                  749 (10360)                      73 (50)
+    Axionite                        0 (0)                        0 (0)
+       Units                           24                            7
+   Buildings                          378                          131
 
 ===== [44/104] galaxy =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: galaxy.map26  Seed: 1  Replay: /tmp/ball/44_galaxy.replay26  TLE: off
+  Map: galaxy.map26  Seed: 1  Replay: /tmp/ball_ig/44_galaxy.replay26  TLE: off
 Completed turn 0
 Completed turn 100
-Replay written to /tmp/ball/44_galaxy.replay26
+Replay written to /tmp/ball_ig/44_galaxy.replay26
 
   Winner: drewfett_v1000 (rust)  (core_destroyed, turn 197)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     79 (760)                    66 (1330)
+    Titanium                     81 (760)                    39 (1330)
     Axionite                        0 (0)                        0 (0)
        Units                            4                           14
-   Buildings                          167                          169
-
-===== [45/104] gaussian =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: gaussian.map26  Seed: 1  Replay: /tmp/ball/45_gaussian.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Replay written to /tmp/ball/45_gaussian.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1555)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    71 (7490)                   378 (6500)
-    Axionite                        0 (0)                        0 (0)
-       Units                            3                           24
-   Buildings                          300                          142
-
-===== [46/104] git_branches =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: git_branches.map26  Seed: 1  Replay: /tmp/ball/46_git_branches.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/46_git_branches.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   240 (1900)                  660 (21850)
-    Axionite                        0 (0)                        0 (0)
-       Units                            7                           30
-   Buildings                          318                          414
-
-===== [47/104] gosper_glider_gun =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: gosper_glider_gun.map26  Seed: 1  Replay: /tmp/ball/47_gosper_glider_gun.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/47_gosper_glider_gun.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    87 (1440)                    36 (2500)
-    Axionite                        0 (0)                        0 (0)
-       Units                           13                           21
-   Buildings                          525                          593
-
-===== [48/104] handbag =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: handbag.map26  Seed: 1  Replay: /tmp/ball/48_handbag.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/48_handbag.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   496 (9340)                   211 (8878)
-    Axionite                        0 (0)                    843 (843)
-       Units                           25                           24
-   Buildings                          401                          303
-
-===== [49/104] hooks =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: hooks.map26  Seed: 1  Replay: /tmp/ball/49_hooks.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/49_hooks.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   117 (2600)                24642 (29460)
-    Axionite                        0 (0)                        0 (0)
-       Units                            7                           31
-   Buildings                          222                          265
-
-===== [4/104] battlebot =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: battlebot.map26  Seed: 1  Replay: /tmp/ball/4_battlebot.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/4_battlebot.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                18915 (33900)                     17 (700)
-    Axionite                        0 (0)                        0 (0)
-       Units                           26                            4
-   Buildings                          330                           34
-
-===== [50/104] hopscotch =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: hopscotch.map26  Seed: 1  Replay: /tmp/ball/50_hopscotch.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/50_hopscotch.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  629 (28788)                     99 (710)
-    Axionite                    933 (933)                        0 (0)
-       Units                           23                            8
-   Buildings                          744                          154
-
-===== [51/104] hourglass =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: hourglass.map26  Seed: 1  Replay: /tmp/ball/51_hourglass.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/51_hourglass.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                44355 (58340)                36216 (39160)
-    Axionite                        0 (0)                        0 (0)
-       Units                           24                            6
-   Buildings                          380                          113
-
-===== [52/104] impossible_knot =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: impossible_knot.map26  Seed: 1  Replay: /tmp/ball/52_impossible_knot.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/52_impossible_knot.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    27 (2722)                  337 (18694)
-    Axionite                        2 (2)                  1694 (1694)
-       Units                            9                           31
-   Buildings                          478                          683
-
-===== [53/104] labyrinth =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: labyrinth.map26  Seed: 1  Replay: /tmp/ball/53_labyrinth.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/53_labyrinth.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                 7829 (39340)                12637 (12690)
-    Axionite                  3700 (3700)                        0 (0)
-       Units                           35                           23
-   Buildings                          684                          115
+   Buildings                          167                          170
 
 ===== [54/104] landscape =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: landscape.map26  Seed: 1  Replay: /tmp/ball/54_landscape.replay26  TLE: off
+  Map: landscape.map26  Seed: 1  Replay: /tmp/ball_ig/54_landscape.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -1599,324 +1634,19 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/54_landscape.replay26
+Replay written to /tmp/ball_ig/54_landscape.replay26
 
   Winner: v56 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  253 (52300)                    10 (1340)
+    Titanium                 8229 (66070)                   126 (1740)
     Axionite                        0 (0)                        0 (0)
-       Units                           30                            3
-   Buildings                          727                           38
-
-===== [55/104] lightning =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: lightning.map26  Seed: 1  Replay: /tmp/ball/55_lightning.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/55_lightning.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  290 (10616)                10132 (19960)
-    Axionite                  2096 (2096)                  5190 (5190)
-       Units                            9                           26
-   Buildings                          339                          235
-
-===== [56/104] maimai =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: maimai.map26  Seed: 1  Replay: /tmp/ball/56_maimai.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/56_maimai.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                 9480 (73460)                31675 (92000)
-    Axionite                        0 (0)                  1610 (1610)
-       Units                           22                           22
-   Buildings                          311                          383
-
-===== [57/104] mandelbrot =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: mandelbrot.map26  Seed: 1  Replay: /tmp/ball/57_mandelbrot.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/57_mandelbrot.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  866 (62970)                  212 (30620)
-    Axionite                        0 (0)                        0 (0)
-       Units                           20                           46
-   Buildings                         1126                          348
-
-===== [58/104] mark_of_the_sun_god =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: mark_of_the_sun_god.map26  Seed: 1  Replay: /tmp/ball/58_mark_of_the_sun_god.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/58_mark_of_the_sun_god.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                       66 (0)                      134 (0)
-    Axionite                        0 (0)                        0 (0)
-       Units                            4                           11
-   Buildings                          196                          191
-
-===== [59/104] maze_runner =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: maze_runner.map26  Seed: 1  Replay: /tmp/ball/59_maze_runner.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/59_maze_runner.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    91 (4650)                      110 (0)
-    Axionite                        0 (0)                        0 (0)
-       Units                           35                           22
-   Buildings                          624                          238
-
-===== [5/104] beanstalk =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: beanstalk.map26  Seed: 1  Replay: /tmp/ball/5_beanstalk.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Replay written to /tmp/ball/5_beanstalk.replay26
-
-  Winner: v56 (rust)  (core_destroyed, turn 1093)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  665 (16744)                 1446 (11400)
-    Axionite                  1219 (1219)                    670 (670)
-       Units                           29                           38
-   Buildings                          613                          259
-
-===== [60/104] merchant_ship =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: merchant_ship.map26  Seed: 1  Replay: /tmp/ball/60_merchant_ship.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Replay written to /tmp/ball/60_merchant_ship.replay26
-
-  Winner: v56 (rust)  (core_destroyed, turn 870)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  233 (14800)                   196 (7900)
-    Axionite                        0 (0)                        0 (0)
-       Units                           10                           27
-   Buildings                          372                          196
-
-===== [61/104] metropolitan_dystopia =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: metropolitan_dystopia.map26  Seed: 1  Replay: /tmp/ball/61_metropolitan_dystopia.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/61_metropolitan_dystopia.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  714 (30240)                 4974 (13240)
-    Axionite                        0 (0)                        0 (0)
-       Units                           34                           34
-   Buildings                         1025                          423
-
-===== [62/104] minimaze =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: minimaze.map26  Seed: 1  Replay: /tmp/ball/62_minimaze.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Replay written to /tmp/ball/62_minimaze.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1419)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   108 (1050)                12357 (13060)
-    Axionite                        0 (0)                        0 (0)
-       Units                            3                           24
-   Buildings                          159                          132
-
-===== [63/104] mugs =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: mugs.map26  Seed: 1  Replay: /tmp/ball/63_mugs.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/63_mugs.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   102 (1510)                 2270 (19860)
-    Axionite                        0 (0)                        0 (0)
-       Units                            3                           22
-   Buildings                          204                          154
+       Units                           30                            0
+   Buildings                          671                           60
 
 ===== [64/104] not_a_blank_white_page =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: not_a_blank_white_page.map26  Seed: 1  Replay: /tmp/ball/64_not_a_blank_white_page.replay26  TLE: off
+  Map: not_a_blank_white_page.map26  Seed: 1  Replay: /tmp/ball_ig/64_not_a_blank_white_page.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -1925,337 +1655,19 @@ Completed turn 400
 Completed turn 500
 Completed turn 600
 Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/64_not_a_blank_white_page.replay26
+Replay written to /tmp/ball_ig/64_not_a_blank_white_page.replay26
 
-  Winner: v56 (rust)  (resources, turn 2000)
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 718)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  251 (68630)                17287 (29110)
+    Titanium                   86 (11060)                   251 (9950)
     Axionite                        0 (0)                        0 (0)
-       Units                           20                           14
-   Buildings                         1000                          184
-
-===== [65/104] orbit =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: orbit.map26  Seed: 1  Replay: /tmp/ball/65_orbit.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Replay written to /tmp/ball/65_orbit.replay26
-
-  Winner: v56 (rust)  (core_destroyed, turn 1201)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                 1716 (15810)                      40 (30)
-    Axionite                      10 (10)                        0 (0)
-       Units                           30                            3
-   Buildings                          713                           71
-
-===== [66/104] parchment =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: parchment.map26  Seed: 1  Replay: /tmp/ball/66_parchment.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/66_parchment.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   114 (1040)                  887 (14160)
-    Axionite                        0 (0)                  1430 (1430)
-       Units                            9                           41
-   Buildings                          331                          839
-
-===== [67/104] perch_point =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: perch_point.map26  Seed: 1  Replay: /tmp/ball/67_perch_point.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/67_perch_point.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    67 (7840)                 9383 (19570)
-    Axionite                        0 (0)                        0 (0)
-       Units                           10                           15
-   Buildings                          259                          284
-
-===== [68/104] pixel_forest =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: pixel_forest.map26  Seed: 1  Replay: /tmp/ball/68_pixel_forest.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/68_pixel_forest.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   223 (8530)                11063 (23190)
-    Axionite                        0 (0)                        0 (0)
-       Units                            7                           22
-   Buildings                          205                          289
-
-===== [69/104] pls_buy_cucats_merch =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: pls_buy_cucats_merch.map26  Seed: 1  Replay: /tmp/ball/69_pls_buy_cucats_merch.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/69_pls_buy_cucats_merch.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                      18 (70)                       95 (0)
-    Axionite                        0 (0)                        0 (0)
-       Units                           13                            5
-   Buildings                          389                          490
-
-===== [6/104] bear_of_doom =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: bear_of_doom.map26  Seed: 1  Replay: /tmp/ball/6_bear_of_doom.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Replay written to /tmp/ball/6_bear_of_doom.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 219)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                      45 (20)                       77 (0)
-    Axionite                        0 (0)                        0 (0)
-       Units                            4                            8
-   Buildings                           50                           56
-
-===== [70/104] pointing =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: pointing.map26  Seed: 1  Replay: /tmp/ball/70_pointing.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/70_pointing.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                      152 (0)                       20 (0)
-    Axionite                        0 (0)                        0 (0)
-       Units                           14                           17
-   Buildings                          344                          414
-
-===== [71/104] pong =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: pong.map26  Seed: 1  Replay: /tmp/ball/71_pong.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/71_pong.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                29749 (56650)                31324 (59144)
-    Axionite                  7570 (7570)                  7799 (7799)
-       Units                           29                           29
-   Buildings                          657                          491
-
-===== [72/104] raindrop =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: raindrop.map26  Seed: 1  Replay: /tmp/ball/72_raindrop.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/72_raindrop.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     67 (540)                  1463 (9940)
-    Axionite                        0 (0)                        0 (0)
-       Units                            7                           23
-   Buildings                           61                          228
-
-===== [73/104] rush_bait =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: rush_bait.map26  Seed: 1  Replay: /tmp/ball/73_rush_bait.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/73_rush_bait.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  589 (39000)                 5110 (26586)
-    Axionite                        0 (0)                  2766 (2766)
-       Units                           21                           25
-   Buildings                          462                          294
+       Units                            7                           26
+   Buildings                          273                          229
 
 ===== [74/104] separated =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: separated.map26  Seed: 1  Replay: /tmp/ball/74_separated.replay26  TLE: off
+  Map: separated.map26  Seed: 1  Replay: /tmp/ball_ig/74_separated.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -2276,312 +1688,19 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/74_separated.replay26
+Replay written to /tmp/ball_ig/74_separated.replay26
 
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                 7584 (41630)                   308 (2630)
-    Axionite                  2040 (2040)                        0 (0)
-       Units                           35                           17
-   Buildings                          972                          608
-
-===== [75/104] settlement =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: settlement.map26  Seed: 1  Replay: /tmp/ball/75_settlement.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/75_settlement.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+  Winner: v56 (rust)  (core_destroyed, turn 1969)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  148 (12980)                 1721 (74000)
+    Titanium                  122 (35240)                    42 (2070)
     Axionite                        0 (0)                        0 (0)
-       Units                            9                           33
-   Buildings                          512                          561
-
-===== [76/104] shish_kebab =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: shish_kebab.map26  Seed: 1  Replay: /tmp/ball/76_shish_kebab.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/76_shish_kebab.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   10 (11840)                   137 (4030)
-    Axionite                        0 (0)                        0 (0)
-       Units                            8                            8
-   Buildings                          203                           93
-
-===== [77/104] showdown =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: showdown.map26  Seed: 1  Replay: /tmp/ball/77_showdown.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Replay written to /tmp/ball/77_showdown.replay26
-
-  Winner: v56 (rust)  (core_destroyed, turn 308)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    19 (1870)                     31 (260)
-    Axionite                        0 (0)                        0 (0)
-       Units                           15                            4
-   Buildings                          201                           39
-
-===== [78/104] shrub =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: shrub.map26  Seed: 1  Replay: /tmp/ball/78_shrub.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Replay written to /tmp/ball/78_shrub.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 573)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    30 (2800)                    79 (4610)
-    Axionite                        0 (0)                        0 (0)
-       Units                            6                           22
-   Buildings                          131                          145
-
-===== [79/104] sierpinski_evil =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: sierpinski_evil.map26  Seed: 1  Replay: /tmp/ball/79_sierpinski_evil.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Replay written to /tmp/ball/79_sierpinski_evil.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1259)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    73 (3750)                   539 (5330)
-    Axionite                        0 (0)                        0 (0)
-       Units                            3                           23
-   Buildings                          229                          212
-
-===== [7/104] beats =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: beats.map26  Seed: 1  Replay: /tmp/ball/7_beats.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/7_beats.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   153 (6030)                48332 (75110)
-    Axionite                        0 (0)                    600 (600)
-       Units                            4                           26
-   Buildings                          170                          270
-
-===== [80/104] skyscraper =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: skyscraper.map26  Seed: 1  Replay: /tmp/ball/80_skyscraper.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/80_skyscraper.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                       83 (0)                      115 (0)
-    Axionite                        0 (0)                        0 (0)
-       Units                           22                           18
-   Buildings                          290                          347
-
-===== [81/104] s =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: s.map26  Seed: 1  Replay: /tmp/ball/81_s.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/81_s.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     105 (40)                   788 (2370)
-    Axionite                        0 (0)                        0 (0)
-       Units                           17                           25
-   Buildings                          199                          222
-
-===== [82/104] socket =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: socket.map26  Seed: 1  Replay: /tmp/ball/82_socket.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/82_socket.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   172 (1550)                20134 (24150)
-    Axionite                        0 (0)                  3610 (3610)
-       Units                            6                           29
-   Buildings                          120                          161
-
-===== [83/104] spikes =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: spikes.map26  Seed: 1  Replay: /tmp/ball/83_spikes.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/83_spikes.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   390 (8220)                  6266 (4960)
-    Axionite                        0 (0)                        0 (0)
-       Units                           10                           22
-   Buildings                          433                          121
+       Units                           38                           15
+   Buildings                         1044                          526
 
 ===== [84/104] squares =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: squares.map26  Seed: 1  Replay: /tmp/ball/84_squares.replay26  TLE: off
+  Map: squares.map26  Seed: 1  Replay: /tmp/ball_ig/84_squares.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -2602,349 +1721,40 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/84_squares.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                       39 (0)                       17 (0)
-    Axionite                        0 (0)                        0 (0)
-       Units                           19                           22
-   Buildings                          358                          323
-
-===== [85/104] squiggles =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: squiggles.map26  Seed: 1  Replay: /tmp/ball/85_squiggles.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/85_squiggles.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  373 (27190)                    72 (4740)
-    Axionite                        0 (0)                        0 (0)
-       Units                           35                           27
-   Buildings                         1188                          258
-
-===== [86/104] stairs =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: stairs.map26  Seed: 1  Replay: /tmp/ball/86_stairs.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/86_stairs.replay26
-
-  Winner: v56 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                 5757 (68630)                 8317 (64220)
-    Axionite                    780 (780)                    350 (350)
-       Units                           21                           22
-   Buildings                          397                          289
-
-===== [87/104] starry_night =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: starry_night.map26  Seed: 1  Replay: /tmp/ball/87_starry_night.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/87_starry_night.replay26
+Replay written to /tmp/ball_ig/84_squares.replay26
 
   Winner: drewfett_v1000 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                      14 (80)                   107 (3370)
+    Titanium                       10 (0)                       22 (0)
     Axionite                        0 (0)                        0 (0)
-       Units                           11                           31
-   Buildings                          445                          393
-
-===== [88/104] strangecurves =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: strangecurves.map26  Seed: 1  Replay: /tmp/ball/88_strangecurves.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/88_strangecurves.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   117 (3510)                   158 (5530)
-    Axionite                        0 (0)                        0 (0)
-       Units                            4                           37
-   Buildings                          426                          565
-
-===== [89/104] strings =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: strings.map26  Seed: 1  Replay: /tmp/ball/89_strings.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Replay written to /tmp/ball/89_strings.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 930)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  205 (15754)                  621 (13980)
-    Axionite                    104 (104)                    320 (320)
-       Units                            2                           33
-   Buildings                          183                          209
-
-===== [8/104] binary_tree =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: binary_tree.map26  Seed: 1  Replay: /tmp/ball/8_binary_tree.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Replay written to /tmp/ball/8_binary_tree.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 957)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    156 (250)                  791 (11126)
-    Axionite                        0 (0)                  1001 (1001)
-       Units                            7                           26
-   Buildings                          110                          777
-
-===== [90/104] sunset =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: sunset.map26  Seed: 1  Replay: /tmp/ball/90_sunset.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Replay written to /tmp/ball/90_sunset.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 395)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     0 (3440)                   100 (7580)
-    Axionite                        0 (0)                        0 (0)
-       Units                            2                           23
-   Buildings                          133                          166
-
-===== [91/104] tea =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: tea.map26  Seed: 1  Replay: /tmp/ball/91_tea.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/91_tea.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    68 (1880)                   388 (3742)
-    Axionite                        0 (0)                  1042 (1042)
-       Units                            9                           25
-   Buildings                          250                          302
-
-===== [92/104] teleporter =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: teleporter.map26  Seed: 1  Replay: /tmp/ball/92_teleporter.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/92_teleporter.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  293 (12130)                 3266 (20776)
-    Axionite                        0 (0)                  7336 (7336)
-       Units                            7                           49
-   Buildings                          806                          484
-
-===== [93/104] the_great_divide =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: the_great_divide.map26  Seed: 1  Replay: /tmp/ball/93_the_great_divide.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Completed turn 400
-Completed turn 500
-Completed turn 600
-Completed turn 700
-Completed turn 800
-Completed turn 900
-Completed turn 1000
-Completed turn 1100
-Completed turn 1200
-Completed turn 1300
-Completed turn 1400
-Completed turn 1500
-Completed turn 1600
-Completed turn 1700
-Completed turn 1800
-Completed turn 1900
-Replay written to /tmp/ball/93_the_great_divide.replay26
-
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   142 (1430)                   226 (7060)
-    Axionite                        0 (0)                        0 (0)
-       Units                            5                           24
-   Buildings                          424                          520
+       Units                           20                           20
+   Buildings                          434                          347
 
 ===== [94/104] the_powerful_egg =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: the_powerful_egg.map26  Seed: 1  Replay: /tmp/ball/94_the_powerful_egg.replay26  TLE: off
+  Map: the_powerful_egg.map26  Seed: 1  Replay: /tmp/ball_ig/94_the_powerful_egg.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
 Completed turn 300
 Completed turn 400
 Completed turn 500
-Replay written to /tmp/ball/94_the_powerful_egg.replay26
+Completed turn 600
+Completed turn 700
+Replay written to /tmp/ball_ig/94_the_powerful_egg.replay26
 
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 539)
-
-                               v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     2 (5490)                 1932 (13040)
-    Axionite                        0 (0)                      50 (50)
-       Units                            8                           23
-   Buildings                          254                          438
-
-===== [95/104] thread_of_connection =====
-Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: thread_of_connection.map26  Seed: 1  Replay: /tmp/ball/95_thread_of_connection.replay26  TLE: off
-Completed turn 0
-Completed turn 100
-Completed turn 200
-Completed turn 300
-Replay written to /tmp/ball/95_thread_of_connection.replay26
-
-  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 360)
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 759)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                    31 (1280)                   210 (3450)
-    Axionite                        0 (0)                        0 (0)
-       Units                            8                           19
-   Buildings                           97                          132
+    Titanium                    96 (3700)                   395 (9530)
+    Axionite                        0 (0)                  1270 (1270)
+       Units                            3                           29
+   Buildings                          241                          407
 
-===== [96/104] tiles =====
+===== [15/104] chemistry_class =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: tiles.map26  Seed: 1  Replay: /tmp/ball/96_tiles.replay26  TLE: off
+  Map: chemistry_class.map26  Seed: 1  Replay: /tmp/ball_ig/15_chemistry_class.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -2965,19 +1775,79 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/96_tiles.replay26
+Replay written to /tmp/ball_ig/15_chemistry_class.replay26
 
   Winner: drewfett_v1000 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   169 (1990)                  833 (38070)
-    Axionite                        0 (0)                        0 (0)
-       Units                            3                           27
-   Buildings                          131                          474
+    Titanium                     98 (180)                29448 (43792)
+    Axionite                        0 (0)                  9942 (9942)
+       Units                           14                           27
+   Buildings                          259                          729
 
-===== [97/104] tree_of_life =====
+===== [25/104] craters =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: tree_of_life.map26  Seed: 1  Replay: /tmp/ball/97_tree_of_life.replay26  TLE: off
+  Map: craters.map26  Seed: 1  Replay: /tmp/ball_ig/25_craters.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Replay written to /tmp/ball_ig/25_craters.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 236)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    39 (2290)                   426 (7900)
+    Axionite                        0 (0)                        0 (0)
+       Units                            6                           28
+   Buildings                           99                          237
+
+===== [35/104] drawing_circles_is_hard =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: drawing_circles_is_hard.map26  Seed: 1  Replay: /tmp/ball_ig/35_drawing_circles_is_hard.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Replay written to /tmp/ball_ig/35_drawing_circles_is_hard.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1054)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    120 (160)                   362 (7740)
+    Axionite                        0 (0)                        0 (0)
+       Units                            9                           40
+   Buildings                          326                          481
+
+===== [45/104] gaussian =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: gaussian.map26  Seed: 1  Replay: /tmp/ball_ig/45_gaussian.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Replay written to /tmp/ball_ig/45_gaussian.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 647)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    66 (1840)                   394 (4770)
+    Axionite                        0 (0)                        0 (0)
+       Units                            8                           22
+   Buildings                          208                          114
+
+===== [55/104] lightning =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: lightning.map26  Seed: 1  Replay: /tmp/ball_ig/55_lightning.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -2998,19 +1868,48 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/97_tree_of_life.replay26
+Replay written to /tmp/ball_ig/55_lightning.replay26
 
   Winner: drewfett_v1000 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                     10 (420)                 7319 (20670)
-    Axionite                        0 (0)                    260 (260)
-       Units                           11                           27
-   Buildings                          197                          543
+    Titanium                    19 (1290)                  4939 (9970)
+    Axionite                        0 (0)                  9280 (9280)
+       Units                            3                           28
+   Buildings                          118                          260
 
-===== [98/104] vase =====
+===== [65/104] orbit =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: vase.map26  Seed: 1  Replay: /tmp/ball/98_vase.replay26  TLE: off
+  Map: orbit.map26  Seed: 1  Replay: /tmp/ball_ig/65_orbit.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Replay written to /tmp/ball_ig/65_orbit.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 1532)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    10 (4360)                 7741 (10780)
+    Axionite                        0 (0)                        0 (0)
+       Units                            1                           27
+   Buildings                          314                          267
+
+===== [75/104] settlement =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: settlement.map26  Seed: 1  Replay: /tmp/ball_ig/75_settlement.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -3031,19 +1930,74 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/98_vase.replay26
+Replay written to /tmp/ball_ig/75_settlement.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                  361 (42750)                  976 (44680)
+    Axionite                        0 (0)                        0 (0)
+       Units                            3                           31
+   Buildings                          643                          634
+
+===== [85/104] squiggles =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: squiggles.map26  Seed: 1  Replay: /tmp/ball_ig/85_squiggles.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/85_squiggles.replay26
 
   Winner: v56 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  125 (23770)                 1484 (20810)
+    Titanium                  481 (23040)                    88 (4360)
     Axionite                        0 (0)                        0 (0)
-       Units                           11                           30
-   Buildings                          422                          423
+       Units                           25                           13
+   Buildings                         1047                          306
 
-===== [99/104] wall =====
+===== [95/104] thread_of_connection =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: wall.map26  Seed: 1  Replay: /tmp/ball/99_wall.replay26  TLE: off
+  Map: thread_of_connection.map26  Seed: 1  Replay: /tmp/ball_ig/95_thread_of_connection.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Replay written to /tmp/ball_ig/95_thread_of_connection.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 855)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    43 (2400)                  2119 (8960)
+    Axionite                        0 (0)                        0 (0)
+       Units                            3                           18
+   Buildings                           63                          176
+
+===== [16/104] chess =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: chess.map26  Seed: 1  Replay: /tmp/ball_ig/16_chess.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -3064,19 +2018,19 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/99_wall.replay26
+Replay written to /tmp/ball_ig/16_chess.replay26
 
-  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+  Winner: v56 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                  487 (19300)                   216 (9960)
-    Axionite                        0 (0)                  5650 (5650)
-       Units                           22                           18
-   Buildings                          406                          175
+    Titanium                  288 (52620)                  327 (31450)
+    Axionite                        0 (0)                        0 (0)
+       Units                           11                           27
+   Buildings                          503                          344
 
-===== [9/104] blackhole =====
+===== [26/104] cubes =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: blackhole.map26  Seed: 1  Replay: /tmp/ball/9_blackhole.replay26  TLE: off
+  Map: cubes.map26  Seed: 1  Replay: /tmp/ball_ig/26_cubes.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -3097,19 +2051,19 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/9_blackhole.replay26
+Replay written to /tmp/ball_ig/26_cubes.replay26
 
   Winner: drewfett_v1000 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   194 (4020)                20757 (23040)
-    Axionite                        0 (0)                        0 (0)
-       Units                            5                           27
-   Buildings                          258                          270
+    Titanium                    90 (3020)                  212 (13122)
+    Axionite                        0 (0)                  3387 (3387)
+       Units                           18                           35
+   Buildings                          412                          751
 
 ===== [36/104] e5_series_shinkansen =====
 Running match: v56 (rust) vs drewfett_v1000 (rust)
-  Map: e5_series_shinkansen.map26  Seed: 1  Replay: /tmp/ball/36_e5_series_shinkansen.replay26  TLE: off
+  Map: e5_series_shinkansen.map26  Seed: 1  Replay: /tmp/ball_ig/36_e5_series_shinkansen.replay26  TLE: off
 Completed turn 0
 Completed turn 100
 Completed turn 200
@@ -3130,14 +2084,1009 @@ Completed turn 1600
 Completed turn 1700
 Completed turn 1800
 Completed turn 1900
-Replay written to /tmp/ball/36_e5_series_shinkansen.replay26
+Replay written to /tmp/ball_ig/36_e5_series_shinkansen.replay26
 
   Winner: drewfett_v1000 (rust)  (resources, turn 2000)
 
                                v56 (rust)        drewfett_v1000 (rust)
-    Titanium                   132 (2810)                  290 (14070)
+    Titanium                   256 (8290)                   376 (6452)
+    Axionite                        0 (0)                        2 (2)
+       Units                            2                           27
+   Buildings                          242                          257
+
+===== [46/104] git_branches =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: git_branches.map26  Seed: 1  Replay: /tmp/ball_ig/46_git_branches.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/46_git_branches.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                      202 (0)                 1103 (18950)
+    Axionite                        0 (0)                      20 (20)
+       Units                            4                           35
+   Buildings                          107                          556
+
+===== [56/104] maimai =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: maimai.map26  Seed: 1  Replay: /tmp/ball_ig/56_maimai.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/56_maimai.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                  429 (50182)               63516 (105890)
+    Axionite                    322 (322)                        0 (0)
+       Units                           13                           31
+   Buildings                          277                          396
+
+===== [66/104] parchment =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: parchment.map26  Seed: 1  Replay: /tmp/ball_ig/66_parchment.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/66_parchment.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     16 (880)                   135 (5900)
     Axionite                        0 (0)                        0 (0)
-       Units                            5                           30
-   Buildings                          148                          331
+       Units                            7                           29
+   Buildings                          328                          774
+
+===== [76/104] shish_kebab =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: shish_kebab.map26  Seed: 1  Replay: /tmp/ball_ig/76_shish_kebab.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/76_shish_kebab.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   25 (10100)                   501 (5270)
+    Axionite                        0 (0)                        0 (0)
+       Units                            8                           17
+   Buildings                          143                          143
+
+===== [86/104] stairs =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: stairs.map26  Seed: 1  Replay: /tmp/ball_ig/86_stairs.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/86_stairs.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                  852 (87192)                 1457 (61566)
+    Axionite                  5992 (5992)                      36 (36)
+       Units                           21                           23
+   Buildings                          375                          350
+
+===== [96/104] tiles =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: tiles.map26  Seed: 1  Replay: /tmp/ball_ig/96_tiles.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/96_tiles.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   144 (3080)                 6849 (15050)
+    Axionite                        0 (0)                        0 (0)
+       Units                            3                           25
+   Buildings                          142                          244
+
+===== [17/104] chrysanthemum =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: chrysanthemum.map26  Seed: 1  Replay: /tmp/ball_ig/17_chrysanthemum.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/17_chrysanthemum.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   181 (9430)                   539 (8850)
+    Axionite                        0 (0)                        0 (0)
+       Units                           10                           33
+   Buildings                          360                          459
+
+===== [27/104] default_large1 =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: default_large1.map26  Seed: 1  Replay: /tmp/ball_ig/27_default_large1.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/27_default_large1.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    11 (1230)                  961 (14200)
+    Axionite                        0 (0)                  6870 (6870)
+       Units                            9                           28
+   Buildings                          397                          811
+
+===== [37/104] face =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: face.map26  Seed: 1  Replay: /tmp/ball_ig/37_face.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Replay written to /tmp/ball_ig/37_face.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 611)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     34 (490)                  1375 (3130)
+    Axionite                        0 (0)                        0 (0)
+       Units                            5                           18
+   Buildings                           81                          139
+
+===== [47/104] gosper_glider_gun =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: gosper_glider_gun.map26  Seed: 1  Replay: /tmp/ball_ig/47_gosper_glider_gun.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/47_gosper_glider_gun.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    18 (1910)                   193 (4090)
+    Axionite                        0 (0)                        0 (0)
+       Units                           19                           24
+   Buildings                          610                          666
+
+===== [57/104] mandelbrot =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: mandelbrot.map26  Seed: 1  Replay: /tmp/ball_ig/57_mandelbrot.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/57_mandelbrot.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   12 (10890)                16515 (38560)
+    Axionite                        0 (0)                        0 (0)
+       Units                            4                           36
+   Buildings                          266                          341
+
+===== [67/104] perch_point =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: perch_point.map26  Seed: 1  Replay: /tmp/ball_ig/67_perch_point.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/67_perch_point.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                  323 (48420)                  4060 (8870)
+    Axionite                        0 (0)                        0 (0)
+       Units                           22                           16
+   Buildings                          540                           99
+
+===== [77/104] showdown =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: showdown.map26  Seed: 1  Replay: /tmp/ball_ig/77_showdown.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Replay written to /tmp/ball_ig/77_showdown.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 632)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    34 (1480)                   541 (2210)
+    Axionite                        0 (0)                        0 (0)
+       Units                            2                           17
+   Buildings                          103                          102
+
+===== [87/104] starry_night =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: starry_night.map26  Seed: 1  Replay: /tmp/ball_ig/87_starry_night.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/87_starry_night.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   137 (1490)                      50 (30)
+    Axionite                        0 (0)                        0 (0)
+       Units                           16                           15
+   Buildings                          399                          254
+
+===== [97/104] tree_of_life =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: tree_of_life.map26  Seed: 1  Replay: /tmp/ball_ig/97_tree_of_life.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/97_tree_of_life.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    40 (1170)                 5262 (18930)
+    Axionite                        0 (0)                        0 (0)
+       Units                            6                           31
+   Buildings                          200                          527
+
+===== [18/104] cinnamon_roll =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: cinnamon_roll.map26  Seed: 1  Replay: /tmp/ball_ig/18_cinnamon_roll.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/18_cinnamon_roll.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    50 (8490)                    79 (8820)
+    Axionite                        0 (0)                        0 (0)
+       Units                           10                           20
+   Buildings                          359                          209
+
+===== [28/104] default_large2 =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: default_large2.map26  Seed: 1  Replay: /tmp/ball_ig/28_default_large2.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/28_default_large2.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   72 (32160)                 3675 (15350)
+    Axionite                        0 (0)                        0 (0)
+       Units                            3                           27
+   Buildings                          604                          257
+
+===== [38/104] fan =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: fan.map26  Seed: 1  Replay: /tmp/ball_ig/38_fan.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Replay written to /tmp/ball_ig/38_fan.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 495)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     2 (4280)                   233 (7430)
+    Axionite                        0 (0)                        0 (0)
+       Units                            9                           26
+   Buildings                          209                          286
+
+===== [48/104] handbag =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: handbag.map26  Seed: 1  Replay: /tmp/ball_ig/48_handbag.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/48_handbag.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   303 (4850)                   282 (5066)
+    Axionite                        0 (0)                  1066 (1066)
+       Units                           24                           24
+   Buildings                          268                          636
+
+===== [58/104] mark_of_the_sun_god =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: mark_of_the_sun_god.map26  Seed: 1  Replay: /tmp/ball_ig/58_mark_of_the_sun_god.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/58_mark_of_the_sun_god.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                       25 (0)                      156 (0)
+    Axionite                        0 (0)                        0 (0)
+       Units                            8                            8
+   Buildings                          200                          195
+
+===== [68/104] pixel_forest =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: pixel_forest.map26  Seed: 1  Replay: /tmp/ball_ig/68_pixel_forest.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/68_pixel_forest.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                  756 (27640)                  277 (12780)
+    Axionite                        0 (0)                        0 (0)
+       Units                           23                            9
+   Buildings                          440                          138
+
+===== [78/104] shrub =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: shrub.map26  Seed: 1  Replay: /tmp/ball_ig/78_shrub.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Replay written to /tmp/ball_ig/78_shrub.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 272)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     31 (660)                   124 (1310)
+    Axionite                        0 (0)                        0 (0)
+       Units                            4                            9
+   Buildings                           67                          140
+
+===== [88/104] strangecurves =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: strangecurves.map26  Seed: 1  Replay: /tmp/ball_ig/88_strangecurves.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/88_strangecurves.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   235 (7040)                     32 (780)
+    Axionite                        0 (0)                        0 (0)
+       Units                            6                           21
+   Buildings                          547                          409
+
+===== [98/104] vase =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: vase.map26  Seed: 1  Replay: /tmp/ball_ig/98_vase.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/98_vase.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                 5137 (38820)                   162 (5890)
+    Axionite                    410 (410)                        0 (0)
+       Units                           28                            9
+   Buildings                          783                          243
+
+===== [19/104] clash_arena =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: clash_arena.map26  Seed: 1  Replay: /tmp/ball_ig/19_clash_arena.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/19_clash_arena.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   145 (1570)                   375 (3032)
+    Axionite                        0 (0)                    252 (252)
+       Units                            4                           21
+   Buildings                          110                          182
+
+===== [29/104] default_medium1 =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: default_medium1.map26  Seed: 1  Replay: /tmp/ball_ig/29_default_medium1.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/29_default_medium1.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   192 (5630)                  549 (18130)
+    Axionite                        0 (0)                        0 (0)
+       Units                            9                           39
+   Buildings                          316                          341
+
+===== [39/104] far_lands =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: far_lands.map26  Seed: 1  Replay: /tmp/ball_ig/39_far_lands.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/39_far_lands.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                      115 (0)                       40 (0)
+    Axionite                        0 (0)                        0 (0)
+       Units                           20                           20
+   Buildings                          309                          390
+
+===== [49/104] hooks =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: hooks.map26  Seed: 1  Replay: /tmp/ball_ig/49_hooks.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Replay written to /tmp/ball_ig/49_hooks.replay26
+
+  Winner: v56 (rust)  (core_destroyed, turn 1328)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   293 (9870)                15011 (23060)
+    Axionite                        0 (0)                        0 (0)
+       Units                           15                           29
+   Buildings                          366                          237
+
+===== [59/104] maze_runner =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: maze_runner.map26  Seed: 1  Replay: /tmp/ball_ig/59_maze_runner.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/59_maze_runner.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     89 (180)                       68 (0)
+    Axionite                        0 (0)                        0 (0)
+       Units                           18                           24
+   Buildings                          474                          218
+
+===== [69/104] pls_buy_cucats_merch =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: pls_buy_cucats_merch.map26  Seed: 1  Replay: /tmp/ball_ig/69_pls_buy_cucats_merch.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/69_pls_buy_cucats_merch.replay26
+
+  Winner: v56 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                     108 (80)                       95 (0)
+    Axionite                        0 (0)                        0 (0)
+       Units                           12                           11
+   Buildings                          403                          404
+
+===== [79/104] sierpinski_evil =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: sierpinski_evil.map26  Seed: 1  Replay: /tmp/ball_ig/79_sierpinski_evil.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Replay written to /tmp/ball_ig/79_sierpinski_evil.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 663)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                      1 (540)                  2985 (6260)
+    Axionite                        0 (0)                        0 (0)
+       Units                            3                           22
+   Buildings                           57                          235
+
+===== [89/104] strings =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: strings.map26  Seed: 1  Replay: /tmp/ball_ig/89_strings.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Replay written to /tmp/ball_ig/89_strings.replay26
+
+  Winner: drewfett_v1000 (rust)  (core_destroyed, turn 288)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                   198 (2172)                    92 (3950)
+    Axionite                        2 (2)                        0 (0)
+       Units                            3                           16
+   Buildings                          124                          171
+
+===== [99/104] wall =====
+Running match: v56 (rust) vs drewfett_v1000 (rust)
+  Map: wall.map26  Seed: 1  Replay: /tmp/ball_ig/99_wall.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/ball_ig/99_wall.replay26
+
+  Winner: drewfett_v1000 (rust)  (resources, turn 2000)
+
+                               v56 (rust)        drewfett_v1000 (rust)
+    Titanium                    66 (7190)                   332 (8260)
+    Axionite                        0 (0)                    100 (100)
+       Units                           10                           23
+   Buildings                          213                          198
 
 ===== ALL DONE =====

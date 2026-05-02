@@ -13,6 +13,16 @@ use cambc::{Position, ResourceType};
 use crate::builder::Builder;
 use crate::builder::helpers::is_inward_guard;
 
+/// All 24 valid bridge offsets `(dx, dy)`. Derived as 5x5 (r² ≤ 8) + the
+/// four r²=9 extensions, minus the origin and the four r²=1 cardinals
+/// (where a conveyor suffices, not a bridge).
+const BRIDGE_OFFSETS: [(i32, i32); 24] = [
+    (-3, 0), (0, -3), (0, 3), (3, 0),
+    (-2, -2), (-2, 0), (-2, 2), (0, -2), (0, 2), (2, -2), (2, 0), (2, 2),
+    (-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1),
+    (-1, -1), (-1, 1), (1, -1), (1, 1),
+];
+
 /// Try Bresenham-ish first, then the two L-shapes in randomly-chosen
 /// order. Returns the first that reaches `target`. None if all three
 /// are blocked. RNG order is keyed on the bot's per-instance RNG so
@@ -64,10 +74,10 @@ fn _routable(builder: &Builder, pos: Position, resource: ResourceType) -> bool {
     is_inward_guard(builder, pos)
 }
 
-/// Pick a bridge destination (`r²∈[3, 9]`) that's both reachable and
-/// strictly closer to `target` than `cur`. Tiebreak: smallest squared
-/// distance to target, then lex on Position. Returns None if no bridge
-/// makes progress.
+/// Pick a bridge destination from the 24 valid bridge offsets that's
+/// both reachable and strictly closer to `target` than `cur`. Tiebreak:
+/// smallest squared distance to target, then lex on Position. Returns
+/// None if no bridge makes progress.
 #[must_use]
 fn _greedy_bridge(
     builder: &Builder,
@@ -79,28 +89,22 @@ fn _greedy_bridge(
     let mut best: Option<Position> = None;
     let mut best_d: i32 = cur_d;
     let mut best_pos: Position = cur;
-    for dx in -3..=3i32 {
-        for dy in -3..=3i32 {
-            let d2 = dx * dx + dy * dy;
-            if d2 < 3 || d2 > 9 {
-                continue;
-            }
-            let next = Position {
-                x: cur.x + dx,
-                y: cur.y + dy,
-            };
-            if next != target && !_routable(builder, next, resource) {
-                continue;
-            }
-            if !builder.in_bounds(next) {
-                continue;
-            }
-            let nd = next.distance_squared(target);
-            if nd < best_d || (nd == best_d && next < best_pos) {
-                best_d = nd;
-                best_pos = next;
-                best = Some(next);
-            }
+    for (dx, dy) in BRIDGE_OFFSETS {
+        let next = Position {
+            x: cur.x + dx,
+            y: cur.y + dy,
+        };
+        if !builder.in_bounds(next) {
+            continue;
+        }
+        if next != target && !_routable(builder, next, resource) {
+            continue;
+        }
+        let nd = next.distance_squared(target);
+        if nd < best_d || (nd == best_d && next < best_pos) {
+            best_d = nd;
+            best_pos = next;
+            best = Some(next);
         }
     }
     best

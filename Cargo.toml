@@ -22,7 +22,6 @@ members = [
     "bots/rs/nothing/*",
     "bots/rs/drewfett/v1000",
     "bots/rs/drewfett/v1001",
-    "bots/beacon/v670",
     "pkg/common",
     "pkg/visualiser/viewer",
 ]

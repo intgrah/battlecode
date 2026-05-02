@@ -65,12 +65,20 @@ pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
 
 pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
     let prev_unconn = pyrust::set::clone!(builder.adjacent_to_unconnected_harvester);
+    let prev_unconn_foundry = pyrust::set::clone!(builder.adjacent_to_unconnected_foundry);
     let tmp_unconn = pyrust::set::clone!(builder.adjacent_to_unconnected_harvester);
     pyrust::set::clear!(builder.adjacent_to_unconnected_harvester);
     let mask_e = pyrust::clone!(builder.vision_mask);
     for &p in pyrust::iter!(&tmp_unconn) {
         if mask_e[p as usize] == 0 {
             pyrust::set::add!(builder.adjacent_to_unconnected_harvester, p);
+        }
+    }
+    let tmp_unconn_foundry = pyrust::set::clone!(builder.adjacent_to_unconnected_foundry);
+    pyrust::set::clear!(builder.adjacent_to_unconnected_foundry);
+    for &p in pyrust::iter!(&tmp_unconn_foundry) {
+        if mask_e[p as usize] == 0 {
+            pyrust::set::add!(builder.adjacent_to_unconnected_foundry, p);
         }
     }
     let tmp_harv = pyrust::set::clone!(builder.adjacent_to_harvester);
@@ -152,6 +160,70 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
         }
     }
 
+    // Pass 1b: same shape as Pass 1, but for friendly foundries with no
+    // non-inward output consumer. Cardinal-adjacent in-bounds tiles
+    // become dangling tiles (Rax-class).
+    let foundries: Vec<PosInt> =
+        pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.my_foundries)));
+    let bk = &builder.building_kind;
+    let bt = &builder.building_team;
+    let posint_valid = &builder.posint_valid;
+    let mask = &builder.vision_mask;
+    for pi in &foundries {
+        let pi = *pi;
+        if mask[pi as usize] == 0 {
+            continue;
+        }
+        if bt[pi as usize] != Some(my_team) {
+            continue;
+        }
+        let mut adjacent_consumer = false;
+        for &d in &DIR4_INT {
+            let np = pi + d;
+            if np < 0 || posint_valid[np as usize] == 0 {
+                continue;
+            }
+            let ni = np as usize;
+            let nk = bk[ni];
+            let nt = bt[ni];
+            match nk {
+                Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+                    if nt == Some(my_team) =>
+                {
+                    if !pyrust::vec::is_empty!(builder.out_edges[ni]) {
+                        let out = builder.out_edges[ni][0];
+                        let out_in_bounds = out.x >= 0 && out.x < w && out.y >= 0 && out.y < h;
+                        let out_idx = idx_of(out) as usize;
+                        if !(out_in_bounds && bk[out_idx] == Some(EntityType::Harvester)) {
+                            adjacent_consumer = true;
+                            break;
+                        }
+                    }
+                }
+                Some(
+                    EntityType::Bridge
+                    | EntityType::Splitter
+                    | EntityType::Core
+                    | EntityType::Breach
+                    | EntityType::Gunner
+                    | EntityType::Sentinel,
+                ) if nt == Some(my_team) => {
+                    adjacent_consumer = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        if !adjacent_consumer {
+            for &d in &DIR4_INT {
+                let np = pi + d;
+                if np >= 0 && posint_valid[np as usize] != 0 {
+                    pyrust::set::add!(builder.adjacent_to_unconnected_foundry, np);
+                }
+            }
+        }
+    }
+
     // Pass 2: movement cost_grid per-turn penalties for enemy turret rays
     // and launcher adjacency.
     let cost_grid = &mut builder.cost_grid;
@@ -179,6 +251,13 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
     pyrust::sort!(changed);
     for p in changed {
         builder._check_dangling(pos_of(p), "unconn_flip");
+    }
+    let mut changed_foundry: Vec<i32> = pyrust::collect!(pyrust::copied!(
+        prev_unconn_foundry.symmetric_difference(&builder.adjacent_to_unconnected_foundry)
+    ));
+    pyrust::sort!(changed_foundry);
+    for p in changed_foundry {
+        builder._check_dangling(pos_of(p), "unconn_foundry_flip");
     }
 }
 
