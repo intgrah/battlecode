@@ -17,6 +17,7 @@ use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Enviro
 
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, make_move, move_random, try_place};
+use crate::builder::tasks::econ::infrastructure::place_gunner::blocks_ax_harvester;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::directions::DIR8;
 use crate::util::metrics::chebyshev;
@@ -95,6 +96,11 @@ pub fn clear_enemy_turret(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         if let Some(&uid) = self_.all_bots.get(&pos)
             && uid != self_.my_id
         {
+            continue;
+        }
+        // Don't place a sentinel cardinal to a friendly Ax harvester —
+        // raw Ax going to the foundry would be intercepted and destroyed.
+        if blocks_ax_harvester(self_, pos) {
             continue;
         }
         let Some(facing) = sentinel_facing(self_, ct, pos) else {

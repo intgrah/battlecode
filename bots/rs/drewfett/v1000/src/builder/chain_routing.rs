@@ -19,6 +19,7 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::Builder;
+use crate::builder::algorithms::econ_astar::AstarStep;
 use crate::builder::algorithms::greedy_route::greedy_route;
 use crate::builder::helpers::{
     make_move, on_enemy_side, trace_upstream, try_move_with_road, try_place,
@@ -344,18 +345,42 @@ pub fn extend_step(
         resource,
         ResourceType::RawAxionite | ResourceType::RefinedAxionite
     );
-    // v56-style: greedy_route only (Bresenham + 2 L-shapes, O(N)).
-    // No A* fallback — A* is expensive and the greedy attempts cover
-    // most of what A* would find anyway.
-    let path = {
+    // Greedy first (Bresenham + 2 L-shapes, O(N)). If greedy can't find a
+    // route on a pathological map, fall back to time-incremental A*. A*
+    // is bounded to `astar_budget_us` absolute turn-elapsed; on budget
+    // exhaustion it saves state and returns `Pending`, and we defer this
+    // task until the next turn so it can resume.
+    let greedy_path = {
         let _g = Scope::new_timed("conv_greedy");
         greedy_route(builder, start, target, resource)
     };
-    let Some(mut path) = path else {
-        return Some(TaskRejected::from_string(format!(
-            "greedy {resource} {start:?}->{target:?}: no Bresenham/L route"
-        )));
-    };
+    let mut path: Vec<Position>;
+    if pyrust::is_some!(greedy_path) {
+        path = pyrust::unwrap!(greedy_path);
+    } else {
+        let _g = Scope::new_timed("conv_astar_fallback");
+        // 1500μs leaves ~500μs of headroom under the 2ms server budget for
+        // post-A* work (path validation, place/move calls).
+        let astar_budget_us: u64 = 1500;
+        let step = if is_ax {
+            builder.ax_conv_astar(ct, start, target, resource, astar_budget_us)
+        } else {
+            builder.ti_conv_astar(ct, start, target, resource, astar_budget_us)
+        };
+        match step {
+            AstarStep::Done(p) => {
+                path = p;
+            }
+            AstarStep::Pending => {
+                return Some(TaskRejected::new("A* in progress, will resume next turn"));
+            }
+            AstarStep::NoPath => {
+                return Some(TaskRejected::from_string(format!(
+                    "greedy {resource} {start:?}->{target:?}: no Bresenham/L route, A* exhausted"
+                )));
+            }
+        }
+    }
 
     let colour: (i32, i32, i32) = if is_ax { (200, 0, 255) } else { (80, 160, 255) };
     for i in 0..(pyrust::len!(path) - 1) {

@@ -407,14 +407,18 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
         self_.en_core_seen = true;
     }
 
-    if !self_.en_core_seen {
+    // Pre-econ (no friendly harvester yet): don't sprint to enemy core.
+    // Defer to explore which will pick a target near my_pos.
+    let pre_econ = pyrust::vec::is_empty!(self_.my_harvesters);
+
+    if !self_.en_core_seen && !pre_econ {
         make_move(self_, ct, en_core);
     } else if pyrust::vec::contains!(self_.nearby_tiles, &en_core)
         || self_.ti
             >= (pyrust::float!(GameConstants::HARVESTER_BASE_COST.0 + 50) * (1.0 + self_.scale))
                 as i32
     {
-        explore(self_, ct);
+        let _ = explore(self_, ct);
     } else {
         let mut dir8: Vec<Direction> = pyrust::collect!(pyrust::copied!(pyrust::iter!(DIR8)));
         self_.rng.shuffle(&mut dir8);

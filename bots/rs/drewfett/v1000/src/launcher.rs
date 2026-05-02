@@ -112,15 +112,15 @@ impl Launcher {
             {
                 continue;
             }
-            let score: i64 = if pyrust::vec::is_empty!(enemy_buildings) {
-                my_pos.distance_squared(pos) as i64
+            let mut score: i64;
+            if pyrust::vec::is_empty!(enemy_buildings) {
+                score = my_pos.distance_squared(pos) as i64;
             } else {
-                let mut s: i64 = 0;
+                score = 0;
                 for ep in &enemy_buildings {
-                    s += pos.distance_squared(*ep) as i64;
+                    score += pos.distance_squared(*ep) as i64;
                 }
-                s
-            };
+            }
             if score > best_score {
                 best_score = score;
                 best = Some(pos);

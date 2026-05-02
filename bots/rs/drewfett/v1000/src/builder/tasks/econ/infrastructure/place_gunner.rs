@@ -7,13 +7,36 @@
 //! (`sentinel_facing`). Falls back to placing on `my_pos` after a random
 //! step-off.
 
-use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Position, Team};
+use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, Position, Team};
 
 use crate::builder::Builder;
 use crate::builder::helpers::{move_random, try_place};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::directions::{DIR4, DIR8, is_cardinal, rotate_right};
 use crate::util::posint::{DIR4_INT, DIR8_INT, idx_of};
+
+/// True iff `pos` is cardinally adjacent to a friendly Axionite harvester.
+/// Placing a turret on such a tile would intercept raw Ax flowing to the
+/// foundry — turrets only accept refined Ax as ammo, raw Ax is destroyed.
+pub fn blocks_ax_harvester(self_: &Builder, pos: Position) -> bool {
+    for d in DIR4 {
+        let n = pos.add(d);
+        if !self_.in_bounds(n) {
+            continue;
+        }
+        let i = idx_of(n) as usize;
+        if self_.building_kind[i] != Some(EntityType::Harvester) {
+            continue;
+        }
+        if self_.building_team[i] != Some(self_.my_team) {
+            continue;
+        }
+        if self_.env[i] == Some(Environment::OreAxionite) {
+            return true;
+        }
+    }
+    false
+}
 
 const fn is_turret(kind: Option<EntityType>) -> bool {
     matches!(
@@ -22,7 +45,7 @@ const fn is_turret(kind: Option<EntityType>) -> bool {
     )
 }
 
-const fn is_resource_building(kind: Option<EntityType>) -> bool {
+pub const fn is_resource_building(kind: Option<EntityType>) -> bool {
     matches!(
         kind,
         Some(
@@ -334,6 +357,9 @@ pub fn sentinel_facing(
 pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bool {
     let neighbours_8 = pyrust::clone!(self_.neighbours_8);
     for test_position in neighbours_8 {
+        if blocks_ax_harvester(self_, test_position) {
+            continue;
+        }
         let result = sentinel_facing(self_, ct, test_position);
         if let Some(d) = result {
             return try_place(
@@ -347,6 +373,9 @@ pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bo
         }
     }
     let my_pos = self_.my_pos;
+    if blocks_ax_harvester(self_, my_pos) {
+        return false;
+    }
     let result = sentinel_facing(self_, ct, my_pos);
     if let Some(d) = result
         && move_random(self_, ct)
@@ -367,6 +396,9 @@ pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bo
 pub fn place_gunner(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let neighbours_8 = pyrust::clone!(self_.neighbours_8);
     for test_position in neighbours_8 {
+        if blocks_ax_harvester(self_, test_position) {
+            continue;
+        }
         let result = gunner_facing(self_, test_position);
         if let Some(d) = result {
             if try_place(
@@ -385,19 +417,21 @@ pub fn place_gunner(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult 
         }
     }
     let my_pos = self_.my_pos;
-    let result = gunner_facing(self_, my_pos);
-    if let Some(d) = result
-        && move_random(self_, ct)
-    {
-        try_place(
-            self_,
-            ct,
-            EntityType::Gunner,
-            my_pos,
-            BuildExtra::Direction(d),
-            true,
-        );
-        return None;
+    if !blocks_ax_harvester(self_, my_pos) {
+        let result = gunner_facing(self_, my_pos);
+        if let Some(d) = result
+            && move_random(self_, ct)
+        {
+            try_place(
+                self_,
+                ct,
+                EntityType::Gunner,
+                my_pos,
+                BuildExtra::Direction(d),
+                true,
+            );
+            return None;
+        }
     }
     if place_sentinel_nearby(self_, ct) {
         return None;

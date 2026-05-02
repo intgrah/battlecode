@@ -46,7 +46,7 @@ const _CLUSTER_PENALTY: f64 = 30.0;
 /// full γ penalty; falls off linearly to 0 at radius.
 const _CLUSTER_RADIUS: i32 = 20;
 
-pub fn explore(builder: &mut Builder, ct: &mut Controller<'_>) {
+pub fn explore(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     if pyrust::is_none!(builder.explore_target)
         || _target_invalid(builder, pyrust::unwrap!(builder.explore_target))
     {
@@ -54,9 +54,9 @@ pub fn explore(builder: &mut Builder, ct: &mut Controller<'_>) {
     }
 
     let Some(target) = builder.explore_target else {
-        return;
+        return false;
     };
-    make_move(builder, ct, target);
+    make_move(builder, ct, target)
 }
 
 /// A target is invalid once it has been observed (env transitioned
@@ -85,14 +85,18 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
     let h = builder.state.height;
     // Free bots can explore deep into enemy territory; Defender bots
     // bias their exploration toward our own half (smaller cap).
+    // Pre-econ exception: until we have at least one friendly harvester,
+    // even Free bots explore relative to their own position — racing to
+    // enemy core before any econ exists wastes the bot.
     let is_offense = builder.role == Some(Role::Free);
-    let cap: f64 = if is_offense { 1.0 } else { 0.8 };
+    let pre_econ = pyrust::vec::is_empty!(builder.my_harvesters);
+    let cap: f64 = if is_offense && !pre_econ { 1.0 } else { 0.8 };
     let frac = pyrust::min!(
         (cap),
         0.4 + (cap - 0.4) * pyrust::float!(builder.state.round) / 100.0
     );
     let radius = (pyrust::float!(pyrust::max!(w, h)) * frac) as i32;
-    let center = if is_offense {
+    let center = if is_offense && !pre_econ {
         builder.en_core_guess
     } else {
         builder.state.my_pos
