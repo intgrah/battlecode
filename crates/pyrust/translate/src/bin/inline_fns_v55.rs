@@ -119,9 +119,7 @@ fn body_is_supported(e: &syn::Expr, params: &[String]) -> bool {
                     | syn::BinOp::And(_)
                     | syn::BinOp::Or(_)
             );
-            op_ok
-                && body_is_supported(&b.left, params)
-                && body_is_supported(&b.right, params)
+            op_ok && body_is_supported(&b.left, params) && body_is_supported(&b.right, params)
         }
         syn::Expr::Unary(u) => {
             let op_ok = matches!(
