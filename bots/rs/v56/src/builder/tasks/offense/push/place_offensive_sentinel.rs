@@ -9,7 +9,8 @@ use crate::builder::helpers::{can_afford, make_move, move_random, try_place};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::constants::MAX_WIDTH;
 use crate::util::debug::debug as log;
-use crate::util::directions::DIR8;
+use crate::builder::tasks::econ::infrastructure::place_gunner::is_resource_building;
+use crate::util::directions::{DIR8, is_cardinal};
 use serde_json::Map;
 
 /// Sentinel-worthy enemy targets.
@@ -54,6 +55,13 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
     for d in DIR8 {
         let front = pos.add(d);
         if self_.in_bounds(front) && delivers_ammo(self_, pos, front) {
+            continue;
+        }
+        if is_cardinal(d)
+            && self_.in_bounds(front)
+            && is_resource_building(self_.kind_at(front))
+            && self_.team_at(front) == Some(self_.my_team)
+        {
             continue;
         }
         let tiles = pyrust::unwrap!(ct.get_attackable_tiles_from(pos, d, EntityType::Sentinel));

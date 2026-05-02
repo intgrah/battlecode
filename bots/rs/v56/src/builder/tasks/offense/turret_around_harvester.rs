@@ -9,9 +9,9 @@ use crate::builder::tasks::offense::helpers::{
     gunner_chain_facing, is_allied_transport, pick_harvester_target, scout_toward_enemy,
     vulnerable_harvesters,
 };
-use crate::builder::tasks::econ::infrastructure::place_gunner::safe_facing;
+use crate::builder::tasks::econ::infrastructure::place_gunner::{is_resource_building, safe_facing};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::util::directions::DIR4;
+use crate::util::directions::{DIR4, is_cardinal};
 
 /// Snap the unit vector from `src` to `dst` to the nearest 45-degree direction.
 const fn direction_to(src: Position, dst: Position) -> Direction {
@@ -108,29 +108,36 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
         }
     }
 
-    let mut placed = false;
-    if n_gunner < 2 {
-        let gdir = gunner_chain_facing(self_, build_position);
-        if let Some(gd) = gdir {
-            if can_afford(self_, EntityType::Gunner) {
-                move_random(self_, ct);
-                let gd = safe_facing(self_, build_position, gd);
-                placed = try_place(
-                    self_,
-                    ct,
-                    EntityType::Gunner,
-                    build_position,
-                    BuildExtra::Direction(gd),
-                    true,
-                );
-            }
-        }
-    }
+    let gdir = if n_gunner < 2 {
+        gunner_chain_facing(self_, build_position)
+    } else {
+        None
+    };
+    let want_gunner = pyrust::is_some!(gdir) && can_afford(self_, EntityType::Gunner);
+    let sentinel_dir_ok = !is_cardinal(direction)
+        || !self_.in_bounds(build_position.add(direction))
+        || !is_resource_building(self_.kind_at(build_position.add(direction)))
+        || self_.team_at(build_position.add(direction)) != Some(self_.my_team);
+    let want_sentinel = sentinel_dir_ok
+        && n_sentinel == 0
+        && self_.get_env(target) == Some(Environment::OreTitanium)
+        && can_afford(self_, EntityType::Sentinel);
 
-    if !placed && n_sentinel == 0 && self_.get_env(target) == Some(Environment::OreTitanium) {
-        if can_afford(self_, EntityType::Sentinel) {
-            move_random(self_, ct);
-            let direction = safe_facing(self_, build_position, direction);
+    let mut placed = false;
+    if want_gunner || want_sentinel {
+        move_random(self_, ct);
+        if want_gunner {
+            let gd = safe_facing(self_, build_position, pyrust::unwrap!(gdir));
+            placed = try_place(
+                self_,
+                ct,
+                EntityType::Gunner,
+                build_position,
+                BuildExtra::Direction(gd),
+                true,
+            );
+        }
+        if !placed && want_sentinel {
             placed = try_place(
                 self_,
                 ct,
@@ -142,10 +149,12 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
         }
     }
 
-    if pyrust::unwrap!(ct.can_build_road(build_position)) {
-        pyrust::unwrap!(ct.build_road(build_position));
-    } else if !placed {
-        return Some(TaskRejected::new("couldn't place a sentinel or road"));
+    if !placed {
+        if pyrust::unwrap!(ct.can_build_road(build_position)) {
+            pyrust::unwrap!(ct.build_road(build_position));
+        } else {
+            return Some(TaskRejected::new("couldn't place a sentinel or road"));
+        }
     }
 
     scout_toward_enemy(self_, ct);
