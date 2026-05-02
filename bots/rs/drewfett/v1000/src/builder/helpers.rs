@@ -727,10 +727,12 @@ pub fn harvester_feed_cardinal_p(builder: &Builder, ore_p: PosInt) -> Option<Pos
         }
     }
 
-    if let Some((_, p)) = primary {
-        Some(p)
+    if let Some(t) = primary {
+        Some(t.1)
+    } else if let Some(t) = fallback {
+        Some(t.1)
     } else {
-        fallback.map(|(_, p)| p)
+        None
     }
 }
 

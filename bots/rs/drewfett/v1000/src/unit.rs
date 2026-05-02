@@ -156,13 +156,17 @@ impl UnitState {
         let scale = pyrust::unwrap!(ct.get_scale_percent()) / 100.0;
         let nearby_tiles = pyrust::unwrap!(ct.get_nearby_tiles(None));
 
+        // Iterate visible units (1 FFI) instead of every nearby tile
+        // (60 FFI). Filter to BuilderBot kind, then read pos+team per bot.
         let mut enemy_bots: HashSet<Position> = pyrust::set::new!();
         let mut friendly_bots: HashSet<Position> = pyrust::set::new!();
         let mut all_bots: HashMap<Position, i32> = pyrust::dict::new!();
-        for &pos in &nearby_tiles {
-            let Some(uid) = pyrust::unwrap!(ct.get_tile_builder_bot_id(pos)) else {
+        let nearby_units = pyrust::unwrap!(ct.get_nearby_units(None));
+        for uid in nearby_units {
+            if pyrust::unwrap!(ct.get_entity_type(Some(uid))) != EntityType::BuilderBot {
                 continue;
-            };
+            }
+            let pos = pyrust::unwrap!(ct.get_position(Some(uid)));
             pyrust::dict::insert!(all_bots, pos, uid);
             if pyrust::unwrap!(ct.get_team(Some(uid))) == my_team {
                 if uid != my_id {

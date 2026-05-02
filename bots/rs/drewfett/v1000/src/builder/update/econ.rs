@@ -67,15 +67,16 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
     let prev_unconn = pyrust::set::clone!(builder.adjacent_to_unconnected_harvester);
     let tmp_unconn = pyrust::set::clone!(builder.adjacent_to_unconnected_harvester);
     pyrust::set::clear!(builder.adjacent_to_unconnected_harvester);
+    let mask_e = pyrust::clone!(builder.vision_mask);
     for &p in pyrust::iter!(&tmp_unconn) {
-        if !pyrust::unwrap!(ct.is_in_vision(pos_of(p))) {
+        if mask_e[p as usize] == 0 {
             pyrust::set::add!(builder.adjacent_to_unconnected_harvester, p);
         }
     }
     let tmp_harv = pyrust::set::clone!(builder.adjacent_to_harvester);
     pyrust::set::clear!(builder.adjacent_to_harvester);
     for &p in pyrust::iter!(&tmp_harv) {
-        if !pyrust::unwrap!(ct.is_in_vision(pos_of(p))) {
+        if mask_e[p as usize] == 0 {
             pyrust::set::add!(builder.adjacent_to_harvester, p);
         }
     }

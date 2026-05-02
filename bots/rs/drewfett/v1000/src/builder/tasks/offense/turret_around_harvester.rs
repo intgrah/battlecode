@@ -115,7 +115,7 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
     let target_p = idx_of(target);
     for &dp in &DIR4_INT {
         let np = target_p + dp;
-        if np < 0 || (np as usize) >= self_.posint_valid.len() || self_.posint_valid[np as usize] == 0 {
+        if np < 0 || self_.posint_valid[np as usize] == 0 {
             continue;
         }
         let Some((nk, nt)) = self_.get_building_p(np) else {
