@@ -24,9 +24,9 @@ pub use crate::dsl::__pyrust_now_ns;
 pub use crate::__pyrust_abs as abs;
 pub use crate::__pyrust_all as all;
 pub use crate::__pyrust_any as any;
-pub use crate::__pyrust_atan2 as atan2;
 pub use crate::__pyrust_as_mut as as_mut;
 pub use crate::__pyrust_as_ref as as_ref;
+pub use crate::__pyrust_atan2 as atan2;
 pub use crate::__pyrust_cast_float as float;
 pub use crate::__pyrust_cast_int as int;
 pub use crate::__pyrust_ceil as ceil;
@@ -89,14 +89,14 @@ pub mod vec {
     pub use crate::{
         __pyrust_vec_clear as clear, __pyrust_vec_contains as contains,
         __pyrust_vec_dedup as dedup, __pyrust_vec_extend as extend, __pyrust_vec_fill as fill,
-        __pyrust_vec_fill_range as fill_range,
-        __pyrust_vec_first as first, __pyrust_vec_is_empty as is_empty, __pyrust_vec_last as last,
-        __pyrust_vec_len as len, __pyrust_vec_new as new, __pyrust_vec_pop as pop,
-        __pyrust_vec_pop_back as pop_back, __pyrust_vec_pop_front as pop_front,
-        __pyrust_vec_push as push, __pyrust_vec_push_back as push_back,
-        __pyrust_vec_push_front as push_front, __pyrust_vec_retain as retain,
-        __pyrust_vec_reverse as reverse, __pyrust_vec_swap_remove as swap_remove,
-        __pyrust_vec_take as take, __pyrust_vec_truncate as truncate,
+        __pyrust_vec_fill_range as fill_range, __pyrust_vec_first as first,
+        __pyrust_vec_is_empty as is_empty, __pyrust_vec_last as last, __pyrust_vec_len as len,
+        __pyrust_vec_new as new, __pyrust_vec_pop as pop, __pyrust_vec_pop_back as pop_back,
+        __pyrust_vec_pop_front as pop_front, __pyrust_vec_push as push,
+        __pyrust_vec_push_back as push_back, __pyrust_vec_push_front as push_front,
+        __pyrust_vec_retain as retain, __pyrust_vec_reverse as reverse,
+        __pyrust_vec_swap_remove as swap_remove, __pyrust_vec_take as take,
+        __pyrust_vec_truncate as truncate,
     };
 }
 pub mod set {
