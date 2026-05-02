@@ -23,17 +23,28 @@ const fn is_valid_rotation_target(et: EntityType) -> bool {
 
 pub struct Gunner {
     state: UnitState,
-    idle_turns: i32,
+    /// Consecutive turns the gunner has been below the 2-Ti firing
+    /// threshold. When this exceeds `SELF_DESTRUCT_THRESHOLD` and no
+    /// enemy is in vision, the gunner recycles itself to free a unit
+    /// slot for a fresh builder. Reset whenever ammo is observed.
+    starved_turns: i32,
 }
 
 impl Gunner {
-    const SELF_DESTRUCT_THRESHOLD: i32 = 10;
+    /// Recycle the gunner once it has been ammo-starved for this many
+    /// consecutive turns. Sized so a chain that died 30 rounds ago is
+    /// reclaimed, but a transient gap (one missed delivery) doesn't
+    /// trigger. 1 round = 1 turn for non-spawning units.
+    const SELF_DESTRUCT_THRESHOLD: i32 = 30;
+    /// Gunner fires at 2-Ti per shot. Below this we cannot fire at all,
+    /// so the unit is purely a blocker until ammo arrives.
+    const FIRE_AMMO: i32 = 2;
 
     #[must_use]
     pub fn new() -> Self {
         Self {
             state: UnitState::new(),
-            idle_turns: 0,
+            starved_turns: 0,
         }
     }
 
@@ -167,19 +178,17 @@ impl Gunner {
         false
     }
 
+    /// Recycle iff there is no enemy in vision. The team-membership scan
+    /// uses `get_nearby_units(None)` (full nearby disc — wider than just
+    /// `state.enemy_bots`, includes turrets we'd otherwise miss).
     fn try_self_destruct(&mut self, ct: &mut Controller<'_>) {
         let my_team = self.state.my_team;
-        let mut has_ally = false;
         for uid in pyrust::unwrap!(ct.get_nearby_units(None)) {
-            if pyrust::unwrap!(ct.get_team(Some(uid))) == my_team {
-                has_ally = true;
-            } else {
+            if pyrust::unwrap!(ct.get_team(Some(uid))) != my_team {
                 return;
             }
         }
-        if has_ally {
-            pyrust::unwrap!(ct.self_destruct());
-        }
+        pyrust::unwrap!(ct.self_destruct());
     }
 }
 
@@ -203,29 +212,29 @@ impl Unit for Gunner {
         self.state.cache_per_turn_state(ct);
         self.state.check_symmetry_marker(ct);
 
+        let ammo = pyrust::unwrap!(ct.get_ammo_amount());
+        if ammo >= Self::FIRE_AMMO {
+            self.starved_turns = 0;
+        } else {
+            self.starved_turns += 1;
+        }
+
         let facing = pyrust::unwrap!(ct.get_direction(None));
         let fire_target = self.fire_target(ct, facing);
         if let Some(target) = fire_target
             && pyrust::unwrap!(ct.can_fire(target))
         {
             pyrust::unwrap!(ct.fire(target));
-            self.idle_turns = 0;
             return;
         }
 
-        if self.try_rotate_to_enemy(ct) {
-            self.idle_turns = 0;
-        } else {
-            self.idle_turns += 1;
-        }
+        self.try_rotate_to_enemy(ct);
 
-        // Self-destruct disabled: each gunner cost real Ti to build; freeing
-        // the unit slot doesn't recoup the build cost. Keeping the gunner
-        // in place is a net win even when idle (still occupies a cone +
-        // contributes to defense if anything wanders into vision).
-        // if self.idle_turns > Self::SELF_DESTRUCT_THRESHOLD {
-        //     self.try_self_destruct(ct);
-        // }
-        let _ = self.idle_turns;
+        // Recycle once the chain has been dead long enough that this gunner
+        // is functionally a marker. `try_self_destruct` only fires when no
+        // enemy is in vision, so we never give up a useful deterrent.
+        if self.starved_turns > Self::SELF_DESTRUCT_THRESHOLD {
+            self.try_self_destruct(ct);
+        }
     }
 }
