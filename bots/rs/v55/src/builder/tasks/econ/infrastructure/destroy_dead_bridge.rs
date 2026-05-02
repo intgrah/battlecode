@@ -1,0 +1,73 @@
+//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/infrastructure/destroy_dead_bridge.py`.
+//!
+//! Tear down a friendly bridge whose downstream chain has become
+//! unreachable. BFS upstream from each `unreachable_dangling` tile through
+//! `in_edges` to find a friendly bridge; if found and within range, destroy
+//! it (freeing the Ti scaling) so the upstream chain can be re-routed by the
+//! extend-chain tasks. Otherwise approach the bridge.
+
+use std::collections::HashSet;
+
+use cambc::{Controller, ControllerApi, EntityType, Position};
+
+use crate::builder::Builder;
+use crate::builder::helpers::make_move;
+use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
+use crate::util::constants::MAX_WIDTH;
+use crate::util::metrics::chebyshev;
+
+#[pyrust::inline]
+const UPSTREAM_SEARCH_CAP: usize = 80;
+
+/// BFS backwards from `start` through `in_edges` until a friendly
+/// bridge is found. Returns the bridge position or None.
+fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
+    let mut visited: HashSet<Position> = pyrust::set::new!();
+    pyrust::set::add!(visited, start);
+    let mut queue: Vec<Position> = vec![start];
+    while let Some(cur) = pyrust::vec::pop!(queue) {
+        if pyrust::len!(visited) >= UPSTREAM_SEARCH_CAP {
+            break;
+        }
+        for &u in &self_.in_edges[cur.y as usize * MAX_WIDTH + cur.x as usize] {
+            if pyrust::vec::contains!(visited, &u) {
+                continue;
+            }
+            pyrust::set::add!(visited, u);
+            if self_.kind_at(u) == Some(EntityType::Bridge)
+                && self_.team_at(u) == Some(self_.my_team)
+            {
+                return Some(u);
+            }
+            pyrust::vec::push!(queue, u);
+        }
+    }
+    None
+}
+
+pub fn destroy_dead_bridge(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
+    if pyrust::vec::is_empty!(self_.unreachable_dangling) {
+        return Some(TaskRejected::new("no unreachable dangling"));
+    }
+    let my_pos = self_.my_pos;
+    let target = *pyrust::unwrap!(pyrust::min_by!(
+        pyrust::iter!(self_.unreachable_dangling),
+        |&&p| (chebyshev(my_pos, p), p.y, p.x)
+    ));
+    let Some(bridge) = find_upstream_bridge(self_, target) else {
+        return Some(TaskRejected::from_string(format!(
+            "no bridge upstream of unreachable dangling {target:?}"
+        )));
+    };
+    if pyrust::unwrap!(ct.can_destroy(bridge)) {
+        pyrust::unwrap!(ct.destroy(bridge));
+        self_.apply_local_destroy(bridge);
+        return None;
+    }
+    if make_move(self_, ct, bridge) {
+        return None;
+    }
+    Some(TaskRejected::from_string(format!(
+        "cannot destroy or approach bridge {bridge:?}"
+    )))
+}

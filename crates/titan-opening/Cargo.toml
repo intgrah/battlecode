@@ -1,0 +1,17 @@
+[package]
+name = "titan-opening"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+titan-core.workspace = true
+cambc-proto.workspace = true
+libre-engine.workspace = true
+libre-replay.workspace = true
+eframe.workspace = true
+prost.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -1,8 +1,16 @@
 from typing import Final
 
-from cambc import EntityType, GameConstants
+from cambc import EntityType, GameConstants, Position
 
-__all__ = ["BASE_COST", "FLOW_HISTORY_LEN", "INF", "MAX_N", "MAX_WIDTH", "ROAD_COST"]
+__all__ = [
+    "BASE_COST",
+    "FLOW_HISTORY_LEN",
+    "IDX_TO_POS",
+    "INF",
+    "MAX_N",
+    "MAX_WIDTH",
+    "ROAD_COST",
+]
 
 FLOW_HISTORY_LEN: Final = 8
 """Length of per-tile `flow_history` deques. Each entry is one observation
@@ -19,6 +27,10 @@ MAX_WIDTH: Final = 50
 """Hardcoded map-size stride for flat indexing. All flat arrays are length N."""
 MAX_N: Final = MAX_WIDTH * MAX_WIDTH
 """Length of all flat per-tile arrays (2500)."""
+
+IDX_TO_POS: Final[tuple[Position, ...]] = tuple(
+    Position(i % MAX_WIDTH, i // MAX_WIDTH) for i in range(MAX_N)
+)
 
 BASE_COST: Final = {
     EntityType.BUILDER_BOT: GameConstants.BUILDER_BOT_BASE_COST,

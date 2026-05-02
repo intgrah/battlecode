@@ -385,6 +385,5 @@ def conv_pathfind(
 ) -> list[Position]:
     return conv_search.search(state, ct, start, target)
 
-
 def conv_unreachable(target: Position) -> bool:
     return conv_search.no_path and conv_search._prev_target == target

@@ -85,32 +85,21 @@ def _crop_bool(arr: list[bool] | bytearray, w: int, h: int) -> list[bool]:
     return [bool(arr[y * MAX_WIDTH + x]) for y in range(h) for x in range(w)]
 
 
-def _bisector_tiles(self: Builder) -> set[Position]:
-    """Tiles within the bisector buffer — neither side has a clear
-    advantage by `bisector_margin_r2`. Cached per (en_core, margin)
-    since the geometry is static once symmetry is resolved. Empty
-    set when symmetry is unknown. `dump()` is the only caller and is
-    itself only invoked when `DEBUG_DUMP` is on, so this isn't
-    paid in production.
-    """
-    if self.symmetry is None:
-        return set()
-    en_core = self.en_core_guess
-    margin = self.bisector_margin_r2
-    cached = getattr(self, "_bisector_cache", None)
-    if cached is not None and cached[0] == (en_core, margin):
+def _econ_disc_tiles(self: Builder) -> set[Position]:
+    """Tiles inside our econ disc — eligible for ECON/DEFENSE ore claims.
+    Cached per (my_core, econ_radius_sq) since the geometry is static.
+    `dump()` is the only caller and is gated on DEBUG_DUMP."""
+    cached = getattr(self, "_econ_disc_cache", None)
+    key = (self.my_core, self.econ_radius_sq)
+    if cached is not None and cached[0] == key:
         return cached[1]
-
     tiles: set[Position] = set()
     for y in range(self.h):
         for x in range(self.w):
             p = Position(x, y)
-            if (
-                abs(p.distance_squared(self.my_core) - p.distance_squared(en_core))
-                <= margin
-            ):
+            if p.distance_squared(self.my_core) <= self.econ_radius_sq:
                 tiles.add(p)
-    self._bisector_cache = ((en_core, margin), tiles)
+    self._econ_disc_cache = (key, tiles)
     return tiles
 
 
@@ -292,7 +281,7 @@ def dump(self: Builder, _ct: Controller) -> None:
                     DumpTiles(self.adjacent_to_unconnected_harvester),
                 )
                 vis("deny_ore_neighbours", DumpTiles(self.deny_ore_neighbours))
-                vis("bisector_buffer", DumpTiles(_bisector_tiles(self)))
+                vis("econ_disc", DumpTiles(_econ_disc_tiles(self)))
         with Scope("offense"):
             vis("offense_target", DumpTile(self.offense_target))
             vis("offense_turns", DumpScalar(self.offense_turns))

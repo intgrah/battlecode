@@ -1,13 +1,15 @@
-"""Offense role policy tree.
+"""Offense role policy trees.
 
-Order:
-  HEAL                  (shared)
-  FIRE_ON_ENEMY_TILE    (cheap structural pressure)
-  TURRET_AROUND_HARVESTER (one-shot high-value)
-  PUSH group            (sentinel/split/offensive harvester/push extend)
-  PARASITIC group       (approach/walk/chew)
-  DENY_ENEMY_ORE        (shared)
-  SCOUT_TOWARD_ENEMY    (terminal — never rejects)
+Two role-level groups, one per offensive sub-role:
+
+  PUSH role: HEAL → fire_on_enemy_tile → turret_around_harvester →
+             OFFENSE_PUSH_GROUP → deny_enemy_ore → scout_toward_enemy
+  PARASITIC role: HEAL → fire_on_enemy_tile → turret_around_harvester →
+             OFFENSE_PARASITIC_GROUP → deny_enemy_ore → scout_toward_enemy
+
+The shared head (heal / fire / turret) and tail (deny_enemy_ore / scout)
+are present in both. Only the middle sub-group differs: a PUSH bot
+runs the push tree, a PARASITIC bot runs the parasitic tree.
 """
 
 from builder.tasks._policy import TaskGroup
@@ -19,13 +21,24 @@ from builder.tasks.offense.turret_around_harvester import turret_around_harveste
 from builder.tasks.shared.deny_enemy_ore import deny_enemy_ore
 from builder.tasks.shared.heal import HEAL_GROUP
 
-OFFENSE_GROUP = TaskGroup(
-    name="offense",
+PUSH_ROLE_GROUP = TaskGroup(
+    name="push",
     children=(
         HEAL_GROUP,
         fire_on_enemy_tile,
         turret_around_harvester,
         OFFENSE_PUSH_GROUP,
+        deny_enemy_ore,
+        scout_toward_enemy,
+    ),
+)
+
+PARASITIC_ROLE_GROUP = TaskGroup(
+    name="parasitic",
+    children=(
+        HEAL_GROUP,
+        fire_on_enemy_tile,
+        turret_around_harvester,
         OFFENSE_PARASITIC_GROUP,
         deny_enemy_ore,
         scout_toward_enemy,

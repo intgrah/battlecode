@@ -4,25 +4,7 @@ run a b map=default_map:
     cambc run {{ a }} {{ b }} {{ map }}
 
 r a b map=default_map:
-    VIRTUAL_ENV= uv run --project pkg/cambcpypy cambcpypy run {{ a }} {{ b }} {{ map }}
-
-v replay="replay.replay26": vv
-    pkg/target/release/visualiser-viewer {{ replay }}
-
-vv:
-    cargo build --release --manifest-path pkg/Cargo.toml -p visualiser-viewer
-
-be map=default_map: bee
-    pkg/target/release/blueprint-editor {{ map }}
-
-bee:
-    cargo build --release --manifest-path pkg/Cargo.toml -p blueprint-editor
-
-bv map=default_map: bvv
-    pkg/target/release/bugnav-viewer {{ map }}
-
-bvv:
-    cargo build --release --manifest-path pkg/Cargo.toml -p bugnav-viewer
+    VIRTUAL_ENV= uv run --project pkg/cambc_pypy cambc_pypy run {{ a }} {{ b }} {{ map }}
 
 w replay="replay.replay26":
     cambc watch {{ replay }}
@@ -51,3 +33,12 @@ docs:
         curl -s "$url" -o "$path"
         echo "$path"
     done
+
+pyrust-build:
+    cargo build -p pyrust -p pyrust-translate -p pyrust-harness
+
+pyrust-test: pyrust-build
+    target/debug/pyrust-harness
+
+pyrust-translate *args: pyrust-build
+    target/debug/pyrust-translate {{ args }}

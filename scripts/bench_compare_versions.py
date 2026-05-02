@@ -23,7 +23,7 @@ from importlib import import_module
 from pathlib import Path
 
 ROOT: Path = Path(__file__).resolve().parents[1]
-ENGINE_SRC: Path = ROOT / "pkg" / "cambcpypy" / "src"
+ENGINE_SRC: Path = ROOT / "pkg" / "cambc_pypy" / "src"
 PROTO_SRC: Path = ROOT / "pkg" / "proto" / "src"
 for site_packages in sorted((ROOT / ".venv" / "lib").glob("python*/site-packages")):
     if str(site_packages) not in sys.path:
@@ -37,7 +37,7 @@ if str(ENGINE_SRC) not in sys.path:
 def _load_modules() -> tuple:
     bench_mod = import_module("bench_econ_astar")
     cambc_mod = import_module("cambc")
-    engine_mod = import_module("cambcpypy.engine")
+    engine_mod = import_module("cambc_pypy.engine")
     return bench_mod, cambc_mod, engine_mod
 
 

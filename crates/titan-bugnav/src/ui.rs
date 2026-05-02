@@ -1,0 +1,205 @@
+use eframe::egui;
+use egui::{Pos2, Sense};
+use titan_core::ResponseExt;
+use titan_core::map::BG_COLOR;
+
+use crate::app::App;
+use crate::pathfinder::{StepStatus, registry};
+use crate::render::{Ctx, draw_snapshot};
+
+pub fn render_scrubber(ui: &mut egui::Ui, app: &mut App) {
+    titan_core::render_playback_panel(ui, app, |_ui| {});
+}
+
+pub fn render_sidebar(ui: &mut egui::Ui, app: &mut App) {
+    ui.heading("bugnav");
+    ui.add_space(4.0);
+
+    ui.label("Map");
+    let prev_map = app.map_idx;
+    egui::ComboBox::from_id_salt("map")
+        .width(200.0)
+        .selected_text(
+            app.map_names
+                .get(app.map_idx)
+                .map_or("<none>", String::as_str),
+        )
+        .show_ui(ui, |ui| {
+            for (i, name) in app.map_names.iter().enumerate() {
+                ui.selectable_value(&mut app.map_idx, i, name);
+            }
+        });
+    if app.map_idx != prev_map {
+        app.load_selected_map();
+    }
+
+    ui.add_space(8.0);
+    ui.label("Algorithm");
+    let prev_algo = app.algo_idx;
+    egui::ComboBox::from_id_salt("algo")
+        .width(200.0)
+        .selected_text(registry()[app.algo_idx].name)
+        .show_ui(ui, |ui| {
+            for (i, spec) in registry().iter().enumerate() {
+                ui.selectable_value(&mut app.algo_idx, i, spec.name);
+            }
+        });
+    if app.algo_idx != prev_algo {
+        app.reset_finder();
+    }
+
+    ui.add_space(8.0);
+    ui.separator();
+    ui.add_space(4.0);
+
+    if ui.button("Reset").clickable().clicked() {
+        app.reset_finder();
+    }
+    ui.checkbox(&mut app.show_vision, "show sensor r²≤20")
+        .clickable();
+
+    ui.add_space(8.0);
+    ui.separator();
+    ui.add_space(4.0);
+
+    if let Some(f) = &app.finder {
+        ui.label(format!("Algo: {}", f.name()));
+        ui.label(format!("Status: {:?}", app.last_status));
+        ui.monospace(f.summary());
+    } else {
+        ui.label("left-click: set START");
+        ui.label("right-click: set GOAL");
+    }
+
+    ui.add_space(8.0);
+    ui.separator();
+    ui.add_space(4.0);
+    ui.label("Path comparison");
+    let opt_len = app.optimal_path.as_ref().map(|p| p.len().saturating_sub(1));
+    let found_len = match (&app.finder, app.last_status) {
+        (Some(f), StepStatus::Arrived) => Some(f.snapshot().path.len().saturating_sub(1)),
+        _ => None,
+    };
+    let opt_s = opt_len.map_or_else(|| "-".to_string(), |n| n.to_string());
+    let found_s = match (found_len, app.last_status) {
+        (Some(n), _) => n.to_string(),
+        (None, StepStatus::Unreachable) => "unreachable".to_string(),
+        _ => "-".to_string(),
+    };
+    let ratio_s = match (found_len, opt_len) {
+        (Some(f), Some(o)) if o > 0 => format!("{:.3}x", f as f64 / o as f64),
+        (Some(_), Some(_)) => "-".to_string(),
+        _ => "-".to_string(),
+    };
+    ui.monospace(format!(
+        "optimal: {opt_s}\nfound:   {found_s}\nratio:   {ratio_s}",
+    ));
+    if opt_len.is_none() && app.start.is_some() && app.goal.is_some() {
+        ui.colored_label(titan_core::style::COLOR_WARN, "goal is unreachable (BFS)");
+    }
+
+    ui.add_space(8.0);
+    ui.separator();
+    ui.add_space(4.0);
+    ui.label("Start/Goal");
+    ui.monospace(format!(
+        "start: {}\ngoal:  {}",
+        app.start.map_or("-".into(), |(x, y)| format!("({x}, {y})")),
+        app.goal.map_or("-".into(), |(x, y)| format!("({x}, {y})")),
+    ));
+    if ui.button("clear start+goal").clickable().clicked() {
+        app.start = None;
+        app.goal = None;
+        app.finder = None;
+        app.optimal_path = None;
+        app.last_status = StepStatus::Running;
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
+    egui::CentralPanel::default().show_inside(ui, |ui| {
+        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click());
+        let rect = response.rect;
+
+        let ts = app.atlas.tile_size;
+        let zoom = app.zoom;
+        let origin = Pos2::new(rect.left() + app.pan.x, rect.top() + app.pan.y);
+        painter.rect_filled(rect, 0.0, BG_COLOR);
+
+        // Zoom
+        let scroll = ui.input(|i| i.smooth_scroll_delta.y);
+        if scroll != 0.0 && response.hovered() {
+            let factor = (scroll * 0.01).exp();
+            if let Some(mouse) = ui.input(|i| i.pointer.hover_pos()) {
+                let old_origin = origin;
+                let new_zoom = (zoom * factor).clamp(titan_core::tile::MIN_ZOOM, 8.0);
+                let local = mouse - old_origin;
+                let scale = new_zoom / zoom;
+                let new_origin = mouse - local * scale;
+                app.pan = egui::Vec2::new(new_origin.x - rect.left(), new_origin.y - rect.top());
+                app.zoom = new_zoom;
+            }
+        }
+
+        app.pan =
+            titan_core::tile::clamp_pan(app.pan, rect, app.grid.w, app.grid.h, ts, app.zoom, 64.0);
+
+        // Recompute origin after possible pan/zoom
+        let origin = Pos2::new(rect.left() + app.pan.x, rect.top() + app.pan.y);
+        let zoom = app.zoom;
+
+        // Static map background (cached)
+        let origin_vec = egui::Vec2::new(origin.x, origin.y);
+        #[allow(clippy::float_cmp)]
+        if origin_vec != app.cached_map_origin || zoom != app.cached_map_zoom {
+            app.cached_map_shapes = titan_core::map::build_static_map_shapes(
+                &app.atlas,
+                app.grid.w,
+                app.grid.h,
+                zoom,
+                origin,
+                |x, y| app.grid.env_at(x, y),
+            );
+            app.cached_map_origin = origin_vec;
+            app.cached_map_zoom = zoom;
+        }
+        painter.extend(app.cached_map_shapes.clone());
+
+        // Left click: set start. Right click: set goal.
+        let left = response.clicked_by(egui::PointerButton::Primary);
+        let right = response.clicked_by(egui::PointerButton::Secondary);
+        if (left || right)
+            && let Some(mouse) = response.interact_pointer_pos()
+        {
+            let gx = ((mouse.x - origin.x) / (ts * zoom)).floor() as i32;
+            let gy = ((mouse.y - origin.y) / (ts * zoom)).floor() as i32;
+            if app.grid.passable(gx, gy) {
+                if left {
+                    app.start = Some((gx, gy));
+                } else {
+                    app.goal = Some((gx, gy));
+                }
+                if app.start.is_some() && app.goal.is_some() {
+                    app.reset_finder();
+                } else {
+                    app.finder = None;
+                    app.optimal_path = None;
+                    app.last_status = StepStatus::Running;
+                }
+            }
+        }
+
+        // Overlay: algorithm snapshot
+        let ctx = Ctx { ts, zoom, origin };
+        draw_snapshot(
+            &painter,
+            &ctx,
+            app.finder.as_ref().map(|f| f.snapshot()),
+            app.optimal_path.as_deref(),
+            app.start,
+            app.goal,
+            app.show_vision,
+        );
+    });
+}

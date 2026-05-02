@@ -135,7 +135,8 @@ def make_building(ct: Controller, bid: int) -> Building:
         case EntityType.LAUNCHER:
             return BuildingLauncher(team)
         case EntityType.MARKER:
-            return BuildingMarker(team, ct.get_marker_value(bid))
+            value = ct.get_marker_value(bid) if team is ct.get_team() else 0
+            return BuildingMarker(team, value)
         case EntityType.BUILDER_BOT:
             msg = "BUILDER_BOT is not a building"
             raise ValueError(msg)

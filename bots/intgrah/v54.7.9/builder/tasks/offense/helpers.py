@@ -18,6 +18,8 @@ from building import (
     BuildingBridge,
     BuildingConveyor,
     BuildingHarvester,
+    BuildingMarker,
+    BuildingRoad,
     BuildingSplitter,
 )
 from cambc import (
@@ -70,9 +72,20 @@ def without_allied_transport(
 
 
 def buildable(self: Builder, positions: list[Position]) -> list[Position]:
-    return [
-        p for p in positions if self.is_buildable(p) and not self.is_friendly_turret(p)
-    ]
+    return [p for p in positions if _is_cheap_overbuild(self, p)]
+
+
+def _is_cheap_overbuild(self: Builder, pos: Position) -> bool:
+    if not self.in_bounds(pos):
+        return False
+    if self.get_env(pos) == Environment.WALL:
+        return False
+    b = self.get_building(pos)
+    if b is None:
+        return True
+    if isinstance(b, BuildingMarker):
+        return True
+    return isinstance(b, BuildingRoad) and b.team == self.my_team
 
 
 def nearest_enemy_bot(self: Builder) -> Position | None:

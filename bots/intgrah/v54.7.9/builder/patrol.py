@@ -4,6 +4,7 @@ from itertools import chain
 from typing import TYPE_CHECKING
 
 from util.constants import INF, MAX_WIDTH
+from util.debug import debug as log
 from util.directions import DIR4
 
 from builder.helpers import make_move
@@ -33,27 +34,31 @@ def _walkable_anchor(self: Builder, pos: Position) -> Position | None:
     return best
 
 
-def run_patrol(self: Builder, ct: Controller) -> bool:
-    """Walk toward the oldest important tile. Important = friendly
-    harvesters, foundries, and core. `last_seen` is refreshed in
-    `update_patrol` (own vision + one trusted friend's vision), so
-    the argmax of `round - last_seen[i]` directs us to whichever
-    piece of infra hasn't been watched longest. Tiebreak on distance
-    to favour the closer of two equally-stale tiles (avoids
-    oscillating between equidistant maxima)."""
+def _candidate_set(self: Builder) -> object:
+    """Important tiles to patrol: harvesters, foundries, the core, plus
+    every friendly transport carrying Ti or Ax (the union of
+    `ti_upstream` and `ax_upstream` covers conveyor / armoured /
+    bridge / splitter tiles that are downstream of a harvester)."""
+    parts = chain(
+        self.my_harvesters,
+        self.my_foundries,
+        self.ti_upstream,
+        self.ax_upstream,
+    )
+    if self.my_core is not None:
+        parts = chain(parts, (self.my_core,))
+    return parts
+
+
+def _pick_head(self: Builder) -> Position | None:
     last_seen = self.last_seen
     rnd = self.round
     mx = self.my_pos.x
     my_y = self.my_pos.y
-
     best_age = -1
     best_dist = 1 << 30
     best_pos = None
-
-    candidates = chain(self.my_harvesters, self.my_foundries)
-    if self.my_core is not None:
-        candidates = chain(candidates, (self.my_core,))
-    for pos in candidates:
+    for pos in _candidate_set(self):
         age = rnd - last_seen[pos.y * MAX_WIDTH + pos.x]
         if age < best_age:
             continue
@@ -64,11 +69,42 @@ def run_patrol(self: Builder, ct: Controller) -> bool:
             best_age = age
             best_dist = d
             best_pos = pos
+    return best_pos
 
-    self.patrol_head = best_pos
-    if best_pos is None:
+
+def run_patrol(self: Builder, ct: Controller) -> bool:
+    """Walk toward the oldest important tile. Sticky: keeps the
+    previously-chosen `patrol_head` until we reach it (`dist² <= 2`)
+    or its `last_seen` advances past a margin, so the bot doesn't
+    flip-flop between two harvesters when ages tick at similar rates.
+
+    Important tiles: friendly harvesters, foundries, core, plus all
+    friendly transports carrying Ti or Ax. `last_seen` is refreshed in
+    `update_patrol` (own vision + one trusted friend's vision)."""
+    last_seen = self.last_seen
+    rnd = self.round
+
+    head = self.patrol_head
+    if head is not None:
+        head_age = rnd - last_seen[head.y * MAX_WIDTH + head.x]
+        reached = self.my_pos.distance_squared(head) <= 2
+        if reached or head_age <= 0:
+            log("patrol: head {head} reached / refreshed, repicking", head=head)
+            head = None
+
+    if head is None:
+        head = _pick_head(self)
+        if head is not None:
+            log(
+                "patrol: new head {head} (age={age})",
+                head=head,
+                age=rnd - last_seen[head.y * MAX_WIDTH + head.x],
+            )
+
+    self.patrol_head = head
+    if head is None:
         return False
-    anchor = _walkable_anchor(self, best_pos)
+    anchor = _walkable_anchor(self, head)
     if anchor is None:
         return False
     make_move(self, ct, anchor)

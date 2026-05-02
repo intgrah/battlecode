@@ -13,6 +13,5 @@
     ".venv": true,
     "cambc.toml": true,
     "i": true
-  },
-  "rust-analyzer.linkedProjects": ["pkg/visualiser/viewer/Cargo.toml"]
+  }
 }

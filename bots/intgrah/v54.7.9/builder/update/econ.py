@@ -17,7 +17,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position, ResourceType
-from util.constants import BASE_COST, FLOW_HISTORY_LEN, INF, MAX_WIDTH
+from util.constants import BASE_COST, FLOW_HISTORY_LEN, IDX_TO_POS, INF, MAX_WIDTH
 from util.debug import Scope
 from util.debug import debug as log
 from util.directions import DIR4
@@ -30,9 +30,8 @@ from builder.helpers import (
     harvester_would_contaminate,
     is_inward_guard,
     ore_available,
-    pick_ax_ore_target,
     pick_offensive_ti_ore_target,
-    pick_ore_target,
+    pick_ore,
 )
 
 if TYPE_CHECKING:
@@ -256,8 +255,8 @@ def pick_dangling_output(
     return best
 
 
-def update_ore_target(self: Builder) -> None:
-    candidate_ore = pick_ore_target(self)
+def update_ti_ore_target(self: Builder) -> None:
+    candidate_ore = pick_ore(self, Environment.ORE_TITANIUM)
     if (
         not self.ore_target
         or not ore_available(self, self.ore_target)
@@ -555,14 +554,10 @@ def check_invariants(self: Builder) -> None:
 
     # --- A: harvester-adjacent set vs counter ---
     expected_ti_adj = {
-        Position(x=i % MAX_WIDTH, y=i // MAX_WIDTH)
-        for i in range(len(self._ti_harv_at))
-        if self._ti_harv_at[i] > 0
+        IDX_TO_POS[i] for i in range(len(self._ti_harv_at)) if self._ti_harv_at[i] > 0
     }
     expected_ax_adj = {
-        Position(x=i % MAX_WIDTH, y=i // MAX_WIDTH)
-        for i in range(len(self._ax_harv_at))
-        if self._ax_harv_at[i] > 0
+        IDX_TO_POS[i] for i in range(len(self._ax_harv_at)) if self._ax_harv_at[i] > 0
     }
     if expected_ti_adj != self.ti_harvester_adjacent:
         log(
@@ -627,7 +622,7 @@ def check_invariants(self: Builder) -> None:
     for i in range(len(in_edges)):
         if not in_edges[i]:
             if self._ti_in_count[i] != 0 or self._ax_in_count[i] != 0:
-                t = Position(x=i % MAX_WIDTH, y=i // MAX_WIDTH)
+                t = IDX_TO_POS[i]
                 log(
                     f"INVARIANT_FAIL in_count nonzero with empty in_edges "
                     f"t={t} ti={self._ti_in_count[i]} ax={self._ax_in_count[i]}",
@@ -636,14 +631,14 @@ def check_invariants(self: Builder) -> None:
         ti_expected = sum(1 for f in in_edges[i] if f in self.ti_upstream)
         ax_expected = sum(1 for f in in_edges[i] if f in self.ax_upstream)
         if ti_expected != self._ti_in_count[i]:
-            t = Position(x=i % MAX_WIDTH, y=i // MAX_WIDTH)
+            t = IDX_TO_POS[i]
             log(
                 f"INVARIANT_FAIL ti_in_count drift t={t} "
                 f"have={self._ti_in_count[i]} expected={ti_expected} "
                 f"in_edges={in_edges[i]}",
             )
         if ax_expected != self._ax_in_count[i]:
-            t = Position(x=i % MAX_WIDTH, y=i // MAX_WIDTH)
+            t = IDX_TO_POS[i]
             log(
                 f"INVARIANT_FAIL ax_in_count drift t={t} "
                 f"have={self._ax_in_count[i]} expected={ax_expected} "
@@ -738,12 +733,21 @@ def update_foundry_target(self: Builder) -> None:
 
     origin = self.dangling_output if self.dangling_output is not None else self.my_pos
 
+    junction_best: Position | None = None
+    junction_d = 1 << 30
     ax_chain_best: Position | None = None
     ax_chain_d = 1 << 30
     foundry_best: Position | None = None
     foundry_d = 1 << 30
     ti_cand_best: Position | None = None
     ti_cand_d = 1 << 30
+
+    with Scope("junctions", time=True):
+        for pos in self.junctions:
+            d = _manhattan(origin, pos)
+            if d < junction_d:
+                junction_d = d
+                junction_best = pos
 
     with Scope("foundries", time=True):
         for pos in self.my_foundries:
@@ -771,6 +775,8 @@ def update_foundry_target(self: Builder) -> None:
                 ti_cand_best = pos
 
     options: list[tuple[int, Position | None, str]] = []
+    if junction_best is not None:
+        options.append((junction_d, junction_best, "junction"))
     if ax_chain_best is not None:
         options.append((ax_chain_d, ax_chain_best, "ax_chain"))
     if foundry_best is not None:
@@ -787,22 +793,27 @@ def update_foundry_target(self: Builder) -> None:
         self.ax_sink = chosen
 
     # foundry_target is independent of ax_sink selection: commit when the
-    # Ax chain has physically connected to a valid kind-C site. Topology
-    # invalidation drops the commitment.
+    # Ax chain has physically connected to a valid kind-C site, or when the
+    # tile is a Ti+Ax junction (already fully wired). Topology invalidation
+    # drops the commitment.
     ft = self.foundry_target
     if ft is not None:
         bld = self.buildings[ft.y * MAX_WIDTH + ft.x]
-        still_valid = (
+        is_transport = (
             isinstance(bld, BuildingConveyor | BuildingArmouredConveyor)
             and bld.team == self.my_team
-            and ft in self.reaches_core
-            and ft not in self.reaches_foundry
         )
-        if not still_valid:
+        still_valid_junction = is_transport and ft in self.junctions
+        still_valid_kind_c = (
+            is_transport and ft in self.reaches_core and ft not in self.reaches_foundry
+        )
+        if not (still_valid_junction or still_valid_kind_c):
             self.foundry_target = None
     if self.foundry_target is None and self.ax_sink is not None:
         chosen = self.ax_sink
-        if _foundry_local_ok(self, chosen) and ax_feeds_target(self, chosen):
+        if chosen in self.junctions or (
+            _foundry_local_ok(self, chosen) and ax_feeds_target(self, chosen)
+        ):
             self.foundry_target = chosen
 
 
@@ -827,7 +838,13 @@ def _ti_sink_ok(self: Builder, pos: Position) -> bool:
     # them would dump Ti into the harvester instead of the core.
     if is_inward_guard(self, pos):
         return False
-    if pos in self.upstream_of_dangling:
+    if pos in self.upstream_of_dangling and pos in self.ti_upstream:
+        # Reject only when this tile is BOTH upstream of a dangling end
+        # AND already carrying Ti from a Ti harvester. A pre-existing Ti
+        # flow into a dead-end chain shouldn't be reinforced. An empty
+        # tile that's upstream of a dangling end (no live Ti yet) is
+        # still a fine merge target — adding our flow gives that branch
+        # a productive purpose.
         return False
     if pos in self.upstream_of_congestion:
         return False
@@ -932,7 +949,7 @@ def update_ax_ore_target(self: Builder) -> None:
     if self.ti < 2 * int(ti_base * self.scale):
         self.ax_ore_target = None
         return
-    candidate = pick_ax_ore_target(self)
+    candidate = pick_ore(self, Environment.ORE_AXIONITE)
     if (
         not self.ax_ore_target
         or not ore_available(self, self.ax_ore_target)

@@ -20,7 +20,10 @@ results/
 *.log
 *.env
 
+target/
+
 run.sh
 new_run.sh
 CLAUDE.md
 scripts/scrim.db
+.claude/
