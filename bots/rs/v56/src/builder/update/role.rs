@@ -4,25 +4,20 @@ use crate::builder::role::Role;
 const _OPENING_ROLES: [Role; 4] = [
     Role::Parasitic,
     Role::PermEcon,
-    Role::EconReactive,
+    Role::Defense,
     Role::Econ,
 ];
 
-#[pyrust::inline]
-/// `ECON_REACTIVE` auto-flips to DEFENSE once `self.round` exceeds this.
-/// Picks up an early-game economic-map snapshot before pivoting.
-const _ECON_REACTIVE_FLIP_ROUND: i32 = 25;
-
 const _INITIAL_WEIGHTS_VERY_EARLY: [(Role, u32); 4] = [
-    (Role::Defense, 3),
+    (Role::Defense, 2),
     (Role::Push, 0),
     (Role::Parasitic, 3),
     (Role::Econ, 4),
 ];
 const _INITIAL_WEIGHTS_EARLY: [(Role, u32); 4] = [
-    (Role::Defense, 5),
+    (Role::Defense, 4),
     (Role::Push, 1),
-    (Role::Parasitic, 1),
+    (Role::Parasitic, 2),
     (Role::Econ, 3),
 ];
 const _INITIAL_WEIGHTS_LATE: [(Role, u32); 4] = [
@@ -58,16 +53,13 @@ const fn _transition_for(role: Role) -> &'static [(Role, u32)] {
         Role::Parasitic => &_TRANSITION_PARASITIC,
         Role::PermEcon => &_TRANSITION_PERM_ECON,
         Role::PermDefense => &_TRANSITION_PERM_DEFENSE,
-        // EconReactive isn't a transition source: caller flips it to Defense
-        // explicitly. Fall back to ECON's transition table.
-        Role::EconReactive => &_TRANSITION_ECON,
     }
 }
 
 #[pyrust::inline]
-const _REASSIGN_PERIOD: i32 = 150;
+const _REASSIGN_PERIOD: i32 = 163;
 #[pyrust::inline]
-const _REASSIGN_AFTER: i32 = 400;
+const _REASSIGN_AFTER: i32 = 420;
 
 fn weighted_choice(builder: &mut Builder, choices: &[(Role, u32)]) -> Role {
     let total: u32 = pyrust::sum!(pyrust::map!(pyrust::iter!(choices), |t| t.1));

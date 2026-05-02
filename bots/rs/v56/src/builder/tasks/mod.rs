@@ -27,7 +27,7 @@ pub fn policy_for_role(role: Role) -> &'static Policy {
     match role {
         Role::Push => &PUSH_ROLE_GROUP,
         Role::Parasitic => &PARASITIC_ROLE_GROUP,
-        Role::Econ | Role::EconReactive | Role::PermEcon => &ECON_GROUP,
+        Role::Econ | Role::PermEcon => &ECON_GROUP,
         Role::Defense | Role::PermDefense => &DEFENSE_GROUP,
     }
 }
