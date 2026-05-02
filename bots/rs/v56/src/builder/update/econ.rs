@@ -246,12 +246,6 @@ pub fn update_ti_ore_target(builder: &mut Builder, friendlies: &[(Position, i32)
                 .distance_squared(builder.state.my_pos)
                 > 2));
     if needs_pick {
-        let sink = pyrust::unwrap_or!(builder.ti_sink, builder.my_core);
-        if let Some(c) = candidate_ore
-            && !can_afford_ti_claim(builder, c, sink)
-        {
-            candidate_ore = None;
-        }
         builder.ore_target = candidate_ore;
     }
 }
