@@ -83,11 +83,15 @@ pub struct InlineFn {
 }
 
 impl CfgEnv {
-    /// Default environment: `debug_assertions` is set, nothing else.
+    /// Default environment: `debug_assertions` is set, plus `pyrust_translate`
+    /// (so `#[cfg(pyrust_translate)]` blocks are picked, mirroring the
+    /// runtime `--cfg pyrust_translate` flag bots use to gate Python-only
+    /// implementations of cross-target helpers).
     #[must_use]
     pub fn debug() -> Self {
         let mut env = Self::default();
         env.flags.insert("debug_assertions".into(), true);
+        env.flags.insert("pyrust_translate".into(), true);
         env
     }
 

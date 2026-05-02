@@ -1082,7 +1082,42 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
         }
         let pos = pos_of(pi);
         if !ore_available_p(builder, pi, pos) {
-            _log_pick_reject(pi, "ore_unavailable");
+            // Disambiguate: building blocking vs another bot standing on it.
+            let mut reason: &'static str = "ore_unavail:other_bot";
+            if let Some((kind, _team)) = builder.get_building_p(pi) {
+                if kind == EntityType::Core {
+                    reason = "ore_unavail:core";
+                } else if kind == EntityType::Harvester {
+                    reason = "ore_unavail:harvester";
+                } else if kind == EntityType::Conveyor || kind == EntityType::ArmouredConveyor {
+                    reason = "ore_unavail:conveyor";
+                } else if kind == EntityType::Splitter {
+                    reason = "ore_unavail:splitter";
+                } else if kind == EntityType::Bridge {
+                    reason = "ore_unavail:bridge";
+                } else if kind == EntityType::Foundry {
+                    reason = "ore_unavail:foundry";
+                } else if kind == EntityType::Gunner {
+                    reason = "ore_unavail:gunner";
+                } else if kind == EntityType::Sentinel {
+                    reason = "ore_unavail:sentinel";
+                } else if kind == EntityType::Breach {
+                    reason = "ore_unavail:breach";
+                } else if kind == EntityType::Launcher {
+                    reason = "ore_unavail:launcher";
+                } else if kind == EntityType::Road {
+                    reason = "ore_unavail:road";
+                } else if kind == EntityType::Marker {
+                    reason = "ore_unavail:marker";
+                } else if kind == EntityType::Barrier {
+                    reason = "ore_unavail:barrier";
+                } else if kind == EntityType::BuilderBot {
+                    reason = "ore_unavail:builder_bot";
+                } else {
+                    reason = "ore_unavail:other_building";
+                }
+            }
+            _log_pick_reject(pi, reason);
             continue;
         }
         let d = dist_sq(my_idx, pi);
@@ -1145,7 +1180,7 @@ fn _log_pick_reject(pi: PosInt, reason: &'static str) {
         pyrust::to_string!("reason"),
         serde_json::Value::String(pyrust::to_string!(reason))
     );
-    crate::util::debug::debug("_pick_ore reject {pos}: {reason}", args);
+    log("_pick_ore reject {pos}: {reason}", args);
 }
 
 const _UPSTREAM_MAX_NODES: usize = 80;

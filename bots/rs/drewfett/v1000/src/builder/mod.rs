@@ -487,7 +487,14 @@ impl Builder {
     #[must_use]
     pub fn get_building(&self, pos: Position) -> Option<(EntityType, Team)> {
         let i = self.idx(pos);
-        Some((self.building_kind[i]?, self.building_team[i]?))
+        // Explicit unwrap-or-return-None — pyrust-translate drops the `?`
+        // operator inside `Some((a?, b?))` and emits the tuple unconditionally.
+        let kind = self.building_kind[i];
+        let team = self.building_team[i];
+        if pyrust::is_none!(kind) || pyrust::is_none!(team) {
+            return None;
+        }
+        Some((pyrust::unwrap!(kind), pyrust::unwrap!(team)))
     }
 
     /// PosInt-native variant of `get_building`.
@@ -495,7 +502,12 @@ impl Builder {
     #[inline]
     pub fn get_building_p(&self, p: PosInt) -> Option<(EntityType, Team)> {
         let i = p as usize;
-        Some((self.building_kind[i]?, self.building_team[i]?))
+        let kind = self.building_kind[i];
+        let team = self.building_team[i];
+        if pyrust::is_none!(kind) || pyrust::is_none!(team) {
+            return None;
+        }
+        Some((pyrust::unwrap!(kind), pyrust::unwrap!(team)))
     }
 
     #[pyrust::inline]
