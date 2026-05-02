@@ -48,8 +48,7 @@ pub fn split_before_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
         {
             continue;
         }
-        let feeders =
-            pyrust::clone!(self_.in_edges[pi_sent as usize]);
+        let feeders = pyrust::clone!(self_.in_edges[pi_sent as usize]);
         for split_pos in feeders {
             let pi_split = idx_of(split_pos);
             if !(self_.kind_at_p(pi_split) == Some(EntityType::Conveyor)

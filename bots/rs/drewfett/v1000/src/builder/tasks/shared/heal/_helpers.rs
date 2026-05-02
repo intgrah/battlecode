@@ -14,7 +14,7 @@ use crate::util::posint::idx_of;
 /// Count enemy builder bots currently in attack range of `target`
 /// (builder bots fire at their own tile, so anyone within 1 king-step
 /// of target is potentially dealing 2 dmg/turn to it).
-#[must_use] 
+#[must_use]
 pub fn count_visible_attackers(self_: &Builder, target: Position) -> i32 {
     let mut n = 0;
     for &p in &self_.enemy_bots {

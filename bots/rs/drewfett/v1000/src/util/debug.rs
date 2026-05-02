@@ -21,7 +21,6 @@ use serde_json::{Map, Value};
 use crate::config::DEBUG_LOG;
 use crate::util::visualiser::{Dump, Dumper};
 
-
 /// Discriminator key for typed JSON nodes (matches Python `_TYPE = "$type"`).
 const TYPE_KEY: &str = "$type";
 
@@ -169,10 +168,7 @@ impl DebugCtx {
 
     pub fn flush(&mut self) {
         let prev_us = self.last_flush_us;
-        let root = pyrust::expect!(
-            self.root.as_mut(),
-            "flush() called outside any Scope"
-        );
+        let root = pyrust::expect!(self.root.as_mut(), "flush() called outside any Scope");
         root["prev_flush_us"] = serde_json::Value::Number(pyrust::into!(prev_us));
         let t0_ns = crate::util::timing::perf_counter_ns();
         let payload = pyrust::expect!(serde_json::to_string(root), "root scope must serialise");

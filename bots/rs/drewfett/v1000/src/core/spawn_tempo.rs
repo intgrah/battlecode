@@ -97,8 +97,7 @@ pub fn compute_spawn_tempo(width: i32, height: i32, ct: &mut Controller<'_>) -> 
     let outer_wall_density =
         pyrust::float!(outer_walls) / pyrust::float!(pyrust::max!(outer_total, 1));
 
-    BIAS
-        + W_ECCENTRICITY * eccentricity
+    BIAS + W_ECCENTRICITY * eccentricity
         + W_EDGE_DIST * pyrust::float!(edge_dist)
         + W_CARDINAL_EXITS * cardinal_exits as f64
         + W_INNER_WALL_DENSITY * inner_wall_density

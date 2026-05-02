@@ -31,7 +31,8 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     // Sort the junction iteration so candidate-feeder accumulation is
     // deterministic across hash-randomized iteration of `congested_junctions`.
     // PosInt = y*100+x, so sorting by PosInt is identical to sorting by (y,x).
-    let mut junctions: Vec<PosInt> = pyrust::collect!(pyrust::copied!(pyrust::iter!(self_.congested_junctions)));
+    let mut junctions: Vec<PosInt> =
+        pyrust::collect!(pyrust::copied!(pyrust::iter!(self_.congested_junctions)));
     pyrust::sort!(junctions);
     let mut targets: Vec<Position> = pyrust::vec::new!();
     for j_pi in junctions {
@@ -70,7 +71,10 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         ));
     }
     log(
-        &format!("resolve_congestion: {} candidate feeders", pyrust::len!(targets)),
+        &format!(
+            "resolve_congestion: {} candidate feeders",
+            pyrust::len!(targets)
+        ),
         Map::new(),
     );
 
@@ -94,9 +98,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         p.x
     )));
     log(
-        &format!(
-            "resolve_congestion: walking toward nearest feeder {nearest:?}"
-        ),
+        &format!("resolve_congestion: walking toward nearest feeder {nearest:?}"),
         Map::new(),
     );
     if make_move(self_, ct, nearest) {

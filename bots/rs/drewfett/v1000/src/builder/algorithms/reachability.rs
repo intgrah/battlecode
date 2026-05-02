@@ -56,7 +56,7 @@ pub fn find(parent: &mut [i32], mut i: i32) -> i32 {
 
 /// Read-only find without path-halving. Walks the parent chain.
 /// `parent[i]` must be `!= -1`.
-#[must_use] 
+#[must_use]
 pub fn find_ro(parent: &[i32], mut i: i32) -> i32 {
     while parent[i as usize] != i {
         i = parent[i as usize];

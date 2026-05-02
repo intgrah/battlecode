@@ -10,10 +10,12 @@
 //! Failures return `Err(TaskRejected)` so callers don't need their own
 //! wrapper types.
 
-use std::collections::HashSet;
 use crate::config::DEBUG_LOG;
+use std::collections::HashSet;
 
-use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Position, ResourceType, Team};
+use cambc::{
+    BuildExtra, Controller, ControllerApi, Direction, EntityType, Position, ResourceType, Team,
+};
 use serde_json::Map;
 
 use crate::builder::Builder;
@@ -21,10 +23,10 @@ use crate::builder::helpers::{
     make_move, on_enemy_side, trace_upstream, try_move_with_road, try_place,
 };
 use crate::builder::tasks::rejected::TaskRejected;
-use crate::util::posint::idx_of;
 use crate::util::debug::{Scope, debug, line};
 use crate::util::directions::{DIR4, DIR8, delta_to_dir, get_direction_object, is_cardinal};
 use crate::util::metrics::{chebyshev, reachable_path_end};
+use crate::util::posint::idx_of;
 use crate::util::visualiser::auto_wrap_position;
 
 /// Cap on upstream BFS size in `resource_at`.
@@ -33,7 +35,7 @@ const _UPSTREAM_MAX_NODES_RES: usize = 80;
 /// Infer which resource a chain starting at `pos` carries. Returns None
 /// if it can't be determined — caller must NOT silently default to Ti,
 /// because routing Ax as Ti sends raw Ax to the core where it's destroyed.
-#[must_use] 
+#[must_use]
 pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
     let ax_adj = pyrust::vec::contains!(builder.ax_harvester_adjacent, &idx_of(pos));
     let ti_adj = pyrust::vec::contains!(builder.ti_harvester_adjacent, &idx_of(pos));
@@ -124,9 +126,9 @@ fn _retarget_foundry_to_junction(builder: &mut Builder, landing: Position) {
     if DEBUG_LOG {
         let mut args = Map::new();
         pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("landing"),
-        auto_wrap_position(landing)
+            args,
+            pyrust::to_string!("landing"),
+            auto_wrap_position(landing)
         );
         debug("retarget foundry to junction at {landing}", args);
     }
@@ -203,9 +205,9 @@ fn _lay_segment(
         if DEBUG_LOG {
             let mut args = Map::new();
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("pos"),
-            auto_wrap_position(start_pos)
+                args,
+                pyrust::to_string!("pos"),
+                auto_wrap_position(start_pos)
             );
             debug("chain: fire on enemy road at {pos}", args);
         }

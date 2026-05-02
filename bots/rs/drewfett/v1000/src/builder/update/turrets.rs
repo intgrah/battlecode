@@ -19,7 +19,10 @@ pub fn update_ore_denial(builder: &mut Builder) {
     // outer iterations and we drop the per-tile env lookup entirely.
     // Lists hold `PosInt` (already-computed flat index).
     let mut ore_tiles: Vec<i32> = pyrust::clone!(builder.visible_ti_ore);
-    pyrust::vec::extend!(ore_tiles, pyrust::copied!(pyrust::iter!(builder.visible_ax_ore)));
+    pyrust::vec::extend!(
+        ore_tiles,
+        pyrust::copied!(pyrust::iter!(builder.visible_ax_ore))
+    );
     for &pi in &ore_tiles {
         let pos = pos_of(pi);
         let px = pos.x;
@@ -65,10 +68,8 @@ pub fn update_enemy_turrets(builder: &mut Builder) {
         let i = idx_of(t) as usize;
         let kind = bk[i];
         let team = bt[i];
-        let valid = matches!(
-            kind,
-            Some(EntityType::Gunner | EntityType::Sentinel)
-        ) && team != Some(my_team)
+        let valid = matches!(kind, Some(EntityType::Gunner | EntityType::Sentinel))
+            && team != Some(my_team)
             && pyrust::is_some!(team);
         if !valid {
             builder.nearest_enemy_turret = None;
@@ -83,10 +84,8 @@ pub fn update_enemy_turrets(builder: &mut Builder) {
         let i = pi as usize;
         let kind = bk[i];
         let team = bt[i];
-        let is_enemy_turret = matches!(
-            kind,
-            Some(EntityType::Gunner | EntityType::Sentinel)
-        ) && team != Some(my_team)
+        let is_enemy_turret = matches!(kind, Some(EntityType::Gunner | EntityType::Sentinel))
+            && team != Some(my_team)
             && pyrust::is_some!(team);
         if is_enemy_turret {
             let dist = dist_sq(my_p, pi);

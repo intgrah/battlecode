@@ -342,6 +342,7 @@ pub trait CoreAwareUnit: Unit {
     /// `symmetry_guess`. Exact once symmetry is resolved.
     fn en_core_guess(&self) -> Position {
         let s = self.unit_state();
-        s.symmetry_guess().action(self.my_core_pos(), s.width, s.height)
+        s.symmetry_guess()
+            .action(self.my_core_pos(), s.width, s.height)
     }
 }

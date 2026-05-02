@@ -3,7 +3,9 @@
 use cambc::Position;
 
 use crate::util::posint::PosInt;
-use crate::util::posint::{cheb as posint_cheb, dist_sq as posint_dist_sq, manhat as posint_manhat};
+use crate::util::posint::{
+    cheb as posint_cheb, dist_sq as posint_dist_sq, manhat as posint_manhat,
+};
 
 /// L-1 distance.
 #[must_use]
@@ -99,12 +101,7 @@ pub fn euclidean_sq_p(p: PosInt, q: PosInt) -> i32 {
 
 /// PosInt-native variant of `claims_by_proximity`. Uses the module-level
 /// chebyshev table internally.
-pub fn claims_by_proximity_p<I>(
-    my_p: PosInt,
-    my_id: i32,
-    target_p: PosInt,
-    friendlies: I,
-) -> bool
+pub fn claims_by_proximity_p<I>(my_p: PosInt, my_id: i32, target_p: PosInt, friendlies: I) -> bool
 where
     I: IntoIterator<Item = (PosInt, i32)>,
 {

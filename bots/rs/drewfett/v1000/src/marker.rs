@@ -125,46 +125,43 @@ pub enum Marker {
 #[must_use]
 pub const fn encode(m: Marker) -> u32 {
     let (tag, payload) = match m {
-            Marker::Symmetry { symmetry } => (TAG_SYMMETRY, (symmetry as u32) & MASK_2),
-            Marker::OreClaim { bot_id, round_lo } => {
-                let p = ((bot_id & MASK_10) << 8) | (round_lo & MASK_8);
-                (TAG_ORE_CLAIM, p)
-            }
-            Marker::EnemyThreat {
-                turret_count,
-                bots_seen,
-                round_lo,
-            } => {
-                let p = ((turret_count & MASK_6) << 14)
-                    | ((bots_seen & MASK_6) << 8)
-                    | (round_lo & MASK_8);
-                (TAG_ENEMY_THREAT, p)
-            }
-            Marker::RendezvousAttack {
-                target_x,
-                target_y,
-                round_lo,
-            } => {
-                let p = ((target_x & MASK_6) << 14)
-                    | ((target_y & MASK_6) << 8)
-                    | (round_lo & MASK_8);
-                (TAG_RENDEZVOUS_ATTACK, p)
-            }
-            Marker::DefenderHere { bot_id, round_lo } => {
-                let p = ((bot_id & MASK_10) << 8) | (round_lo & MASK_8);
-                (TAG_DEFENDER_HERE, p)
-            }
-            Marker::KillCommit {
-                enemy_core_x,
-                enemy_core_y,
-                round_lo,
-            } => {
-                let p = ((enemy_core_x & MASK_6) << 14)
-                    | ((enemy_core_y & MASK_6) << 8)
-                    | (round_lo & MASK_8);
-                (TAG_KILL_COMMIT, p)
-            }
-        };
+        Marker::Symmetry { symmetry } => (TAG_SYMMETRY, (symmetry as u32) & MASK_2),
+        Marker::OreClaim { bot_id, round_lo } => {
+            let p = ((bot_id & MASK_10) << 8) | (round_lo & MASK_8);
+            (TAG_ORE_CLAIM, p)
+        }
+        Marker::EnemyThreat {
+            turret_count,
+            bots_seen,
+            round_lo,
+        } => {
+            let p =
+                ((turret_count & MASK_6) << 14) | ((bots_seen & MASK_6) << 8) | (round_lo & MASK_8);
+            (TAG_ENEMY_THREAT, p)
+        }
+        Marker::RendezvousAttack {
+            target_x,
+            target_y,
+            round_lo,
+        } => {
+            let p = ((target_x & MASK_6) << 14) | ((target_y & MASK_6) << 8) | (round_lo & MASK_8);
+            (TAG_RENDEZVOUS_ATTACK, p)
+        }
+        Marker::DefenderHere { bot_id, round_lo } => {
+            let p = ((bot_id & MASK_10) << 8) | (round_lo & MASK_8);
+            (TAG_DEFENDER_HERE, p)
+        }
+        Marker::KillCommit {
+            enemy_core_x,
+            enemy_core_y,
+            round_lo,
+        } => {
+            let p = ((enemy_core_x & MASK_6) << 14)
+                | ((enemy_core_y & MASK_6) << 8)
+                | (round_lo & MASK_8);
+            (TAG_KILL_COMMIT, p)
+        }
+    };
     let raw = (tag << TAG_SHIFT) | (payload & PAYLOAD_MASK);
     raw ^ KEY
 }
@@ -173,48 +170,48 @@ pub const fn encode(m: Marker) -> u32 {
 /// unknown (e.g. emitted by an enemy or an older bot version).
 #[must_use]
 pub const fn decode(encrypted: u32) -> Option<Marker> {
-        let raw = encrypted ^ KEY;
-        let tag = (raw >> TAG_SHIFT) & TAG_MASK;
-        let payload = raw & PAYLOAD_MASK;
-        // `if/else` rather than `match`: Python `case CONST:` parses as a
-        // binding pattern, not a value comparison, so an idiomatic Rust
-        // match-on-constants doesn't translate cleanly.
-        if tag == TAG_SYMMETRY {
-            let sym = match payload & MASK_2 {
-                0 => Symmetry::Rot,
-                1 => Symmetry::Hor,
-                2 => Symmetry::Ver,
-                _ => return None,
-            };
-            Some(Marker::Symmetry { symmetry: sym })
-        } else if tag == TAG_ORE_CLAIM {
-            Some(Marker::OreClaim {
-                bot_id: (payload >> 8) & MASK_10,
-                round_lo: payload & MASK_8,
-            })
-        } else if tag == TAG_ENEMY_THREAT {
-            Some(Marker::EnemyThreat {
-                turret_count: (payload >> 14) & MASK_6,
-                bots_seen: (payload >> 8) & MASK_6,
-                round_lo: payload & MASK_8,
-            })
-        } else if tag == TAG_RENDEZVOUS_ATTACK {
-            Some(Marker::RendezvousAttack {
-                target_x: (payload >> 14) & MASK_6,
-                target_y: (payload >> 8) & MASK_6,
-                round_lo: payload & MASK_8,
-            })
-        } else if tag == TAG_DEFENDER_HERE {
-            Some(Marker::DefenderHere {
-                bot_id: (payload >> 8) & MASK_10,
-                round_lo: payload & MASK_8,
-            })
-        } else if tag == TAG_KILL_COMMIT {
-            Some(Marker::KillCommit {
-                enemy_core_x: (payload >> 14) & MASK_6,
-                enemy_core_y: (payload >> 8) & MASK_6,
-                round_lo: payload & MASK_8,
-            })
+    let raw = encrypted ^ KEY;
+    let tag = (raw >> TAG_SHIFT) & TAG_MASK;
+    let payload = raw & PAYLOAD_MASK;
+    // `if/else` rather than `match`: Python `case CONST:` parses as a
+    // binding pattern, not a value comparison, so an idiomatic Rust
+    // match-on-constants doesn't translate cleanly.
+    if tag == TAG_SYMMETRY {
+        let sym = match payload & MASK_2 {
+            0 => Symmetry::Rot,
+            1 => Symmetry::Hor,
+            2 => Symmetry::Ver,
+            _ => return None,
+        };
+        Some(Marker::Symmetry { symmetry: sym })
+    } else if tag == TAG_ORE_CLAIM {
+        Some(Marker::OreClaim {
+            bot_id: (payload >> 8) & MASK_10,
+            round_lo: payload & MASK_8,
+        })
+    } else if tag == TAG_ENEMY_THREAT {
+        Some(Marker::EnemyThreat {
+            turret_count: (payload >> 14) & MASK_6,
+            bots_seen: (payload >> 8) & MASK_6,
+            round_lo: payload & MASK_8,
+        })
+    } else if tag == TAG_RENDEZVOUS_ATTACK {
+        Some(Marker::RendezvousAttack {
+            target_x: (payload >> 14) & MASK_6,
+            target_y: (payload >> 8) & MASK_6,
+            round_lo: payload & MASK_8,
+        })
+    } else if tag == TAG_DEFENDER_HERE {
+        Some(Marker::DefenderHere {
+            bot_id: (payload >> 8) & MASK_10,
+            round_lo: payload & MASK_8,
+        })
+    } else if tag == TAG_KILL_COMMIT {
+        Some(Marker::KillCommit {
+            enemy_core_x: (payload >> 14) & MASK_6,
+            enemy_core_y: (payload >> 8) & MASK_6,
+            round_lo: payload & MASK_8,
+        })
     } else {
         None
     }
@@ -223,7 +220,7 @@ pub const fn decode(encrypted: u32) -> Option<Marker> {
 /// Scan `nearby_tiles` for an allied `MarkerSymmetry` and return its symmetry.
 /// Returns the first one found, or `None` if no friendly symmetry marker is
 /// in vision.
-#[must_use] 
+#[must_use]
 pub fn find_symmetry_marker(
     ct: &Controller<'_>,
     nearby_tiles: &[Position],

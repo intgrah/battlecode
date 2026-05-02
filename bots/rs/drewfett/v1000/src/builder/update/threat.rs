@@ -50,7 +50,9 @@ pub fn apply_threat_overlay(builder: &mut Builder) {
     // first attempt; only fall back to allowing them when no other path
     // exists. Currently populated from launcher attack tiles only.
     builder.unsafe_tiles.clear();
-    let launcher_tiles2: Vec<i32> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.adjacent_to_enemy_launcher)));
+    let launcher_tiles2: Vec<i32> = pyrust::collect!(pyrust::copied!(pyrust::iter!(
+        builder.adjacent_to_enemy_launcher
+    )));
     for tile in launcher_tiles2 {
         let i = tile as usize;
         pyrust::set::add!(builder.unsafe_tiles, i);

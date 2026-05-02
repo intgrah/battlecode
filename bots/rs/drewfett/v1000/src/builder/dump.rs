@@ -20,15 +20,27 @@ use crate::util::visualiser::{Colour, Dump, Palette, PaletteStop, ScalarValue, T
 
 fn p_fog() -> Palette<bool> {
     Palette::new(vec![
-        PaletteStop { t: false, colour: TRANSPARENT },
-        PaletteStop { t: true, colour: Colour::new(0, 0, 0, 180) },
+        PaletteStop {
+            t: false,
+            colour: TRANSPARENT,
+        },
+        PaletteStop {
+            t: true,
+            colour: Colour::new(0, 0, 0, 180),
+        },
     ])
 }
 
 fn p_cost() -> Palette<i64> {
     let mut p = Palette::new(vec![
-        PaletteStop { t: 0, colour: Colour::new(50, 200, 50, 140) },
-        PaletteStop { t: 100, colour: Colour::new(200, 50, 50, 140) },
+        PaletteStop {
+            t: 0,
+            colour: Colour::new(50, 200, 50, 140),
+        },
+        PaletteStop {
+            t: 100,
+            colour: Colour::new(200, 50, 50, 140),
+        },
     ]);
     p.special = vec![(-1, TRANSPARENT)];
     p
@@ -36,8 +48,14 @@ fn p_cost() -> Palette<i64> {
 
 fn p_dist() -> Palette<i64> {
     let mut p = Palette::new(vec![
-        PaletteStop { t: 0, colour: Colour::new(50, 240, 50, 140) },
-        PaletteStop { t: 36, colour: Colour::new(240, 50, 50, 140) },
+        PaletteStop {
+            t: 0,
+            colour: Colour::new(50, 240, 50, 140),
+        },
+        PaletteStop {
+            t: 36,
+            colour: Colour::new(240, 50, 50, 140),
+        },
     ]);
     p.special = vec![(i64::from(INF), TRANSPARENT), (-1, TRANSPARENT)];
     p
@@ -45,15 +63,27 @@ fn p_dist() -> Palette<i64> {
 
 fn p_bool() -> Palette<bool> {
     Palette::new(vec![
-        PaletteStop { t: false, colour: TRANSPARENT },
-        PaletteStop { t: true, colour: Colour::new(120, 180, 240, 140) },
+        PaletteStop {
+            t: false,
+            colour: TRANSPARENT,
+        },
+        PaletteStop {
+            t: true,
+            colour: Colour::new(120, 180, 240, 140),
+        },
     ])
 }
 
 fn p_patrol() -> Palette<f64> {
     let mut p = Palette::new(vec![
-        PaletteStop { t: 0.0, colour: Colour::new(80, 140, 220, 100) },
-        PaletteStop { t: 200.0, colour: Colour::new(240, 80, 80, 200) },
+        PaletteStop {
+            t: 0.0,
+            colour: Colour::new(80, 140, 220, 100),
+        },
+        PaletteStop {
+            t: 200.0,
+            colour: Colour::new(240, 80, 80, 200),
+        },
     ]);
     p.special = vec![(-1.0, TRANSPARENT)];
     p
@@ -121,7 +151,7 @@ fn _hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
     let p = v * (1.0 - s);
     let q = v * (1.0 - s * f);
     let t = v * (1.0 - s * (1.0 - f));
-    let (r, g, b) = match i% 6 {
+    let (r, g, b) = match i % 6 {
         0 => (v, t, p),
         1 => (q, v, p),
         2 => (p, v, t),
@@ -151,13 +181,19 @@ fn _reach_palette(builder: &Builder, w: i32, h: i32) -> Palette<i64> {
     keys.sort();
     let mut special: Vec<(i64, Colour)> = vec![(-1, TRANSPARENT)];
     for (k, key) in pyrust::enumerate!(pyrust::iter!(keys)) {
-        let hue = ((k as f64) * _GOLDEN)% 1.0;
+        let hue = ((k as f64) * _GOLDEN) % 1.0;
         let (r, g, b) = _hsv_to_rgb(hue, 0.65, 0.95);
         pyrust::vec::push!(special, (i64::from(*key), Colour::new(r, g, b, 160)));
     }
     let mut p = Palette::new(vec![
-        PaletteStop { t: 0, colour: TRANSPARENT },
-        PaletteStop { t: 1, colour: TRANSPARENT },
+        PaletteStop {
+            t: 0,
+            colour: TRANSPARENT,
+        },
+        PaletteStop {
+            t: 1,
+            colour: TRANSPARENT,
+        },
     ]);
     p.special = special;
     p
@@ -404,7 +440,9 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             );
             vis_tiles(
                 "upstream_of_congestion",
-                pyrust::map!(pyrust::iter!(builder.upstream_of_congestion), |p| pos_of(*p)),
+                pyrust::map!(pyrust::iter!(builder.upstream_of_congestion), |p| pos_of(
+                    *p
+                )),
             );
             vis_tiles(
                 "junctions",
@@ -439,7 +477,10 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             );
             vis_tiles(
                 "unconnected_harvester",
-                pyrust::map!(pyrust::iter!(builder.adjacent_to_unconnected_harvester), |p| pos_of(*p)),
+                pyrust::map!(
+                    pyrust::iter!(builder.adjacent_to_unconnected_harvester),
+                    |p| pos_of(*p)
+                ),
             );
             vis_tiles(
                 "deny_ore_neighbours",
@@ -464,15 +505,22 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         vis_tile("nearest_enemy_turret", builder.nearest_enemy_turret);
         vis_tiles(
             "enemy_turret_ray_tiles",
-            pyrust::map!(pyrust::iter!(builder.enemy_turret_ray_tiles), |p| pos_of(*p)),
+            pyrust::map!(pyrust::iter!(builder.enemy_turret_ray_tiles), |p| pos_of(
+                *p
+            )),
         );
         vis_tiles(
             "friendly_turret_ray_tiles",
-            pyrust::map!(pyrust::iter!(builder.friendly_turret_ray_tiles), |p| pos_of(*p)),
+            pyrust::map!(
+                pyrust::iter!(builder.friendly_turret_ray_tiles),
+                |p| pos_of(*p)
+            ),
         );
         vis_tiles(
             "adjacent_to_enemy_launcher",
-            pyrust::map!(pyrust::iter!(builder.adjacent_to_enemy_launcher), |p| pos_of(*p)),
+            pyrust::map!(pyrust::iter!(builder.adjacent_to_enemy_launcher), |p| {
+                pos_of(*p)
+            }),
         );
         vis_tiles(
             "attack_blacklist",
@@ -526,10 +574,10 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         let mut best_pos: Option<Position> = None;
         let mx = builder.state.my_pos.x;
         let my_y = builder.state.my_pos.y;
-        let mut candidates: Vec<Position> = pyrust::collect!(pyrust::map!(
-            pyrust::iter!(builder.my_harvesters),
-            |p| pos_of(*p)
-        ));
+        let mut candidates: Vec<Position> =
+            pyrust::collect!(pyrust::map!(pyrust::iter!(builder.my_harvesters), |p| {
+                pos_of(*p)
+            }));
         pyrust::vec::extend!(
             candidates,
             pyrust::map!(pyrust::iter!(builder.my_foundries), |p| pos_of(*p))

@@ -1,12 +1,7 @@
 use crate::builder::Builder;
 use crate::builder::role::Role;
 
-const _OPENING_ROLES: [Role; 4] = [
-    Role::Parasitic,
-    Role::PermEcon,
-    Role::Defense,
-    Role::Econ,
-];
+const _OPENING_ROLES: [Role; 4] = [Role::Parasitic, Role::PermEcon, Role::Defense, Role::Econ];
 
 const _INITIAL_WEIGHTS_VERY_EARLY: [(Role, u32); 4] = [
     (Role::Defense, 2),

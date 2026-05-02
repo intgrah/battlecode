@@ -6,7 +6,7 @@ use crate::util::constants::INF;
 /// cells with `path_idx > min_idx`. Returns `pos` if no such cell is
 /// found (caller treats that as "no forward progress, replan").
 #[allow(unused_assignments)]
-#[must_use] 
+#[must_use]
 pub fn dp_step_hop(w: i32, cost: &[i32], h: i32, pos: i32, path_idx: &[i32], min_idx: i32) -> i32 {
     let px = pos % w;
     let py = pos / w;
@@ -2678,7 +2678,7 @@ pub fn dp_step_hop(w: i32, cost: &[i32], h: i32, pos: i32, path_idx: &[i32], min
 /// strict forward progress along the plan; returns `pos` when no such
 /// cell is reachable in the 69-cell window (caller replans).
 #[allow(unused_assignments)]
-#[must_use] 
+#[must_use]
 pub fn dp_step(w: i32, cost: &[i32], h: i32, pos: i32, path_idx: &[i32], min_idx: i32) -> i32 {
     let px = pos % w;
     let py = pos / w;

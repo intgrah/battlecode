@@ -21,7 +21,7 @@ use crate::util::directions::{DIR4, DIR8};
 use crate::util::metrics::{chebyshev, closest};
 use crate::util::posint::{DIR4_INT, DIR8_INT, dist_sq, idx_of, pos_of};
 
-#[must_use] 
+#[must_use]
 pub fn open_tiles(self_: &Builder, positions: &[Position]) -> Vec<Position> {
     pyrust::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(positions)),
@@ -29,7 +29,7 @@ pub fn open_tiles(self_: &Builder, positions: &[Position]) -> Vec<Position> {
     ))
 }
 
-#[must_use] 
+#[must_use]
 pub fn is_allied_transport(self_: &Builder, position: Position) -> bool {
     matches!(
         self_.kind_at(position),
@@ -42,7 +42,7 @@ pub fn is_allied_transport(self_: &Builder, position: Position) -> bool {
     ) && self_.team_at(position) == Some(self_.my_team)
 }
 
-#[must_use] 
+#[must_use]
 pub fn without_allied_transport(self_: &Builder, positions: &[Position]) -> Vec<Position> {
     pyrust::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(positions)),
@@ -50,7 +50,7 @@ pub fn without_allied_transport(self_: &Builder, positions: &[Position]) -> Vec<
     ))
 }
 
-#[must_use] 
+#[must_use]
 pub fn buildable(self_: &Builder, positions: &[Position]) -> Vec<Position> {
     pyrust::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(positions)),
@@ -74,7 +74,7 @@ fn is_cheap_overbuild(self_: &Builder, pos: Position) -> bool {
     kind == EntityType::Road && self_.team_at(pos) == Some(self_.my_team)
 }
 
-#[must_use] 
+#[must_use]
 pub fn nearest_enemy_bot(self_: &Builder) -> Option<Position> {
     if pyrust::vec::is_empty!(self_.enemy_bots) {
         return None;
@@ -85,7 +85,7 @@ pub fn nearest_enemy_bot(self_: &Builder) -> Option<Position> {
     )
 }
 
-#[must_use] 
+#[must_use]
 pub fn should_attack(self_: &Builder, pos: Position) -> bool {
     let enemy_builder = nearest_enemy_bot(self_);
     let i = self_.idx(pos);
@@ -96,13 +96,13 @@ pub fn should_attack(self_: &Builder, pos: Position) -> bool {
         || can_afford(self_, EntityType::Harvester)
 }
 
-#[must_use] 
+#[must_use]
 pub fn enemy_healer_near(self_: &Builder, pos: Position) -> bool {
     pyrust::any!(pyrust::iter!(self_.enemy_bots), |p| p.distance_squared(pos)
         <= 2)
 }
 
-#[must_use] 
+#[must_use]
 pub fn friendly_bot_adjacent(self_: &Builder, pos: Position) -> bool {
     pyrust::any!(pyrust::iter!(self_.friendly_bots), |p| p
         .distance_squared(pos)
@@ -378,7 +378,7 @@ pub fn vulnerable_harvesters(self_: &Builder) -> Vec<Position> {
 }
 
 /// 3-tier preference over vulnerable harvesters.
-#[must_use] 
+#[must_use]
 pub fn pick_harvester_target(self_: &Builder, vulnerable: &[Position]) -> Position {
     let my_pos = self_.my_pos;
     let mut sorted: Vec<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(vulnerable)));
@@ -410,7 +410,8 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
         make_move(self_, ct, en_core);
     } else if pyrust::vec::contains!(self_.nearby_tiles, &en_core)
         || self_.ti
-            >= (pyrust::float!(GameConstants::HARVESTER_BASE_COST.0 + 50) * (1.0 + self_.scale)) as i32
+            >= (pyrust::float!(GameConstants::HARVESTER_BASE_COST.0 + 50) * (1.0 + self_.scale))
+                as i32
     {
         explore(self_, ct);
     } else {
@@ -429,8 +430,7 @@ pub fn begin_turn_offense(self_: &mut Builder, ct: &mut Controller<'_>) {
     // In-place mutation rather than rebuild: `pyrust::collect!` always
     // emits `list(...)` in Python which would corrupt the dict-typed
     // field. Walk a snapshot of keys, decrement or remove each.
-    let keys: Vec<i32> =
-        pyrust::collect!(pyrust::copied!(self_.attack_tile_blacklist.keys()));
+    let keys: Vec<i32> = pyrust::collect!(pyrust::copied!(self_.attack_tile_blacklist.keys()));
     for k in keys {
         let v = self_.attack_tile_blacklist[&k];
         if v > 1 {

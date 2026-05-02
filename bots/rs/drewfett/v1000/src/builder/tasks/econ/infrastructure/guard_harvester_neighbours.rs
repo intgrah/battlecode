@@ -76,10 +76,14 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
             if DEBUG_LOG {
                 if DEBUG_LOG {
                     let mut args = Map::new();
-                    pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
+                    pyrust::dict::insert!(
+                        args,
+                        pyrust::to_string!("feed"),
+                        auto_wrap_position(feed)
+                    );
                     log(
-                    "guard_harvester_neighbours: ROAD on feed {feed} (prep step-off)",
-                    args,
+                        "guard_harvester_neighbours: ROAD on feed {feed} (prep step-off)",
+                        args,
                     );
                 }
             }

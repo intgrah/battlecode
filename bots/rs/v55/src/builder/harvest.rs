@@ -313,9 +313,7 @@ fn _should_use_barrier(builder: &Builder, guard_pos: Position, target: Position)
     let mut use_barrier = !must_use_conveyor;
 
     // Layer 2: prevent sealing both perpendicular flanks of the feeder.
-    if use_barrier
-        && let Some(feed) = harvester_feed_cardinal(builder, target)
-    {
+    if use_barrier && let Some(feed) = harvester_feed_cardinal(builder, target) {
         let fdx = feed.x - target.x;
         let fdy = feed.y - target.y;
         if let Some(d_feed) = delta_to_dir(fdx, fdy) {

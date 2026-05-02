@@ -181,7 +181,11 @@ fn _lay_segment(
 ) -> bool {
     if pyrust::vec::is_empty!(path) {
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("start"),
+            auto_wrap_position(start_pos)
+        );
         debug("_lay_segment FAIL: path empty at {start}", args);
         return false;
     }
@@ -225,7 +229,11 @@ fn _lay_segment(
             == pyrust::unwrap_or!(direction, Direction::Centre)
     {
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("start"),
+            auto_wrap_position(start_pos)
+        );
         debug(
             "_lay_segment OK noop: existing Conveyor already matches direction at {start}",
             args,
@@ -238,7 +246,11 @@ fn _lay_segment(
         let bridge_output = pyrust::unwrap!(ct.get_bridge_target(b));
         if !pyrust::unwrap!(ct.is_in_vision(bridge_output)) || builder.is_buildable(bridge_output) {
             let mut args = Map::new();
-            pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+            pyrust::dict::insert!(
+                args,
+                pyrust::to_string!("start"),
+                auto_wrap_position(start_pos)
+            );
             debug(
                 "_lay_segment OK noop: existing Bridge with valid output at {start}",
                 args,
@@ -259,13 +271,17 @@ fn _lay_segment(
             true,
         );
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
-        pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
         pyrust::dict::insert!(
             args,
-            pyrust::to_string!("ok"),
-            serde_json::Value::Bool(ok)
+            pyrust::to_string!("start"),
+            auto_wrap_position(start_pos)
         );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("target"),
+            auto_wrap_position(target)
+        );
+        pyrust::dict::insert!(args, pyrust::to_string!("ok"), serde_json::Value::Bool(ok));
         debug(
             "_lay_segment Bridge (next not in vision): {start}->{target} ok={ok}",
             args,
@@ -298,14 +314,18 @@ fn _lay_segment(
             true,
         );
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
-        pyrust::dict::insert!(args, pyrust::to_string!("dir"),
-            serde_json::Value::String(format!("{d:?}")));
-        pyrust::dict::insert!(args, pyrust::to_string!("ok"), serde_json::Value::Bool(ok));
-        debug(
-            "_lay_segment Conveyor at {start} dir={dir} ok={ok}",
+        pyrust::dict::insert!(
             args,
+            pyrust::to_string!("start"),
+            auto_wrap_position(start_pos)
         );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("dir"),
+            serde_json::Value::String(format!("{d:?}"))
+        );
+        pyrust::dict::insert!(args, pyrust::to_string!("ok"), serde_json::Value::Bool(ok));
+        debug("_lay_segment Conveyor at {start} dir={dir} ok={ok}", args);
         if ok {
             line(ct, start_pos, next_pos, 255, 255, 0);
             _retarget_foundry_to_junction(builder, next_pos);
@@ -316,7 +336,11 @@ fn _lay_segment(
     let pending_bridge = reachable_path_end(path, start_pos, 3);
     if builder.is_enemy_building(pending_bridge) {
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("start"),
+            auto_wrap_position(start_pos)
+        );
         pyrust::dict::insert!(
             args,
             pyrust::to_string!("target"),
@@ -338,7 +362,11 @@ fn _lay_segment(
         true,
     );
     let mut args = Map::new();
-    pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("start"),
+        auto_wrap_position(start_pos)
+    );
     pyrust::dict::insert!(
         args,
         pyrust::to_string!("target"),
@@ -429,7 +457,6 @@ pub fn extend_step(
             "greedy {resource} {start:?}->{target:?}: no Bresenham/L route"
         )));
     };
-
 
     let existing_set: HashSet<Position> =
         pyrust::collect!(pyrust::copied!(pyrust::iter!(existing_path)));

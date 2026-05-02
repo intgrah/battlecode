@@ -129,7 +129,11 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     builder.patrol_head = Some(target);
 
     let mut args = Map::new();
-    pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("target"),
+        auto_wrap_position(target)
+    );
     pyrust::dict::insert!(
         args,
         pyrust::to_string!("idx"),

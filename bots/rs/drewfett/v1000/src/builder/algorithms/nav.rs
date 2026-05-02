@@ -184,15 +184,16 @@ impl BugNav {
                 // hit, populate path_idx + committed directly and skip the
                 // planner. On a miss (or invalid entry), spawn the planner
                 // and let the result be cached on completion.
-                let cached_path: Option<Vec<Position>> = if let Some(p) = ctx.path_cache.get(&(pos, goal)) {
-                    if path_is_passable(p, ctx.cost_grid, stride as usize, ctx.w, ctx.h) {
-                        Some(pyrust::clone!(p))
+                let cached_path: Option<Vec<Position>> =
+                    if let Some(p) = ctx.path_cache.get(&(pos, goal)) {
+                        if path_is_passable(p, ctx.cost_grid, stride as usize, ctx.w, ctx.h) {
+                            Some(pyrust::clone!(p))
+                        } else {
+                            None
+                        }
                     } else {
                         None
-                    }
-                } else {
-                    None
-                };
+                    };
                 if let Some(path) = cached_path {
                     // Replay cached path into path_idx_storage / committed.
                     for (i, p) in pyrust::enumerate!(pyrust::iter!(path)) {
@@ -208,7 +209,11 @@ impl BugNav {
                     // Cache miss or invalidated entry — drop stale entry,
                     // then run bug2 from scratch.
                     if pyrust::is_some!(pyrust::dict::remove!(ctx.path_cache, &(pos, goal))) {
-                        let _filtered: VecDeque<(Position, Position)> = pyrust::collect!(pyrust::filter!(pyrust::cloned!(pyrust::iter!(ctx.path_cache_order)), |k| *k != (pos, goal)));
+                        let _filtered: VecDeque<(Position, Position)> =
+                            pyrust::collect!(pyrust::filter!(
+                                pyrust::cloned!(pyrust::iter!(ctx.path_cache_order)),
+                                |k| *k != (pos, goal)
+                            ));
                         *ctx.path_cache_order = _filtered;
                     }
                     let path_idx = pyrust::clone!(self.path_idx_storage);
@@ -231,7 +236,9 @@ impl BugNav {
 
             if !self.gen_done && pyrust::is_some!(self.planner) {
                 for _ in 0..PLAN_BUDGET {
-                    let Some(planner) = &mut self.planner else { break; };
+                    let Some(planner) = &mut self.planner else {
+                        break;
+                    };
                     match planner.step(ctx.cost_grid) {
                         Some(true) => {
                             self.gen_done = true;
@@ -320,8 +327,8 @@ impl BugNav {
             return;
         }
         let stride = STRIDE as i32;
-        let path: Vec<Position> = pyrust::collect!(pyrust::map!(pyrust::iter!(self
-            .committed), |i| Position {
+        let path: Vec<Position> =
+            pyrust::collect!(pyrust::map!(pyrust::iter!(self.committed), |i| Position {
                 x: i % stride,
                 y: i / stride,
             }));

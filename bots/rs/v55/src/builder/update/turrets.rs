@@ -66,7 +66,11 @@ pub fn update_ore_denial(builder: &mut Builder) {
     let n_deny = pyrust::len!(builder.deny_ore_neighbours) as i32;
     let n_enemy_bots = pyrust::len!(builder.state.enemy_bots) as i32;
     let mut args = Map::new();
-    pyrust::dict::insert!(args, pyrust::to_string!("ores"), Value::Number(Number::from(n_ores)));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("ores"),
+        Value::Number(Number::from(n_ores))
+    );
     pyrust::dict::insert!(
         args,
         pyrust::to_string!("with_enemy"),
@@ -82,7 +86,11 @@ pub fn update_ore_denial(builder: &mut Builder) {
         pyrust::to_string!("enemy_bots"),
         Value::Number(Number::from(n_enemy_bots))
     );
-    pyrust::dict::insert!(args, pyrust::to_string!("deny"), Value::Number(Number::from(n_deny)));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("deny"),
+        Value::Number(Number::from(n_deny))
+    );
     log(
         "ore_deny: ores={ores} with_enemy={with_enemy} deep={deep} enemy_bots={enemy_bots} deny={deny}",
         args,

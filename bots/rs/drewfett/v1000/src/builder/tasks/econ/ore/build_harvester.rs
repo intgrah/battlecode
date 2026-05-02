@@ -5,9 +5,9 @@
 //! `claim_ore` is satisfied (we stand on the ore) and `guard_harvester_neighbours`
 //! has nothing more to add to the ring.
 
+use crate::config::DEBUG_LOG;
 use cambc::{Controller, EntityType, Position};
 use serde_json::Map;
-use crate::config::DEBUG_LOG;
 
 use crate::builder::Builder;
 use crate::builder::harvest::{clear_barriered_feed, step_off_and_build_harvester};
@@ -53,13 +53,13 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
         if DEBUG_LOG {
             let mut args = Map::new();
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("target"),
-            auto_wrap_position(target)
+                args,
+                pyrust::to_string!("target"),
+                auto_wrap_position(target)
             );
             log(
-            "build_harvester: waiting on Ti for HARVESTER on {target}",
-            args,
+                "build_harvester: waiting on Ti for HARVESTER on {target}",
+                args,
             );
         }
         return None;
