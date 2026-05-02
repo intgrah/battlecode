@@ -33,6 +33,7 @@ use crate::builder::helpers::is_inward_guard;
 use crate::builder::hooks::heal::end_of_turn_heal;
 use crate::builder::hooks::indicators::indicators;
 use crate::builder::hooks::propagate_symmetry::end_of_turn_propagate_symmetry;
+use crate::builder::hooks::trim_roads::end_of_turn_trim_roads;
 use crate::builder::role::Role;
 use crate::builder::tasks::_policy::run_policy;
 use crate::builder::tasks::offense::helpers::begin_turn_offense;
@@ -1225,6 +1226,10 @@ impl Unit for Builder {
                 pyrust::with!(Scope::new_timed("symmetry"), {
                     end_of_turn_propagate_symmetry(self, ct);
                 });
+                // trim roads not enabled -- too many edge cases interacting w/ other behaviour
+                // pyrust::with!(Scope::new_timed("trim_roads"), {
+                //     end_of_turn_trim_roads(self, ct);
+                // });
             });
         });
     }

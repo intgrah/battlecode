@@ -181,7 +181,7 @@ impl BugNav {
                 &self.path_idx_storage
             };
             let cur_min = path_idx_ref[si as usize];
-            let nxt = dp_step(
+            let dp_nxt = dp_step(
                 MAX_WIDTH as i32,
                 ctx.cost_grid,
                 ctx.h,
@@ -189,14 +189,56 @@ impl BugNav {
                 path_idx_ref,
                 cur_min,
             );
+
+            // use P[1] as
+            // lookahead: pick the neighbour minimising Chebyshev distance to
+            // it, tie-breaking by cost so roads beat bare tiles.
+            let nxt = if dp_nxt != si {
+                let dp_nxt_idx = path_idx_ref[dp_nxt as usize];
+                let lookahead = if dp_nxt_idx >= 0
+                    && (dp_nxt_idx as usize + 1) < pyrust::len!(self.committed)
+                {
+                    self.committed[dp_nxt_idx as usize + 1]
+                } else {
+                    dp_nxt
+                };
+                let lx = lookahead % stride;
+                let ly = lookahead / stride;
+                let cheby_to_lookahead = (pos.x - lx).abs().max((pos.y - ly).abs());
+                if cheby_to_lookahead == 1 && ctx.cost_grid[lookahead as usize] != INF {
+                    lookahead
+                } else {
+                    let mut best = si;
+                    let mut best_cheby = i32::MAX;
+                    let mut best_cost = i32::MAX;
+                    for (dx, dy) in [(-1i32, -1i32), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)] {
+                        let nx = pos.x + dx;
+                        let ny = pos.y + dy;
+                        if nx < 0 || nx >= ctx.w || ny < 0 || ny >= ctx.h {
+                            continue;
+                        }
+                        let ni = (ny * stride + nx) as usize;
+                        if ctx.cost_grid[ni] == INF {
+                            continue;
+                        }
+                        let cheby = (nx - lx).abs().max((ny - ly).abs());
+                        let c = ctx.cost_grid[ni];
+                        if cheby < best_cheby || (cheby == best_cheby && c < best_cost) {
+                            best_cheby = cheby;
+                            best_cost = c;
+                            best = ny * stride + nx;
+                        }
+                    }
+                    best
+                } // else cheby_to_lookahead != 1
+            } else {
+                dp_nxt
+            };
+
             for (fi, prev) in saved {
                 ctx.cost_grid[fi] = prev;
             }
 
-            // dp_step returns the chosen next-step tile (one of the 8
-            // immediate neighbours) or `si` if no path tile within the
-            // 69-cell window is reachable. `nxt == si` is the only signal
-            // that the plan is unactionable from here.
             if nxt == si {
                 continue;
             }

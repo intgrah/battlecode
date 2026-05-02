@@ -99,7 +99,7 @@ pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) ->
         ));
     };
 
-    if !can_afford(self_, EntityType::Sentinel) {
+    if self_.my_pos.distance_squared(best_pos) <= 2 && !can_afford(self_, EntityType::Sentinel) {
         try_place(
             self_,
             ct,
