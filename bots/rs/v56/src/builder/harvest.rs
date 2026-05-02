@@ -17,7 +17,7 @@
 
 use std::collections::HashSet;
 
-use cambc::{Controller, ControllerApi, Direction, EntityType, Environment, Position, Team};
+use cambc::{Controller, ControllerApi, EntityType, Environment, Position, Team};
 use serde_json::Map;
 
 use crate::builder::Builder;
@@ -26,7 +26,7 @@ use crate::builder::helpers::{
     on_enemy_side, ore_available, try_move_with_road,
 };
 use crate::util::debug::debug as log;
-use crate::util::directions::{DIR4, delta_to_dir};
+use crate::util::directions::{DIR4, DIR8_DELTA, delta_to_dir};
 use crate::util::visualiser::auto_wrap_position;
 
 /// Enemy road/conveyor/splitter/bridge cardinal-adjacent to `pos`,
@@ -273,74 +273,31 @@ pub fn place_harvester_guard(
     false
 }
 
-/// Decide barrier vs inward conveyor for a guard at `guard_pos`
-/// (a cardinal of harvester `target`). Two layers:
-///
-/// 1. **U-shape rule** (the original v54.7.9 logic): if the tile
-///    *behind* the guard (the cell opposite the harvester) is
-///    passable, place a barrier — the conveyor's "out" direction
-///    would feed an open exit which the enemy could parasite. If the
-///    behind-tile is blocked AND both flanks have at least one
-///    passable cell (cardinal-or-diagonal), force conveyor — we still
-///    need an exit for the harvester's output. Otherwise (flanks
-///    also blocked) barrier.
-/// 2. **Don't seal both perpendicular cardinals of the feeder**.
-///    Letting `S` denote the feeder cardinal, `N` the opposite, and
-///    `W`/`E` the two perpendiculars: never have both `W` AND `E`
-///    impassable (wall or barrier). If we're considering placing a
-///    barrier on one perpendicular and the OTHER one is already a
-///    wall or barrier, override the U-shape decision to a conveyor.
-///    `N` is unconstrained — barriering it never seals a flank pair.
+/// Decide barrier vs inward conveyor for a guard at `guard_pos` (a
+/// cardinal of harvester `target`). Rule: barrier iff every tile in
+/// the U around the guard is unwalkable. The U is the 5 tiles around
+/// `guard_pos` on the side away from the harvester: the tile directly
+/// behind the guard, the two perpendicular cardinals, and the two
+/// diagonals adjacent to behind.
 fn _should_use_barrier(builder: &Builder, guard_pos: Position, target: Position) -> bool {
     let dx = guard_pos.x - target.x;
     let dy = guard_pos.y - target.y;
-    let Some(d) = delta_to_dir(dx, dy) else {
-        return false;
-    };
-    let top = guard_pos.add(d);
-    let left_perp = rotate_left(rotate_left(d));
-    let right_perp = rotate_right(rotate_right(d));
-    let left_diag = rotate_left(d);
-    let right_diag = rotate_right(d);
-
-    let passable = |p: Position| -> bool { builder.in_bounds(p) && builder.is_passable(p) };
-
-    let top_p = passable(top);
-    let left_p = passable(guard_pos.add(left_perp)) || passable(guard_pos.add(left_diag));
-    let right_p = passable(guard_pos.add(right_perp)) || passable(guard_pos.add(right_diag));
-
-    let must_use_conveyor = (!top_p) && left_p && right_p;
-    let mut use_barrier = !must_use_conveyor;
-
-    // Layer 2: prevent sealing both perpendicular flanks of the feeder.
-    if use_barrier
-        && let Some(feed) = harvester_feed_cardinal(builder, target)
-    {
-        let fdx = feed.x - target.x;
-        let fdy = feed.y - target.y;
-        if let Some(d_feed) = delta_to_dir(fdx, fdy) {
-            let perp_left = rotate_left(rotate_left(d_feed));
-            let perp_right = rotate_right(rotate_right(d_feed));
-            // Is the guard one of the two perpendicular cardinals?
-            let other_perp = if d == perp_left {
-                Some(perp_right)
-            } else if d == perp_right {
-                Some(perp_left)
-            } else {
-                None
-            };
-            if let Some(other) = other_perp {
-                let opp = target.add(other);
-                let already_sealed = !builder.in_bounds(opp)
-                    || builder.get_env(opp) == Some(Environment::Wall)
-                    || builder.kind_at(opp) == Some(EntityType::Barrier);
-                if already_sealed {
-                    use_barrier = false;
-                }
-            }
+    for (ddx, ddy) in DIR8_DELTA {
+        // Tiles in the U: those on or away from the harvester side
+        // relative to guard_pos. Equivalently: dot product with the
+        // guard→harvester direction is non-positive.
+        if dx * ddx + dy * ddy < 0 {
+            continue;
+        }
+        let p = Position {
+            x: guard_pos.x + ddx,
+            y: guard_pos.y + ddy,
+        };
+        if builder.in_bounds(p) && builder.is_passable(p) {
+            return false;
         }
     }
-    use_barrier
+    true
 }
 
 /// Last-resort: when `harvester_feed_cardinal(target_pos)` returns
@@ -632,30 +589,3 @@ pub fn adjacent_pave_targets(builder: &Builder, pos: Position) -> Vec<Position> 
     out
 }
 
-const fn rotate_right(d: Direction) -> Direction {
-    match d {
-        Direction::North => Direction::Northeast,
-        Direction::Northeast => Direction::East,
-        Direction::East => Direction::Southeast,
-        Direction::Southeast => Direction::South,
-        Direction::South => Direction::Southwest,
-        Direction::Southwest => Direction::West,
-        Direction::West => Direction::Northwest,
-        Direction::Northwest => Direction::North,
-        Direction::Centre => Direction::Centre,
-    }
-}
-
-const fn rotate_left(d: Direction) -> Direction {
-    match d {
-        Direction::North => Direction::Northwest,
-        Direction::Northeast => Direction::North,
-        Direction::East => Direction::Northeast,
-        Direction::Southeast => Direction::East,
-        Direction::South => Direction::Southeast,
-        Direction::Southwest => Direction::South,
-        Direction::West => Direction::Southwest,
-        Direction::Northwest => Direction::West,
-        Direction::Centre => Direction::Centre,
-    }
-}
