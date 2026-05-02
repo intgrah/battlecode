@@ -12,7 +12,7 @@ pub mod vision;
 use cambc::Controller;
 
 use crate::builder::Builder;
-use crate::builder::patrol::update_alert;
+use crate::builder::patrol::{update_alert, update_econ_explore_radius};
 use crate::config::DEBUG_INVARIANTS;
 use crate::util::debug::Scope;
 
@@ -55,12 +55,12 @@ pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
         update_alert(builder);
     }
     {
-        let _g = Scope::new_timed("econ");
-        econ::update_map_econ(builder, ct);
+        let _g = Scope::new_timed("econ_explore_radius");
+        update_econ_explore_radius(builder);
     }
     {
-        let _g = Scope::new_timed("econ_reach");
-        econ::update_economy_reachability(builder);
+        let _g = Scope::new_timed("econ");
+        econ::update_map_econ(builder, ct);
     }
     {
         let _g = Scope::new_timed("dangling");

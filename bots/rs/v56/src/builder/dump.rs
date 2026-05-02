@@ -479,10 +479,6 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
                 pyrust::copied!(pyrust::iter!(builder.ax_upstream)),
             );
             vis_tiles(
-                "upstream_of_dangling",
-                pyrust::copied!(pyrust::iter!(builder.upstream_of_dangling)),
-            );
-            vis_tiles(
                 "my_foundries",
                 pyrust::copied!(pyrust::iter!(builder.my_foundries)),
             );
@@ -563,46 +559,47 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             } else {
                 vis_tile("patrol_target", None);
             }
-            // Combine all clusters' raw cycles + expanded cycles into single
-            // Path dumps (each cluster closes back to its start).
-            let mut raw_all: Vec<Position> = pyrust::vec::new!();
-            let mut exp_all: Vec<Position> = pyrust::vec::new!();
+            // One Path per cluster, each closing on itself. Avoids
+            // spurious edges between unrelated clusters.
             for i in 0..n_clusters {
                 let q = &builder.patrol_clusters[i];
                 if pyrust::vec::is_empty!(q) {
                     continue;
                 }
+                let mut raw: Vec<Position> = pyrust::clone!(q);
+                pyrust::vec::push!(raw, q[0]);
+                let mut exp: Vec<Position> = pyrust::vec::new!();
                 for p in q {
-                    pyrust::vec::push!(raw_all, *p);
-                    pyrust::vec::push!(
-                        exp_all,
-                        expand_outward(*p, core, expansion, w, h)
-                    );
+                    pyrust::vec::push!(exp, expand_outward(*p, core, expansion, w, h));
                 }
-                pyrust::vec::push!(raw_all, q[0]);
-                pyrust::vec::push!(
-                    exp_all,
-                    expand_outward(q[0], core, expansion, w, h)
+                pyrust::vec::push!(exp, expand_outward(q[0], core, expansion, w, h));
+                vis(
+                    &format!("patrol_cycle_{i}"),
+                    &Dump::Path {
+                        points: raw,
+                        colour: Colour::new(255, 200, 80, 200),
+                    },
+                );
+                vis(
+                    &format!("patrol_cycle_{i}_expanded"),
+                    &Dump::Path {
+                        points: exp,
+                        colour: Colour::new(120, 220, 255, 200),
+                    },
                 );
             }
-            vis(
-                "patrol_cycle",
-                &Dump::Path {
-                    points: raw_all,
-                    colour: Colour::new(255, 200, 80, 200),
-                },
-            );
-            vis(
-                "patrol_cycle_expanded",
-                &Dump::Path {
-                    points: exp_all,
-                    colour: Colour::new(120, 220, 255, 200),
-                },
-            );
         }
         vis_scalar_int(
             "n_patrol_clusters",
             pyrust::len!(builder.patrol_clusters) as i64,
+        );
+        vis_scalar_int(
+            "econ_explore_radius_sq",
+            i64::from(builder.econ_explore_radius_sq),
+        );
+        vis_scalar_int(
+            "rounds_since_harvester_add",
+            i64::from(builder.state.round - builder.last_harvester_add_round),
         );
         // for y in 0..h {
         //     let base = (y as usize) * MAX_WIDTH;

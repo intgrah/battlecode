@@ -106,6 +106,7 @@ pub fn _add_topology(
         EntityType::Harvester => {
             if team == builder.state.my_team {
                 pyrust::set::add!(builder.my_harvesters, pos);
+                builder.last_harvester_add_round = builder.state.round;
                 insert_into_clusters(
                     &mut builder.patrol_clusters,
                     &mut builder.patrol_cluster_centroids,
