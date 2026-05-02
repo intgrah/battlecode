@@ -16,6 +16,7 @@ use cambc::Controller;
 use crate::builder::Builder;
 use crate::config::DEBUG_INVARIANTS;
 use crate::util::debug::Scope;
+use crate::util::posint::idx_of;
 use crate::util::trace;
 
 pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
@@ -30,7 +31,7 @@ pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
         }
         let mut cur: Vec<i32> = pyrust::vec::new!();
         for &pos in &builder.state.nearby_tiles {
-            let pi = crate::util::posint::idx_of(pos);
+            let pi = idx_of(pos);
             builder.vision_mask[pi as usize] = 1;
             pyrust::vec::push!(cur, pi);
         }
