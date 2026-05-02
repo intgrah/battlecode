@@ -1,8 +1,12 @@
 UNFIXED
 not cardinally adjacent to a vulnerable harvester
 exploration kinda broken -- bot stuck at edge of map
-strange adjaceny logic in turret_around_harvester
 
 FIXED
 bug2 can't path to impassible
 don't extend a path instead of waiting for sentinel
+place a road instead of turret if we can't afford
+road scaling marginally improved
+
+MAYBE FIXED
+minor improvement to bug pathfinding to greedily prefer roads MAY STILL HAVE BUG
