@@ -343,7 +343,17 @@ pub fn extend_step(
         resource,
         ResourceType::RawAxionite | ResourceType::RefinedAxionite
     );
+    // v56-style: try greedy_route (Bresenham + 2 L-shapes, O(N)) first.
+    // Falls back to A* only when all three greedy attempts hit walls
+    // unbridgeable. Greedy is ~10x cheaper per call and yields shorter
+    // paths in most open-map cases.
     let path = {
+        let _g = Scope::new_timed("conv_greedy");
+        crate::builder::algorithms::greedy_route::greedy_route(builder, start, target, resource)
+    };
+    let path = if pyrust::is_some!(path) {
+        path
+    } else {
         let _g = Scope::new_timed("conv_astar");
         if is_ax {
             builder.ax_conv_astar(ct, start, target, resource)
