@@ -1,7 +1,11 @@
 //! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/push/split_before_sentinel.py`.
 //!
-//! Upgrade the conveyor immediately upstream of a friendly sentinel into
-//! a splitter, forking the offensive chain into three outputs.
+//! Upgrade the conveyor immediately upstream of any friendly turret
+//! (Sentinel / Gunner / Breach / Launcher) into a splitter, forking the
+//! offensive chain into three outputs. The two side outputs become open-
+//! ended terrain tiles that get picked up as dangling tips, letting the
+//! chain extend past the turret instead of stalling against its 1-stack
+//! capacity.
 
 use cambc::{BuildExtra, Controller, Direction, EntityType, Position};
 
@@ -43,9 +47,17 @@ pub fn split_before_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
     let mut best_dist = 1 << 30;
     for &sent_pos in &self_.nearby_buildings {
         let pi_sent = idx_of(sent_pos);
-        if !(self_.kind_at_p(pi_sent) == Some(EntityType::Sentinel)
-            && self_.team_at_p(pi_sent) == Some(self_.my_team))
-        {
+        let kind = self_.kind_at_p(pi_sent);
+        let is_turret = matches!(
+            kind,
+            Some(
+                EntityType::Sentinel
+                    | EntityType::Gunner
+                    | EntityType::Breach
+                    | EntityType::Launcher
+            )
+        );
+        if !is_turret || self_.team_at_p(pi_sent) != Some(self_.my_team) {
             continue;
         }
         let feeders = pyrust::clone!(self_.in_edges[pi_sent as usize]);
@@ -76,7 +88,7 @@ pub fn split_before_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
 
     let (Some(best_split), Some(best_dir)) = (best_split, best_dir) else {
         return Some(TaskRejected::new(
-            "no friendly sentinel with a splittable upstream conveyor",
+            "no friendly turret with a splittable upstream conveyor",
         ));
     };
 
