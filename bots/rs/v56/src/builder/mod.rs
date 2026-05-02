@@ -45,7 +45,7 @@ use crate::hardcode::identify::{KnownMap, identify_map};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH, ROAD_COST};
 use crate::util::debug::Scope;
-use crate::util::directions::{DIR4, DIR8};
+use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
 use crate::util::symmetry::Symmetry;
 use crate::util::visualiser::auto_wrap_position;
 use cambc::Team;
@@ -188,6 +188,7 @@ pub struct Builder {
     pub offense_target: Option<Position>,
     pub offense_turns: i32,
     pub offense_launcher: Option<Position>,
+    pub harvester_target: Option<Position>,
     pub last_fire: Option<(Position, i32)>,
     pub attack_tile_blacklist: HashMap<Position, i32>,
 
@@ -365,6 +366,7 @@ impl Builder {
             offense_target: None,
             offense_turns: 0,
             offense_launcher: None,
+            harvester_target: None,
             last_fire: None,
             attack_tile_blacklist: pyrust::dict::new!(),
             _step_off_wait_turns: 0,

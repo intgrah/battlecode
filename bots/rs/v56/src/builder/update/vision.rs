@@ -459,6 +459,27 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
         }
     }
 
+    // Rebuild adjacent_to_enemy_launcher for all currently-visible enemy
+    // launchers. prune_stale removes in-vision entries; _update_turret_rays
+    // only fires on building change — so stable launchers would otherwise
+    // lose their neighbors from the set each turn.
+    let nearby_buildings: Vec<_> = pyrust::clone!(builder.nearby_buildings);
+    for pos in nearby_buildings {
+        let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
+        if builder.building_kind[i] != Some(EntityType::Launcher) {
+            continue;
+        }
+        if builder.building_team[i] == Some(builder.state.my_team) {
+            continue;
+        }
+        for d in DIR8 {
+            let n = pos.add(d);
+            if builder.in_bounds(n) {
+                pyrust::set::add!(builder.adjacent_to_enemy_launcher, n);
+            }
+        }
+    }
+
     if pyrust::is_none!(builder.symmetry) {
         _narrow_symmetry(builder, &new_observations);
     }

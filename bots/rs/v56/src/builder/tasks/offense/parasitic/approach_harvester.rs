@@ -19,11 +19,20 @@ use crate::util::metrics::closest;
 pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let vulnerable = vulnerable_harvesters(self_);
     if pyrust::vec::is_empty!(vulnerable) {
+        self_.harvester_target = None;
         return Some(TaskRejected::new(
             "no vulnerable enemy harvesters in vision",
         ));
     }
-    let target = pick_harvester_target(self_, &vulnerable);
+    if let Some(cached) = self_.harvester_target {
+        if !pyrust::vec::contains!(vulnerable, &cached) {
+            self_.harvester_target = None;
+        }
+    }
+    if pyrust::is_none!(self_.harvester_target) {
+        self_.harvester_target = Some(pick_harvester_target(self_, &vulnerable));
+    }
+    let target = pyrust::unwrap!(self_.harvester_target);
 
     let on_friendly_conveyor = is_allied_transport(self_, self_.my_pos);
     if self_.my_pos.distance_squared(target) == 1 && !on_friendly_conveyor {

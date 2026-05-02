@@ -40,9 +40,11 @@ pub fn apply_threat_overlay(builder: &mut Builder) {
     )));
     for tile in launcher_tiles {
         let i = (tile.y as usize) * MAX_WIDTH + (tile.x as usize);
-        if builder.cost_grid[i] != INF && !pyrust::vec::contains!(builder._threat_bumped, &i) {
-            builder.cost_grid[i] += THREAT_PENALTY;
-            pyrust::set::add!(builder._threat_bumped, i);
+        if builder.cost_grid[i] != INF {
+            if !pyrust::vec::contains!(builder._threat_bumped, &i) {
+                pyrust::set::add!(builder._threat_bumped, i);
+            }
+            builder.cost_grid[i] = INF;
         }
     }
 }

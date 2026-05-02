@@ -140,19 +140,14 @@ pub struct Bug2Planner {
 impl Bug2Planner {
     /// Construct a new planner. Equivalent to entering the Python generator.
     #[must_use]
-    pub fn new(cost: &[i32], w: i32, h: i32, si: i32, gi: i32, path_idx: Vec<i32>) -> Self {
+    pub fn new(cost: &[i32], w: i32, h: i32, si: i32, mut gi: i32, path_idx: Vec<i32>) -> Self {
         let stride = MAX_WIDTH as i32;
         let n_pad = stride * stride;
         let sx = si % stride;
         let sy = si / stride;
-        let gx = gi % stride;
-        let gy = gi / stride;
-        let (gi, gx, gy) = if cost[gi as usize] != INF {
-            (gi, gx, gy)
-        } else {
-            let mut best_gi = gi;
-            let mut best_gx = gx;
-            let mut best_gy = gy;
+        let mut gx = gi % stride;
+        let mut gy = gi / stride;
+        if cost[gi as usize] == INF {
             let mut best_dist = i32::MAX;
             for d in 0..8usize {
                 let nx = gx + DX[d];
@@ -169,13 +164,12 @@ impl Bug2Planner {
                 let dist = ddx * ddx + ddy * ddy;
                 if dist < best_dist {
                     best_dist = dist;
-                    best_gi = ni;
-                    best_gx = nx;
-                    best_gy = ny;
+                    gi = ni;
+                    gx = nx;
+                    gy = ny;
                 }
             }
-            (best_gi, best_gx, best_gy)
-        };
+        }
         let mdx = gx - sx;
         let mdy = gy - sy;
         let goal_dot = mdx * mdx + mdy * mdy;
