@@ -1,0 +1,892 @@
+===== [1/30] galaxy =====
+Running match: v55 (rust) vs v54
+  Map: galaxy.map26  Seed: 1  Replay: /tmp/b30/1_galaxy.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Replay written to /tmp/b30/1_galaxy.replay26
+
+  Winner: v54  (core_destroyed, turn 538)
+
+                    v55 (rust)               v54
+    Titanium          0 (4050)        117 (6120)
+    Axionite             0 (0)             0 (0)
+       Units                10                15
+   Buildings               839               230
+
+===== [2/30] bar_chart =====
+Running match: v55 (rust) vs v54
+  Map: bar_chart.map26  Seed: 1  Replay: /tmp/b30/2_bar_chart.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/2_bar_chart.replay26
+
+  Winner: v55 (rust)  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium     28825 (43150)         149 (480)
+    Axionite             0 (0)             0 (0)
+       Units                33                 8
+   Buildings               552                61
+
+===== [3/30] face =====
+Running match: v55 (rust) vs v54
+  Map: face.map26  Seed: 1  Replay: /tmp/b30/3_face.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/3_face.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium         63 (3510)       527 (10780)
+    Axionite             0 (0)             0 (0)
+       Units                 6                39
+   Buildings               139               141
+
+===== [4/30] merchant_ship =====
+Running match: v55 (rust) vs v54
+  Map: merchant_ship.map26  Seed: 1  Replay: /tmp/b30/4_merchant_ship.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Replay written to /tmp/b30/4_merchant_ship.replay26
+
+  Winner: v54  (core_destroyed, turn 1063)
+
+                    v55 (rust)               v54
+    Titanium       181 (11370)       390 (30750)
+    Axionite             0 (0)             0 (0)
+       Units                17                34
+   Buildings               441               231
+
+===== [5/30] drawing_circles_is_hard =====
+Running match: v55 (rust) vs v54
+  Map: drawing_circles_is_hard.map26  Seed: 1  Replay: /tmp/b30/5_drawing_circles_is_hard.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/5_drawing_circles_is_hard.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium        175 (7550)       532 (31640)
+    Axionite             0 (0)             0 (0)
+       Units                12                29
+   Buildings              1183               343
+
+===== [6/30] hopscotch =====
+Running match: v55 (rust) vs v54
+  Map: hopscotch.map26  Seed: 1  Replay: /tmp/b30/6_hopscotch.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/6_hopscotch.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium          33 (730)       626 (39570)
+    Axionite             0 (0)             0 (0)
+       Units                 9                39
+   Buildings               356               408
+
+===== [7/30] gaussian =====
+Running match: v55 (rust) vs v54
+  Map: gaussian.map26  Seed: 1  Replay: /tmp/b30/7_gaussian.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/7_gaussian.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium         30 (5730)      9223 (26890)
+    Axionite             0 (0)             0 (0)
+       Units                12                45
+   Buildings               331               218
+
+===== [8/30] s =====
+Running match: v55 (rust) vs v54
+  Map: s.map26  Seed: 1  Replay: /tmp/b30/8_s.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Replay written to /tmp/b30/8_s.replay26
+
+  Winner: v55 (rust)  (core_destroyed, turn 1643)
+
+                    v55 (rust)               v54
+    Titanium        138 (3862)         46 (3460)
+    Axionite             2 (2)             0 (0)
+       Units                21                10
+   Buildings               313               108
+
+===== [9/30] strings =====
+Running match: v55 (rust) vs v54
+  Map: strings.map26  Seed: 1  Replay: /tmp/b30/9_strings.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/9_strings.replay26
+
+  Winner: v55 (rust)  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium       135 (13760)        114 (8610)
+    Axionite             0 (0)             0 (0)
+       Units                18                14
+   Buildings               616               193
+
+===== [10/30] first_sound =====
+Running match: v55 (rust) vs v54
+  Map: first_sound.map26  Seed: 1  Replay: /tmp/b30/10_first_sound.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/10_first_sound.replay26
+
+  Winner: v55 (rust)  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium       129 (23780)       324 (11190)
+    Axionite             0 (0)             0 (0)
+       Units                22                13
+   Buildings               501               131
+
+===== [11/30] default_large2 =====
+Running match: v55 (rust) vs v54
+  Map: default_large2.map26  Seed: 1  Replay: /tmp/b30/11_default_large2.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/11_default_large2.replay26
+
+  Winner: v55 (rust)  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium       278 (32080)        87 (18130)
+    Axionite             0 (0)             0 (0)
+       Units                10                19
+   Buildings               962               188
+
+===== [12/30] hooks =====
+Running match: v55 (rust) vs v54
+  Map: hooks.map26  Seed: 1  Replay: /tmp/b30/12_hooks.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/12_hooks.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium         44 (4170)       138 (62800)
+    Axionite             0 (0)             0 (0)
+       Units                 5                49
+   Buildings               269               396
+
+===== [13/30] pointing =====
+Running match: v55 (rust) vs v54
+  Map: pointing.map26  Seed: 1  Replay: /tmp/b30/13_pointing.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/13_pointing.replay26
+
+  Winner: v55 (rust)  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium          10 (260)           130 (0)
+    Axionite             0 (0)             0 (0)
+       Units                10                 8
+   Buildings               661               167
+
+===== [14/30] not_a_blank_white_page =====
+Running match: v55 (rust) vs v54
+  Map: not_a_blank_white_page.map26  Seed: 1  Replay: /tmp/b30/14_not_a_blank_white_page.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/14_not_a_blank_white_page.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium        270 (9600)       359 (29020)
+    Axionite             0 (0)             0 (0)
+       Units                15                28
+   Buildings               781               364
+
+===== [15/30] corridors =====
+Running match: v55 (rust) vs v54
+  Map: corridors.map26  Seed: 1  Replay: /tmp/b30/15_corridors.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Replay written to /tmp/b30/15_corridors.replay26
+
+  Winner: v54  (core_destroyed, turn 653)
+
+                    v55 (rust)               v54
+    Titanium         13 (4730)       220 (11090)
+    Axionite             0 (0)             0 (0)
+       Units                15                30
+   Buildings               212               223
+
+===== [16/30] far_lands =====
+Running match: v55 (rust) vs v54
+  Map: far_lands.map26  Seed: 1  Replay: /tmp/b30/16_far_lands.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/16_far_lands.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium            60 (0)        212 (6420)
+    Axionite             0 (0)             0 (0)
+       Units                 7                12
+   Buildings               520               179
+
+===== [17/30] thread_of_connection =====
+Running match: v55 (rust) vs v54
+  Map: thread_of_connection.map26  Seed: 1  Replay: /tmp/b30/17_thread_of_connection.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Replay written to /tmp/b30/17_thread_of_connection.replay26
+
+  Winner: v54  (core_destroyed, turn 572)
+
+                    v55 (rust)               v54
+    Titanium         19 (3480)       462 (13550)
+    Axionite             0 (0)             0 (0)
+       Units                 8                28
+   Buildings                82               158
+
+===== [18/30] shrub =====
+Running match: v55 (rust) vs v54
+  Map: shrub.map26  Seed: 1  Replay: /tmp/b30/18_shrub.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/18_shrub.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium     20628 (42760)      5863 (61890)
+    Axionite             0 (0)             0 (0)
+       Units                21                39
+   Buildings               308               219
+
+===== [19/30] butterfly =====
+Running match: v55 (rust) vs v54
+  Map: butterfly.map26  Seed: 1  Replay: /tmp/b30/19_butterfly.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Replay written to /tmp/b30/19_butterfly.replay26
+
+  Winner: v54  (core_destroyed, turn 1289)
+
+                    v55 (rust)               v54
+    Titanium        29 (19250)      2680 (29600)
+    Axionite             0 (0)             0 (0)
+       Units                12                49
+   Buildings               328               152
+
+===== [20/30] coffee =====
+Running match: v55 (rust) vs v54
+  Map: coffee.map26  Seed: 1  Replay: /tmp/b30/20_coffee.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Replay written to /tmp/b30/20_coffee.replay26
+
+  Winner: v55 (rust)  (core_destroyed, turn 1227)
+
+                    v55 (rust)               v54
+    Titanium       227 (13320)        22 (19510)
+    Axionite             0 (0)             0 (0)
+       Units                12                17
+   Buildings              1065               281
+
+===== [21/30] pixel_forest =====
+Running match: v55 (rust) vs v54
+  Map: pixel_forest.map26  Seed: 1  Replay: /tmp/b30/21_pixel_forest.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/21_pixel_forest.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium         37 (3630)       204 (15710)
+    Axionite             0 (0)             0 (0)
+       Units                 6                19
+   Buildings               308               238
+
+===== [22/30] the_great_divide =====
+Running match: v55 (rust) vs v54
+  Map: the_great_divide.map26  Seed: 1  Replay: /tmp/b30/22_the_great_divide.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/22_the_great_divide.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium         21 (1650)       157 (17410)
+    Axionite             0 (0)             0 (0)
+       Units                 3                14
+   Buildings               867               318
+
+===== [23/30] default_medium2 =====
+Running match: v55 (rust) vs v54
+  Map: default_medium2.map26  Seed: 1  Replay: /tmp/b30/23_default_medium2.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/23_default_medium2.replay26
+
+  Winner: v55 (rust)  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium        276 (8622)         75 (3540)
+    Axionite         512 (512)             0 (0)
+       Units                16                11
+   Buildings               655                83
+
+===== [24/30] pong =====
+Running match: v55 (rust) vs v54
+  Map: pong.map26  Seed: 1  Replay: /tmp/b30/24_pong.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/24_pong.replay26
+
+  Winner: v55 (rust)  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium      9935 (65322)    75515 (108290)
+    Axionite     17227 (17227)             0 (0)
+       Units                29                39
+   Buildings               529               507
+
+===== [25/30] lightning =====
+Running match: v55 (rust) vs v54
+  Map: lightning.map26  Seed: 1  Replay: /tmp/b30/25_lightning.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Replay written to /tmp/b30/25_lightning.replay26
+
+  Winner: v55 (rust)  (core_destroyed, turn 987)
+
+                    v55 (rust)               v54
+    Titanium        160 (3980)          0 (3130)
+    Axionite             0 (0)             0 (0)
+       Units                13                12
+   Buildings               411               119
+
+===== [26/30] mandelbrot =====
+Running match: v55 (rust) vs v54
+  Map: mandelbrot.map26  Seed: 1  Replay: /tmp/b30/26_mandelbrot.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/26_mandelbrot.replay26
+
+  Winner: v55 (rust)  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium       165 (57880)       186 (13840)
+    Axionite             0 (0)             0 (0)
+       Units                18                10
+   Buildings              1322               210
+
+===== [27/30] socket =====
+Running match: v55 (rust) vs v54
+  Map: socket.map26  Seed: 1  Replay: /tmp/b30/27_socket.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Replay written to /tmp/b30/27_socket.replay26
+
+  Winner: v55 (rust)  (core_destroyed, turn 1351)
+
+                    v55 (rust)               v54
+    Titanium        63 (12150)       133 (16600)
+    Axionite             0 (0)             0 (0)
+       Units                13                21
+   Buildings               293               186
+
+===== [28/30] pls_buy_cucats_merch =====
+Running match: v55 (rust) vs v54
+  Map: pls_buy_cucats_merch.map26  Seed: 1  Replay: /tmp/b30/28_pls_buy_cucats_merch.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/28_pls_buy_cucats_merch.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium        284 (1640)       134 (18400)
+    Axionite             0 (0)             0 (0)
+       Units                 1                 9
+   Buildings               826               194
+
+===== [29/30] impossible_knot =====
+Running match: v55 (rust) vs v54
+  Map: impossible_knot.map26  Seed: 1  Replay: /tmp/b30/29_impossible_knot.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Completed turn 400
+Completed turn 500
+Completed turn 600
+Completed turn 700
+Completed turn 800
+Completed turn 900
+Completed turn 1000
+Completed turn 1100
+Completed turn 1200
+Completed turn 1300
+Completed turn 1400
+Completed turn 1500
+Completed turn 1600
+Completed turn 1700
+Completed turn 1800
+Completed turn 1900
+Replay written to /tmp/b30/29_impossible_knot.replay26
+
+  Winner: v54  (resources, turn 2000)
+
+                    v55 (rust)               v54
+    Titanium         13 (9870)       210 (28410)
+    Axionite             0 (0)             0 (0)
+       Units                18                29
+   Buildings              1047               303
+
+===== [30/30] default_small1 =====
+Running match: v55 (rust) vs v54
+  Map: default_small1.map26  Seed: 1  Replay: /tmp/b30/30_default_small1.replay26  TLE: off
+Completed turn 0
+Completed turn 100
+Completed turn 200
+Completed turn 300
+Replay written to /tmp/b30/30_default_small1.replay26
+
+  Winner: v54  (core_destroyed, turn 344)
+
+                    v55 (rust)               v54
+    Titanium         45 (1070)          61 (710)
+    Axionite             0 (0)             0 (0)
+       Units                 9                13
+   Buildings                63                71
+
+===== ALL DONE =====

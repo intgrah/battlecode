@@ -16,6 +16,7 @@ use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Positi
 use serde_json::Map;
 
 use crate::builder::Builder;
+use crate::builder::algorithms::greedy_route::greedy_route;
 use crate::builder::helpers::{
     make_move, on_enemy_side, trace_upstream, try_move_with_road, try_place,
 };
@@ -335,22 +336,17 @@ pub fn extend_step(
         resource,
         ResourceType::RawAxionite | ResourceType::RefinedAxionite
     );
+    // Greedy-only: Bresenham → L(x,y) → L(y,x). If all three are
+    // blocked we just reject the chain extension this turn — no A*
+    // fallback. The A* code (econ_astar.rs) is intentionally left
+    // intact and unused so it can be re-wired later if needed.
     let path = {
-        let _g = Scope::new_timed("conv_astar");
-        if is_ax {
-            builder.ax_conv_astar(start, target, resource, ct)
-        } else {
-            builder.ti_conv_astar(start, target, resource, ct)
-        }
+        let _g = Scope::new_timed("conv_greedy");
+        greedy_route(builder, start, target, resource)
     };
     let Some(mut path) = path else {
-        let fail = if is_ax {
-            pyrust::clone!(builder.ax_conv_search.last_fail_reason)
-        } else {
-            pyrust::clone!(builder.conv_search.last_fail_reason)
-        };
         return Some(TaskRejected::from_string(format!(
-            "A* {resource} {start:?}->{target:?}: {fail}"
+            "greedy {resource} {start:?}->{target:?}: no Bresenham/L route"
         )));
     };
 
