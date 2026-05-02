@@ -57,11 +57,7 @@ pub fn emit_file(
     }
     w.set_runtime_idents(runtime.idents);
     w.set_module_refs(runtime.module_refs);
-    if let Some(text) = docstring::collect(&file.attrs) {
-        for line in docstring::format(&text) {
-            w.line(&line);
-        }
-    }
+    w.emit_docstring(&file.attrs);
     // Defer annotation evaluation so cross-module type references (e.g.
     // `Builder` in a hooks/ submodule) don't trigger circular imports at
     // module-init time.

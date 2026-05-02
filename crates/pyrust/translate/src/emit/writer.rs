@@ -85,6 +85,27 @@ impl PyWriter {
         }
     }
 
+    /// True iff `--cfg preserve_comments` was passed. When false (the
+    /// default), doc-comment emission is suppressed everywhere.
+    pub fn preserve_comments(&self) -> bool {
+        self.cfg.is_set("preserve_comments")
+    }
+
+    /// Emit a doc-comment block from `attrs` if `--cfg preserve_comments`
+    /// is set. No-op otherwise. Replaces the open-coded
+    /// `if let Some(text) = docstring::collect ... docstring::format ...`
+    /// pattern at every emit site.
+    pub fn emit_docstring(&mut self, attrs: &[syn::Attribute]) {
+        if !self.preserve_comments() {
+            return;
+        }
+        if let Some(text) = super::docstring::collect(attrs) {
+            for line in super::docstring::format(&text) {
+                self.line(&line);
+            }
+        }
+    }
+
     /// True iff we're already expanding `name`'s body. Used to short-
     /// circuit recursive inline calls so we don't expand forever.
     pub fn is_inlining(&self, name: &str) -> bool {

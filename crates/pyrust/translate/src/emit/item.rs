@@ -1,6 +1,5 @@
 use syn::spanned::Spanned;
 
-use super::docstring;
 use super::expr;
 use super::stmt::{self, Tail};
 use super::types::{self, Ty};
@@ -402,11 +401,7 @@ fn emit_c_enum_with_impls(
     // against ints behave the way Rust's `enum X { A = 0, ... }` does.
     w.line(&format!("class {name}(IntEnum):"));
     w.enter_indent();
-    if let Some(text) = docstring::collect(&e.attrs) {
-        for line in docstring::format(&text) {
-            w.line(&line);
-        }
-    }
+    w.emit_docstring(&e.attrs);
     if e.variants.is_empty() && impls.is_empty() {
         w.line("pass");
     } else {
@@ -471,11 +466,7 @@ fn emit_sum_enum_with_file(
     file: &syn::File,
 ) -> Result<(), String> {
     let enum_name = e.ident.to_string();
-    if let Some(text) = docstring::collect(&e.attrs) {
-        for line in docstring::format(&text) {
-            w.line(&line);
-        }
-    }
+    w.emit_docstring(&e.attrs);
     // Collect `impl <enum_name> { fn ... }` blocks once — every variant
     // class needs the methods so calls like `MarkerSymmetry(...).encode()`
     // and `b.team()` work directly on the variant instance.
@@ -500,11 +491,7 @@ fn emit_sum_enum_with_file(
         w.line("@dataclass(frozen=True, slots=True)");
         w.line(&format!("class {class_name}:"));
         w.enter_indent();
-        if let Some(text) = docstring::collect(&v.attrs) {
-            for line in docstring::format(&text) {
-                w.line(&line);
-            }
-        }
+        w.emit_docstring(&v.attrs);
         match &v.fields {
             syn::Fields::Unit => {
                 w.line("pass");
@@ -609,11 +596,7 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
             // Unit struct → class with optional methods from impl blocks.
             w.line(&format!("class {class_name}:"));
             w.enter_indent();
-            if let Some(text) = docstring::collect(&s.attrs) {
-                for line in docstring::format(&text) {
-                    w.line(&line);
-                }
-            }
+            w.emit_docstring(&s.attrs);
             let is_ctx = w.is_context_manager_type(&class_name);
             let mut emitted_method = false;
             w.enter_class(class_name.clone());
@@ -684,11 +667,7 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
     };
     w.line(&header);
     w.enter_indent();
-    if let Some(text) = docstring::collect(&s.attrs) {
-        for line in docstring::format(&text) {
-            w.line(&line);
-        }
-    }
+    w.emit_docstring(&s.attrs);
 
     // Field annotations (PEP 526).
     let mut field_specs = Vec::with_capacity(fields.len());
@@ -940,11 +919,7 @@ fn emit_init_from_new(
     w.line(&format!("def __init__({header_params}):"));
     w.enter_indent();
     w.enter_block();
-    if let Some(text) = docstring::collect(&new_fn.attrs) {
-        for line in docstring::format(&text) {
-            w.line(&line);
-        }
-    }
+    w.emit_docstring(&new_fn.attrs);
     w.declare("self", Ty::Unknown);
     for (n, t) in &param_types {
         w.declare(n, *t);
@@ -1052,11 +1027,7 @@ fn emit_method(w: &mut PyWriter, f: &syn::ImplItemFn) -> Result<(), String> {
 
     w.enter_indent();
     w.enter_block();
-    if let Some(text) = docstring::collect(&f.attrs) {
-        for line in docstring::format(&text) {
-            w.line(&line);
-        }
-    }
+    w.emit_docstring(&f.attrs);
     if has_self {
         w.declare("self", Ty::Unknown);
     }
@@ -1144,11 +1115,7 @@ fn emit_thread_local(w: &mut PyWriter, mac: &syn::Macro) -> Result<(), String> {
             .map_err(|e| w.err(ty.span(), format!("thread_local type: {e}")))?;
         let init_em = expr::emit_expr(w, init)?;
         w.line(&format!("{}: {py_ty} = {}", s.ident, init_em.text));
-        if let Some(text) = docstring::collect(&s.attrs) {
-            for line in docstring::format(&text) {
-                w.line(&line);
-            }
-        }
+        w.emit_docstring(&s.attrs);
     }
     Ok(())
 }
@@ -1336,11 +1303,7 @@ fn emit_trait(w: &mut PyWriter, t: &syn::ItemTrait) -> Result<(), String> {
     let name = t.ident.to_string();
     w.line(&format!("class {name}:"));
     w.enter_indent();
-    if let Some(text) = docstring::collect(&t.attrs) {
-        for line in docstring::format(&text) {
-            w.line(&line);
-        }
-    }
+    w.emit_docstring(&t.attrs);
     w.enter_class(name);
     let mut emitted = false;
     for item in &t.items {
@@ -1377,11 +1340,7 @@ fn emit_static(w: &mut PyWriter, s: &syn::ItemStatic) -> Result<(), String> {
         .map_err(|e| w.err(s.ty.span(), format!("static type: {e}")))?;
     let rhs = expr::emit_expr(w, &s.expr)?;
     w.line(&format!("{name}: {py_ty} = {}", rhs.text));
-    if let Some(text) = docstring::collect(&s.attrs) {
-        for line in docstring::format(&text) {
-            w.line(&line);
-        }
-    }
+    w.emit_docstring(&s.attrs);
     let ty = types::type_from_annotation(&s.ty);
     w.declare(&name, ty);
     Ok(())
@@ -1398,11 +1357,7 @@ fn emit_const(w: &mut PyWriter, c: &syn::ItemConst) -> Result<(), String> {
         .map_err(|e| w.err(c.ty.span(), format!("const type: {e}")))?;
     let rhs = expr::emit_expr(w, &c.expr)?;
     w.line(&format!("{name}: Final[{py_ty}] = {}", rhs.text));
-    if let Some(text) = docstring::collect(&c.attrs) {
-        for line in docstring::format(&text) {
-            w.line(&line);
-        }
-    }
+    w.emit_docstring(&c.attrs);
     let ty = types::type_from_annotation(&c.ty);
     w.declare(&name, ty);
     Ok(())
@@ -1424,11 +1379,7 @@ fn emit_fn(w: &mut PyWriter, f: &syn::ItemFn) -> Result<(), String> {
         // main is rendered as flat top-level statements (no def, no extra indent).
         // We do not push an indent level; we still push a scope frame so cross-block
         // shadowing detection works against an empty outer frame (the file scope).
-        if let Some(text) = docstring::collect(&f.attrs) {
-            for line in docstring::format(&text) {
-                w.line(&line);
-            }
-        }
+        w.emit_docstring(&f.attrs);
         emit_top_level_block(w, &f.block)?;
         return Ok(());
     }
@@ -1437,11 +1388,7 @@ fn emit_fn(w: &mut PyWriter, f: &syn::ItemFn) -> Result<(), String> {
     w.line(&format!("def {name}({}):", param_names.join(", ")));
     w.enter_indent();
     w.enter_block();
-    if let Some(text) = docstring::collect(&f.attrs) {
-        for line in docstring::format(&text) {
-            w.line(&line);
-        }
-    }
+    w.emit_docstring(&f.attrs);
     let assigned_globals = collect_assigned_statics(&f.block, w);
     if !assigned_globals.is_empty() {
         w.line(&format!("global {}", assigned_globals.join(", ")));

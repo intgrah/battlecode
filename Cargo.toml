@@ -21,6 +21,7 @@ members = [
     "bots/rs/v56",
     "bots/rs/nothing/*",
     "bots/rs/drewfett/v1000",
+    "bots/rs/drewfett/v1001",
     "pkg/common",
     "pkg/visualiser/viewer",
 ]
