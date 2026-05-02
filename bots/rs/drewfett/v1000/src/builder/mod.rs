@@ -29,6 +29,7 @@ use serde_json::Map;
 use crate::builder::algorithms::econ_astar::AStarSearch;
 use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::algorithms::nav::{BugNav, NavCtx};
+use crate::builder::algorithms::nav_bfs::NavBfs;
 use crate::builder::algorithms::reachability::{find_ro, update_reachability};
 use crate::builder::dump::dump as dump_state;
 use crate::builder::hooks::heal::end_of_turn_heal;
@@ -160,7 +161,7 @@ pub struct Builder {
     /// goal; `step_bfs` reads it via gradient descent. Lives parallel to
     /// `bugnav` — `next_step_toward` tries BFS first and falls back to
     /// bug2 if BFS hasn't found a path.
-    pub nav_bfs: crate::builder::algorithms::nav_bfs::NavBfs,
+    pub nav_bfs: NavBfs,
 
     /// WS-6: memoized bug2 results across turns. Key is `(start, target)` of a
     /// completed plan, value is the ordered tile sequence (start ... target).
@@ -352,7 +353,7 @@ impl Builder {
             conv_search: AStarSearch::new(),
             ax_conv_search: AStarSearch::new(),
             bugnav: BugNav::new(),
-            nav_bfs: crate::builder::algorithms::nav_bfs::NavBfs::new(1, 1),
+            nav_bfs: NavBfs::new(1, 1),
             budget_telemetry: BudgetTelemetry::new(),
             bug2_path_cache: HashMap::new(),
             bug2_path_cache_order: VecDeque::new(),
@@ -1221,7 +1222,7 @@ impl Unit for Builder {
         // its pnb tables in one shot (max ~2500 real tiles → ~10k ops,
         // fast). No chunked init; we'd rather pay the post_init cost than
         // run partial BFS on the first few turns.
-        self.nav_bfs = crate::builder::algorithms::nav_bfs::NavBfs::new(
+        self.nav_bfs = NavBfs::new(
             self.state.width,
             self.state.height,
         );

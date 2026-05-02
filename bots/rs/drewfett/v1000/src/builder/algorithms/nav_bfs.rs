@@ -95,8 +95,12 @@ impl NavBfs {
             passable[(ry * pw + pw - 1) as usize] = 0;
         }
 
-        let pnb_push: Vec<Vec<i32>> = (0..n_us).map(|_| pyrust::vec::new!()).collect();
-        let pnb_set: Vec<Vec<i32>> = (0..n_us).map(|_| pyrust::vec::new!()).collect();
+        let mut pnb_push: Vec<Vec<i32>> = pyrust::vec::new!();
+        let mut pnb_set: Vec<Vec<i32>> = pyrust::vec::new!();
+        for _ in 0..n_us {
+            pyrust::vec::push!(pnb_push, pyrust::vec::new!());
+            pyrust::vec::push!(pnb_set, pyrust::vec::new!());
+        }
 
         let offsets: [i32; 8] = [
             -pw + 1,  // NE
@@ -168,11 +172,11 @@ impl NavBfs {
     pub fn set_passable(&mut self, i: i32, passable: bool) {
         let pi = self.real_to_padded(i);
         let old = self.passable[pi as usize];
-        let new = if passable { 1u8 } else { 0u8 };
-        if old == new {
+        let new_val: u8 = if passable { 1u8 } else { 0u8 };
+        if old == new_val {
             return;
         }
-        self.passable[pi as usize] = new;
+        self.passable[pi as usize] = new_val;
         if passable {
             pyrust::set::add!(self.pnb_dirty, pi);
         } else {
@@ -181,7 +185,7 @@ impl NavBfs {
         // Mark walkable neighbours dirty too — their pnb depends on `pi`.
         for &off in &self.offsets {
             let ni = pi + off;
-            if ni >= 0 && (ni as usize) < self.passable.len() && self.passable[ni as usize] != 0 {
+            if ni >= 0 && (ni as usize) < self.n as usize && self.passable[ni as usize] != 0 {
                 pyrust::set::add!(self.pnb_dirty, ni);
             }
         }
@@ -339,8 +343,9 @@ impl NavBfs {
         let mut g = self.gen_val + 1;
         if g > 200 {
             g = 1;
-            for v in self.gen_arr.iter_mut() {
-                *v = 0;
+            let n_us = self.n as usize;
+            for i in 0..n_us {
+                self.gen_arr[i] = 0;
             }
         }
         self.gen_val = g;
@@ -445,7 +450,7 @@ impl NavBfs {
             let off = self.offsets[ii];
             let (dx, dy) = deltas[ii];
             let ni = ci + off;
-            if ni < 0 || (ni as usize) >= self.passable.len() {
+            if ni < 0 || (ni as usize) >= self.n as usize {
                 continue;
             }
             if self.passable[ni as usize] == 0 {
