@@ -37,14 +37,21 @@ fn is_enemy_valuable(self_: &Builder, pos: Position) -> bool {
     )
 }
 
-/// `side` is a deliverer for a turret at `pos` iff it's a structural
-/// feeder of `pos` or a friendly harvester.
+/// `side` is a deliverer for a sentinel at `pos` iff it's a structural
+/// feeder of `pos` or a friendly **Ti** harvester. Ax harvesters output
+/// raw Ax — sentinels accept Ti as ammo and would clog/waste resources
+/// if we treated an Ax harvester as a delivery slot. Without this
+/// filter we'd avoid facing the Ax-harvester direction (preserving a
+/// nonexistent ammo input) and lose a viable enemy-attack facing.
 fn delivers_ammo(self_: &Builder, pos: Position, side: Position) -> bool {
     let in_edges = &self_.in_edges[idx_of(pos) as usize];
     if pyrust::vec::contains!(in_edges, &side) {
         return true;
     }
-    self_.kind_at(side) == Some(EntityType::Harvester) && self_.team_at(side) == Some(self_.my_team)
+    let i = idx_of(side) as usize;
+    self_.building_kind[i] == Some(EntityType::Harvester)
+        && self_.building_team[i] == Some(self_.my_team)
+        && self_.env[i] == Some(cambc::Environment::OreTitanium)
 }
 
 /// First DIR8 direction such that a sentinel at `pos` facing `d`
