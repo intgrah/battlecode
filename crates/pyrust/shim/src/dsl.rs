@@ -172,6 +172,14 @@ macro_rules! __pyrust_sqrt {
     };
 }
 
+/// `pyrust::atan2!(y, x)` — Rust `y.atan2(x)`, Python `math.atan2(y, x)`.
+#[macro_export]
+macro_rules! __pyrust_atan2 {
+    ($y:expr, $x:expr) => {
+        ($y).atan2($x)
+    };
+}
+
 /// `pyrust::powf!(x, y)` — Rust `x.powf(y)`, Python `(x ** y)`.
 #[macro_export]
 macro_rules! __pyrust_powf {

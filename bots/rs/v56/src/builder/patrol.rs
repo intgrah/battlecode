@@ -49,7 +49,13 @@ const _SIZE_CAP_KNEE: f64 = 4.0;
 /// past this point at the same rate.
 const _SIZE_CAP_HALF: f64 = 10.0;
 #[pyrust::inline]
-const _CLUSTER_THRESHOLD: i32 = 100;
+const _CLUSTER_THRESHOLD: i32 = 50;
+#[pyrust::inline]
+/// Centroid weight of a Harvester member.
+pub const HARVESTER_WEIGHT: f64 = 4.0;
+#[pyrust::inline]
+/// Centroid weight of a Conveyor / ArmouredConveyor member.
+pub const CONVEYOR_WEIGHT: f64 = 1.0;
 #[pyrust::inline]
 const _REROLL_INTERVAL: i32 = 50;
 
@@ -226,13 +232,28 @@ fn _centroid_d2(centroid: (f64, f64), p: Position) -> f64 {
     dx * dx + dy * dy
 }
 
-/// Insert `p` into the cluster system: join the cluster with the
-/// closest centroid if d² ≤ `_CLUSTER_THRESHOLD`; otherwise spawn a
-/// new cluster `[p]`. Insertion-NN within the chosen cluster.
+/// Sort `cluster` by polar angle around `centroid`. The resulting cycle
+/// visits members in counter-clockwise order from due-east — non-self-
+/// intersecting for points roughly in convex position. Angle is
+/// discretised to an i64 key (×1e6) because `f64` isn't `Ord`.
+fn _polar_sort(cluster: &mut Vec<Position>, centroid: (f64, f64)) {
+    pyrust::sort_by_key!(cluster, |p| {
+        let dy = pyrust::float!(p.y) - centroid.1;
+        let dx = pyrust::float!(p.x) - centroid.0;
+        (pyrust::atan2!(dy, dx) * 1_000_000.0) as i64
+    });
+}
+
+/// Insert `p` (member weight `w`) into the cluster system: join the
+/// cluster with the closest centroid if d² ≤ `_CLUSTER_THRESHOLD`;
+/// otherwise spawn a new cluster `[p]`. Cycle order maintained by
+/// polar-sort around the (weighted) centroid after every change.
 pub fn insert_into_clusters(
     clusters: &mut Vec<Vec<Position>>,
     centroids: &mut Vec<(f64, f64)>,
+    weights: &mut Vec<f64>,
     p: Position,
+    w: f64,
 ) {
     let n = pyrust::len!(clusters);
     let mut best_i: usize = 0;
@@ -249,36 +270,29 @@ pub fn insert_into_clusters(
         pyrust::vec::push!(q, p);
         pyrust::vec::push!(clusters, q);
         pyrust::vec::push!(centroids, (pyrust::float!(p.x), pyrust::float!(p.y)));
+        pyrust::vec::push!(weights, w);
         return;
     }
-    // Insertion-NN: find closest entry in chosen cluster, insert after.
-    let q = &mut clusters[best_i];
-    let mut bj: usize = 0;
-    let mut bd = p.distance_squared(q[0]);
-    for j in 1..pyrust::len!(q) {
-        let d = p.distance_squared(q[j]);
-        if d < bd {
-            bd = d;
-            bj = j;
-        }
-    }
-    q.insert(bj + 1, p);
-    // Update centroid as running mean.
-    let new_size = pyrust::float!(pyrust::len!(q));
-    let old_size = new_size - 1.0;
-    let cx = (centroids[best_i].0 * old_size + pyrust::float!(p.x)) / new_size;
-    let cy = (centroids[best_i].1 * old_size + pyrust::float!(p.y)) / new_size;
+    pyrust::vec::push!(clusters[best_i], p);
+    let old_w = weights[best_i];
+    let new_w = old_w + w;
+    let cx = (centroids[best_i].0 * old_w + pyrust::float!(p.x) * w) / new_w;
+    let cy = (centroids[best_i].1 * old_w + pyrust::float!(p.y) * w) / new_w;
     centroids[best_i] = (cx, cy);
+    weights[best_i] = new_w;
+    _polar_sort(&mut clusters[best_i], centroids[best_i]);
 }
 
-/// Insert `p` into the closest existing cluster IFF its centroid is
-/// within `_CLUSTER_THRESHOLD`. No new cluster is spawned — used for
-/// "decoration" tiles (friendly conveyors) that should join an existing
-/// harvester cluster but never seed one of their own.
+/// Insert `p` (member weight `w`) into the closest existing cluster IFF
+/// its centroid is within `_CLUSTER_THRESHOLD`. No new cluster is
+/// spawned — used for "decoration" tiles (friendly conveyors) that
+/// should join an existing harvester cluster but never seed one.
 pub fn insert_into_existing_cluster(
     clusters: &mut Vec<Vec<Position>>,
     centroids: &mut Vec<(f64, f64)>,
+    weights: &mut Vec<f64>,
     p: Position,
+    w: f64,
 ) {
     let n = pyrust::len!(clusters);
     if n == 0 {
@@ -296,30 +310,25 @@ pub fn insert_into_existing_cluster(
     if best_d > pyrust::float!(_CLUSTER_THRESHOLD) {
         return;
     }
-    let q = &mut clusters[best_i];
-    let mut bj: usize = 0;
-    let mut bd = p.distance_squared(q[0]);
-    for j in 1..pyrust::len!(q) {
-        let d = p.distance_squared(q[j]);
-        if d < bd {
-            bd = d;
-            bj = j;
-        }
-    }
-    q.insert(bj + 1, p);
-    let new_size = pyrust::float!(pyrust::len!(q));
-    let old_size = new_size - 1.0;
-    let cx = (centroids[best_i].0 * old_size + pyrust::float!(p.x)) / new_size;
-    let cy = (centroids[best_i].1 * old_size + pyrust::float!(p.y)) / new_size;
+    pyrust::vec::push!(clusters[best_i], p);
+    let old_w = weights[best_i];
+    let new_w = old_w + w;
+    let cx = (centroids[best_i].0 * old_w + pyrust::float!(p.x) * w) / new_w;
+    let cy = (centroids[best_i].1 * old_w + pyrust::float!(p.y) * w) / new_w;
     centroids[best_i] = (cx, cy);
+    weights[best_i] = new_w;
+    _polar_sort(&mut clusters[best_i], centroids[best_i]);
 }
 
-/// Remove `p` from whichever cluster contains it. Update centroid; if
-/// the cluster becomes empty, drop it (and its centroid).
+/// Remove `p` (member weight `w`, must match the weight it was added
+/// with) from whichever cluster contains it. Update centroid; if the
+/// cluster becomes empty, drop it (and its centroid + weight).
 pub fn remove_from_clusters(
     clusters: &mut Vec<Vec<Position>>,
     centroids: &mut Vec<(f64, f64)>,
+    weights: &mut Vec<f64>,
     p: Position,
+    w: f64,
 ) {
     let n = pyrust::len!(clusters);
     let mut found_i: i32 = -1;
@@ -340,18 +349,18 @@ pub fn remove_from_clusters(
     }
     let i = found_i as usize;
     pyrust::vec::retain!(clusters[i], |&q| q != p);
-    let new_size = pyrust::len!(clusters[i]);
-    if new_size == 0 {
+    if pyrust::vec::is_empty!(clusters[i]) {
         clusters.remove(i);
         centroids.remove(i);
+        weights.remove(i);
         return;
     }
-    let old_size = new_size + 1;
-    let cx = (centroids[i].0 * pyrust::float!(old_size) - pyrust::float!(p.x))
-        / pyrust::float!(new_size);
-    let cy = (centroids[i].1 * pyrust::float!(old_size) - pyrust::float!(p.y))
-        / pyrust::float!(new_size);
+    let old_w = weights[i];
+    let new_w = old_w - w;
+    let cx = (centroids[i].0 * old_w - pyrust::float!(p.x) * w) / new_w;
+    let cy = (centroids[i].1 * old_w - pyrust::float!(p.y) * w) / new_w;
     centroids[i] = (cx, cy);
+    weights[i] = new_w;
 }
 
 /// Cluster with the closest centroid to `pos`. Returns 0 if there are
@@ -384,47 +393,6 @@ fn _weighted_random_cluster(builder: &mut Builder) -> usize {
     *pyrust::rng_choices!(builder.state.rng, population, weights, 1)[0] as usize
 }
 
-/// Try one random 2-opt swap on the chosen cluster. No-op if cluster
-/// has fewer than 4 nodes (no non-adjacent edge pair). Picks two
-/// random non-adjacent edges; if reversing the segment between them
-/// shortens the tour, applies the reversal in place.
-fn _try_one_2opt_swap(builder: &mut Builder, ci: usize) {
-    let n = pyrust::len!(builder.patrol_clusters[ci]);
-    if n < 4 {
-        return;
-    }
-    let r1 = builder.state.rng.random();
-    let r2 = builder.state.rng.random();
-    let i = (r1 * pyrust::float!(n)) as usize % n;
-    let j = (r2 * pyrust::float!(n)) as usize % n;
-    if i == j {
-        return;
-    }
-    if (i + 1) % n == j || (j + 1) % n == i {
-        return;
-    }
-    let (lo, hi) = if i < j { (i, j) } else { (j, i) };
-    let cluster = &builder.patrol_clusters[ci];
-    let a = cluster[lo];
-    let b = cluster[lo + 1];
-    let c = cluster[hi];
-    let d = cluster[(hi + 1) % n];
-    let cur = a.distance_squared(b) + c.distance_squared(d);
-    let alt = a.distance_squared(c) + b.distance_squared(d);
-    if alt < cur {
-        let cluster_mut = &mut builder.patrol_clusters[ci];
-        let mut l = lo + 1;
-        let mut r = hi;
-        while l < r {
-            let tmp = cluster_mut[l];
-            cluster_mut[l] = cluster_mut[r];
-            cluster_mut[r] = tmp;
-            l += 1;
-            r -= 1;
-        }
-    }
-}
-
 pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     let n_clusters = pyrust::len!(builder.patrol_clusters);
     if n_clusters == 0 {
@@ -448,10 +416,6 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
         builder.patrol_pos_idx = usize::MAX;
     }
     builder.patrol_cluster_idx = ci;
-
-    // Per-turn cycle self-correction: one random 2-opt swap on the
-    // active cluster (if it has >= 4 nodes). Cheap O(1) per turn.
-    _try_one_2opt_swap(builder, ci);
 
     let qlen = pyrust::len!(builder.patrol_clusters[ci]);
     if qlen == 0 {

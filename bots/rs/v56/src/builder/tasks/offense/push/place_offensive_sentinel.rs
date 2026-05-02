@@ -6,11 +6,11 @@ use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Positi
 
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, make_move, move_random, try_place};
-use serde_json::Map;
-use crate::util::debug::{debug as log};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::constants::MAX_WIDTH;
+use crate::util::debug::debug as log;
 use crate::util::directions::DIR8;
+use serde_json::Map;
 
 /// Sentinel-worthy enemy targets.
 fn is_enemy_valuable(self_: &Builder, pos: Position) -> bool {
@@ -67,7 +67,6 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
 }
 
 pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-
     let mut best_pos: Option<Position> = None;
     let mut best_facing: Option<Direction> = None;
     let mut best_dist = 1 << 30;
@@ -108,10 +107,7 @@ pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) ->
             BuildExtra::None,
             false,
         );
-        log(
-            "cannot afford SENTINEL, paved with road",
-            Map::new(),
-        );
+        log("cannot afford SENTINEL, paved with road", Map::new());
         return None;
     }
 

@@ -369,10 +369,10 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
     if !self_.en_core_seen {
         let stride = MAX_WIDTH as i32;
         let core_i = (en_core.y * stride + en_core.x) as usize;
-        let scout_target = if self_.cost_grid[core_i] == INF {
+        let mut scout_target = en_core;
+        if self_.cost_grid[core_i] == INF {
             let w = self_.state.width;
             let h = self_.state.height;
-            let mut best: Option<Position> = None;
             let mut best_dist = i32::MAX;
             for dy in -2i32..=2 {
                 for dx in -2i32..=2 {
@@ -385,17 +385,17 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
                     if self_.cost_grid[ni] == INF {
                         continue;
                     }
-                    let dist = self_.state.my_pos.distance_squared(Position { x: nx, y: ny });
+                    let dist = self_
+                        .state
+                        .my_pos
+                        .distance_squared(Position { x: nx, y: ny });
                     if dist < best_dist {
                         best_dist = dist;
-                        best = Some(Position { x: nx, y: ny });
+                        scout_target = Position { x: nx, y: ny };
                     }
                 }
             }
-            best.unwrap_or(en_core)
-        } else {
-            en_core
-        };
+        }
         make_move(self_, ct, scout_target);
     } else if pyrust::vec::contains!(self_.nearby_tiles, &en_core)
         || self_.ti

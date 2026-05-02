@@ -349,10 +349,7 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
     // rewrite as builtins.
     match (method.as_str(), arg_texts.as_slice()) {
         ("abs", []) => {
-            return Ok(Emitted::atomic(
-                format!("abs({recv_text})"),
-                Ty::Unknown,
-            ));
+            return Ok(Emitted::atomic(format!("abs({recv_text})"), Ty::Unknown));
         }
         ("max", [arg]) => {
             return Ok(Emitted::atomic(
@@ -2500,6 +2497,18 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             let inner = emit_expr(w, &args[0])?;
             Ok(Some(Emitted::atomic(
                 format!("math.sqrt({})", inner.text),
+                Ty::Float,
+            )))
+        }
+        ["atan2"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "atan2!: expected (y, x)"));
+            }
+            let y = emit_expr(w, &args[0])?;
+            let x = emit_expr(w, &args[1])?;
+            Ok(Some(Emitted::atomic(
+                format!("math.atan2({}, {})", y.text, x.text),
                 Ty::Float,
             )))
         }

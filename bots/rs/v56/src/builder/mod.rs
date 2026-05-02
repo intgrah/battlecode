@@ -45,7 +45,7 @@ use crate::hardcode::identify::{KnownMap, identify_map};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH, ROAD_COST};
 use crate::util::debug::Scope;
-use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
+use crate::util::directions::{DIR4, DIR8};
 use crate::util::symmetry::Symmetry;
 use crate::util::visualiser::auto_wrap_position;
 use cambc::Team;
@@ -214,9 +214,15 @@ pub struct Builder {
     /// join the cluster with the closest centroid (within d² ≤ 200);
     /// else spawn a new cluster.
     pub patrol_clusters: Vec<Vec<Position>>,
-    /// Centroid (mean position) of each cluster, parallel to
-    /// `patrol_clusters`. Updated on every add/remove.
+    /// Weighted-mean position of each cluster, parallel to
+    /// `patrol_clusters`. Harvesters contribute 4× the weight of
+    /// conveyors so the centroid stays anchored on harvesters even
+    /// when the surrounding chain has many conveyor decoration tiles.
     pub patrol_cluster_centroids: Vec<(f64, f64)>,
+    /// Total weight per cluster (sum of member weights). Parallel to
+    /// `patrol_clusters` / `patrol_cluster_centroids`. Used to
+    /// recompute the weighted centroid on add/remove.
+    pub patrol_cluster_weights: Vec<f64>,
     /// Which cluster this builder is currently patrolling.
     pub patrol_cluster_idx: usize,
     /// Index into the chosen cluster's queue.
@@ -378,6 +384,7 @@ impl Builder {
             _prev_ti: 500,
             patrol_clusters: pyrust::vec::new!(),
             patrol_cluster_centroids: pyrust::vec::new!(),
+            patrol_cluster_weights: pyrust::vec::new!(),
             patrol_cluster_idx: usize::MAX,
             patrol_pos_idx: usize::MAX,
             patrol_last_reroll_round: -1,
@@ -1011,26 +1018,6 @@ impl Unit for Builder {
         self.state.init_static_state(ct);
         let core = self.resolve_my_core(ct);
         self.set_my_core(core);
-        // Seed cluster 0 with the 4 corners of the 3×3 core footprint
-        // in cyclic order (NW→NE→SE→SW) so the path forms a square, not
-        // an hourglass. Centroid = my_core.
-        let mut seed_cluster: Vec<Position> = pyrust::vec::new!();
-        for &(dx, dy) in &[(-1, -1), (1, -1), (1, 1), (-1, 1)] {
-            let c = Position {
-                x: core.x + dx,
-                y: core.y + dy,
-            };
-            if self.in_bounds(c) {
-                pyrust::vec::push!(seed_cluster, c);
-            }
-        }
-        if !pyrust::vec::is_empty!(seed_cluster) {
-            pyrust::vec::push!(self.patrol_clusters, seed_cluster);
-            pyrust::vec::push!(
-                self.patrol_cluster_centroids,
-                (pyrust::float!(core.x), pyrust::float!(core.y))
-            );
-        }
 
         let r2 = self.state.rng.random();
         self.patrol_dir = if r2 < 0.5 { 1 } else { -1 };

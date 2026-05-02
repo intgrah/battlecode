@@ -131,30 +131,35 @@ pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
     {
         return None;
     }
-    for d in DIR8 {
-        let n = position.add(d);
-        if !self_.in_bounds(n) {
+    // For each friendly harvester H cardinally adjacent to `position`,
+    // react iff some OTHER DIR4 cardinal of H holds an enemy
+    // gunner/sentinel. DIR4 (not DIR8) because parasitic chain-stealing
+    // requires cardinal connectivity from the enemy turret to H.
+    for h_dir in DIR4 {
+        let h_pos = position.add(h_dir);
+        if !self_.in_bounds(h_pos) {
             continue;
         }
-        let nk = self_.kind_at(n);
-        let nt = self_.team_at(n);
-        let is_enemy_gunner_or_sentinel =
-            matches!(nk, Some(EntityType::Gunner | EntityType::Sentinel))
-                && pyrust::is_some!(nt)
-                && nt != Some(self_.my_team);
-        if !is_enemy_gunner_or_sentinel {
+        if self_.kind_at(h_pos) != Some(EntityType::Harvester)
+            || self_.team_at(h_pos) != Some(self_.my_team)
+        {
             continue;
         }
-        for harvester_direction in DIR4 {
-            if harvester_direction != d {
-                let hn = position.add(harvester_direction);
-                if !self_.in_bounds(hn) {
-                    continue;
-                }
-                if self_.kind_at(hn) == Some(EntityType::Harvester) {
-                    return Some(d);
-                }
+        for e_dir in DIR4 {
+            let e_pos = h_pos.add(e_dir);
+            if e_pos == position || !self_.in_bounds(e_pos) {
+                continue;
             }
+            let nk = self_.kind_at(e_pos);
+            let nt = self_.team_at(e_pos);
+            let is_enemy_gunner_or_sentinel =
+                matches!(nk, Some(EntityType::Gunner | EntityType::Sentinel))
+                    && pyrust::is_some!(nt)
+                    && nt != Some(self_.my_team);
+            if !is_enemy_gunner_or_sentinel {
+                continue;
+            }
+            return Some(direction_to(position, e_pos));
         }
     }
     None
