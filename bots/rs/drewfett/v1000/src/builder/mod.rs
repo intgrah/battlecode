@@ -156,6 +156,12 @@ pub struct Builder {
     /// Bug2-bounded planner + `dp_step` path-follower. Persists across turns.
     pub bugnav: BugNav,
 
+    /// Backwards-BFS navigation. Maintains a dist field from the current
+    /// goal; `step_bfs` reads it via gradient descent. Lives parallel to
+    /// `bugnav` — `next_step_toward` tries BFS first and falls back to
+    /// bug2 if BFS hasn't found a path.
+    pub nav_bfs: crate::builder::algorithms::nav_bfs::NavBfs,
+
     /// WS-6: memoized bug2 results across turns. Key is `(start, target)` of a
     /// completed plan, value is the ordered tile sequence (start ... target).
     /// Entries are validated against `cost_grid` before reuse — any tile that
@@ -346,6 +352,7 @@ impl Builder {
             conv_search: AStarSearch::new(),
             ax_conv_search: AStarSearch::new(),
             bugnav: BugNav::new(),
+            nav_bfs: crate::builder::algorithms::nav_bfs::NavBfs::new(1, 1),
             budget_telemetry: BudgetTelemetry::new(),
             bug2_path_cache: HashMap::new(),
             bug2_path_cache_order: VecDeque::new(),
@@ -847,11 +854,37 @@ impl Builder {
         self.reach_parent = ctx.reach_parent;
     }
 
-    /// One A* step toward `target`. Returns the next position to step to,
-    /// or `None` if the goal is unreachable / already at goal. Borrow-splits
-    /// internally so the bugnav state and the cost grid can be passed
-    /// simultaneously.
+    /// Sync NavBfs passability from cost_grid for tiles in
+    /// `state.nearby_tiles`. cost_grid `!= INF` means walkable.
+    /// Cheap: O(60) per turn, set_passable no-ops when unchanged.
+    pub fn sync_nav_bfs_passable(&mut self) {
+        let w = self.state.width;
+        let nearby = pyrust::clone!(self.state.nearby_tiles);
+        for pos in &nearby {
+            let real_i = pos.y * w + pos.x;
+            let walkable = self.cost_grid[idx_of(*pos) as usize] != INF;
+            self.nav_bfs.set_passable(real_i, walkable);
+        }
+    }
+
+    /// One step toward `target`. Tries BFS first (gradient descent on
+    /// the dist field), falls back to bug2 if BFS hasn't reached the
+    /// agent's tile yet (initial turns) or returns no-path.
     pub fn bugnav_step(&mut self, target: Position) -> Option<Position> {
+        // BFS attempt — uses up to ~256 queue pops per call. Reaches
+        // the agent in ≤1 call for typical map sizes once goal is set.
+        let bfs_step = self.nav_bfs.search(self.state.my_pos, target, 1024);
+        if let Some(path) = bfs_step
+            && pyrust::len!(path) >= 2
+        {
+            // BFS suggested a step. Trust it unless the chosen tile is
+            // a friendly bot (BFS doesn't know about transient bot
+            // positions); in that case fall through to bug2.
+            let next = path[1];
+            if !pyrust::dict::contains!(self.state.all_bots, &next) {
+                return Some(next);
+            }
+        }
         let Self {
             bugnav,
             cost_grid,
@@ -1183,6 +1216,18 @@ impl Unit for Builder {
 
         let s = pyrust::float!(pyrust::max!(self.state.width, self.state.height));
         self.econ_radius_sq = pyrust::round!(((0.7 * s) * (0.7 * s))) as i32;
+
+        // Re-create NavBfs with actual map dimensions, then fully build
+        // its pnb tables in one shot (max ~2500 real tiles → ~10k ops,
+        // fast). No chunked init; we'd rather pay the post_init cost than
+        // run partial BFS on the first few turns.
+        self.nav_bfs = crate::builder::algorithms::nav_bfs::NavBfs::new(
+            self.state.width,
+            self.state.height,
+        );
+        while !self.nav_bfs.ready() {
+            self.nav_bfs.init_pnb_chunk(10000);
+        }
 
         // Mark off-map cells as INF, and the "hole" stride slots
         // (x ∈ [MAX_WIDTH, STRIDE)) stay INF forever — they're never valid
