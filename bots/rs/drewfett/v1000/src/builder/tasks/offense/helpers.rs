@@ -407,7 +407,13 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
         self_.en_core_seen = true;
     }
 
-    if !self_.en_core_seen {
+    // Pre-econ (no friendly harvester yet): don't beeline to enemy core.
+    // Falls through to explore() / random walk so the bot covers nearby
+    // fog and contributes to econ instead of dying alone deep in enemy
+    // territory.
+    let pre_econ = pyrust::vec::is_empty!(self_.my_harvesters);
+
+    if !self_.en_core_seen && !pre_econ {
         make_move(self_, ct, en_core);
     } else if pyrust::vec::contains!(self_.nearby_tiles, &en_core)
         || self_.ti
