@@ -243,7 +243,6 @@ pub struct Builder {
     pub explore_heading: Option<(i32, i32)>,
 
     // post_init-derived
-    pub opportunistic: bool,
     /// Ratchet d² bound for the ECON-bounded explore locus. A
     /// candidate explore tile is accepted iff its d² to some member of
     /// the bot's chosen cluster is ≤ this. Shrinks on harvester
@@ -391,7 +390,6 @@ impl Builder {
             _vision_offsets: vision_offsets,
             explore_target: None,
             explore_heading: None,
-            opportunistic: false,
             econ_explore_radius_sq: 64,
             last_harvester_add_round: 0,
             econ_radius_sq: 0,
@@ -1134,8 +1132,6 @@ impl Unit for Builder {
             );
         }
 
-        let r = self.state.rng.random();
-        self.opportunistic = r < 0.5;
         let r2 = self.state.rng.random();
         self.patrol_dir = if r2 < 0.5 { 1 } else { -1 };
 

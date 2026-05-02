@@ -37,7 +37,7 @@ const _ALERT_MAX: i32 = 60;
 /// max-alert all builders. `min_chebyshev_to_mirrored_core - this`.
 const _PRE_EMPTIVE_BUFFER: i32 = 8;
 #[pyrust::inline]
-const _EXPANSION_LOW: f64 = 8.0;
+const _EXPANSION_LOW: f64 = 6.0;
 #[pyrust::inline]
 /// Cluster size at which the size-cap on expansion starts dropping.
 /// Below this, the size-cap is _EXPANSION_LOW (8). Above, it falls

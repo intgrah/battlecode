@@ -16,7 +16,6 @@ use crate::builder::tasks::econ::ore::build_harvester::build_harvester;
 use crate::builder::tasks::econ::ore::claim_ore::claim_ore;
 use crate::builder::tasks::shared::explore::explore;
 use crate::builder::tasks::shared::heal::HEAL_GROUP;
-use crate::builder::tasks::shared::opportunistic_attack::opportunistic_attack;
 use crate::builder::tasks::shared::wander::wander;
 
 fn _alert_high(self_: &mut Builder, _ct: &mut Controller<'_>) -> bool {
@@ -79,10 +78,6 @@ const DEFENSE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "patrol_fallback",
         fn_: patrol,
-    },
-    Policy::Leaf {
-        name: "opportunistic_attack",
-        fn_: opportunistic_attack,
     },
     Policy::Leaf {
         name: "explore",
