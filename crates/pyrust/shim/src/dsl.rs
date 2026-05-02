@@ -974,6 +974,18 @@ macro_rules! __pyrust_string_is_empty {
     };
 }
 
+/// `pyrust::string::join!(sep, iter)` — `sep.join(iter)` in Python,
+/// `iter.collect::<Vec<_>>().join(sep)` in Rust (`String::join` over a
+/// slice). `iter` may be any iterator/owned collection of items that
+/// `&str: Display` accepts via the array's `join` impl.
+#[macro_export]
+macro_rules! __pyrust_string_join {
+    ($sep:expr, $iter:expr) => {{
+        let __v: ::std::vec::Vec<_> = ::std::iter::IntoIterator::into_iter($iter).collect();
+        __v.join($sep)
+    }};
+}
+
 /// `pyrust::to_string!(x)` — Python `str(x)` or no-op when already str.
 #[macro_export]
 macro_rules! __pyrust_to_string {
@@ -986,20 +998,28 @@ macro_rules! __pyrust_to_string {
 // Time — monotonic nanosecond clock
 // =====================================================================
 
+/// Shared process-wide epoch for `pyrust::time::now_ns!()`. Living in
+/// the shim crate (not re-declared per macro site) so every call to
+/// `now_ns!()` measures against the SAME zero point — otherwise
+/// independent expansion sites would each lazily initialise their own
+/// `Instant`, and a `t1 - t0` across two sites would underflow.
+#[doc(hidden)]
+pub fn __pyrust_now_ns() -> u64 {
+    use ::std::sync::OnceLock;
+    use ::std::time::Instant;
+    static EPOCH: OnceLock<Instant> = OnceLock::new();
+    EPOCH.get_or_init(Instant::now).elapsed().as_nanos() as u64
+}
+
 /// `pyrust::time::now_ns!()` — wall/monotonic time in nanoseconds as u64.
-/// Rust: `Instant::now()` relative to a process-local epoch (lazily
+/// Rust: `Instant::now()` relative to a process-wide epoch (lazily
 /// initialised on first call). Python: `time.perf_counter_ns()`.
 ///
 /// Used only for instrumentation (debug timing). Values are inherently
 /// non-deterministic; replays exclude these from byte-equality checks.
 #[macro_export]
 macro_rules! __pyrust_time_now_ns {
-    () => {{
-        use ::std::sync::OnceLock;
-        use ::std::time::Instant;
-        static EPOCH: OnceLock<Instant> = OnceLock::new();
-        EPOCH.get_or_init(Instant::now).elapsed().as_nanos() as u64
-    }};
+    () => {{ $crate::__pyrust_now_ns() }};
 }
 
 // =====================================================================
@@ -1012,5 +1032,16 @@ macro_rules! __pyrust_time_now_ns {
 macro_rules! __pyrust_serde_array_mut {
     ($v:expr) => {
         $v.as_array_mut().unwrap()
+    };
+}
+
+/// `pyrust::serde::to_value!(x)` — Rust `serde_json::to_value(x).unwrap()`,
+/// Python identity. Used where a strongly-typed Rust value needs to be
+/// stuffed into a `Value` blob; in Python the value is already a dict /
+/// list / scalar of the right shape so no conversion is needed.
+#[macro_export]
+macro_rules! __pyrust_serde_to_value {
+    ($x:expr) => {
+        ::serde_json::to_value($x).unwrap()
     };
 }

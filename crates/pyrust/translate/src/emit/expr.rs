@@ -3428,6 +3428,20 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 prec: Prec::Cmp,
             }))
         }
+        ["string", "join"] => {
+            // `pyrust::string::join!(sep, iter)` — Python `sep.join(iter)`,
+            // Rust `iter.collect::<Vec<_>>().join(sep)` (handled by the
+            // shim macro). The arg order matches Python's `str.join`.
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "string::join!: expected (sep, iter)"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!("{}.join({})", emits[0].text, emits[1].text),
+                Ty::Str,
+            )))
+        }
 
         // ============================================================
         // serde::* — serde_json::Value accessors (identity in Python)
@@ -3439,6 +3453,17 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             }
             let inner = emit_expr(w, &args[0])?;
             Ok(Some(Emitted::atomic(inner.text, Ty::List)))
+        }
+        ["serde", "to_value"] => {
+            // `pyrust::serde::to_value!(x)` — Rust `serde_json::to_value(x).unwrap()`,
+            // Python identity (every Python value is already JSON-encodable in
+            // the sense the bot needs).
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "serde::to_value!: expected (v)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(inner.text, Ty::Unknown)))
         }
 
         // ============================================================
