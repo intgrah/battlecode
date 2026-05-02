@@ -353,4 +353,34 @@ impl Direction {
             Self::Centre => Self::Centre,
         }
     }
+
+    #[must_use]
+    pub const fn rotate_left(self) -> Self {
+        match self {
+            Self::North => Self::Northwest,
+            Self::Northeast => Self::North,
+            Self::East => Self::Northeast,
+            Self::Southeast => Self::East,
+            Self::South => Self::Southeast,
+            Self::Southwest => Self::South,
+            Self::West => Self::Southwest,
+            Self::Northwest => Self::West,
+            Self::Centre => Self::Centre,
+        }
+    }
+
+    #[must_use]
+    pub const fn rotate_right(self) -> Self {
+        match self {
+            Self::North => Self::Northeast,
+            Self::Northeast => Self::East,
+            Self::East => Self::Southeast,
+            Self::Southeast => Self::South,
+            Self::South => Self::Southwest,
+            Self::Southwest => Self::West,
+            Self::West => Self::Northwest,
+            Self::Northwest => Self::North,
+            Self::Centre => Self::Centre,
+        }
+    }
 }
