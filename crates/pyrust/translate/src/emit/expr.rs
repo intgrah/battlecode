@@ -3023,6 +3023,27 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Unknown,
             )))
         }
+        // `pyrust::bytearray::fill_range!(arr, start, end, value)` →
+        // `arr[start:end] = bytes([value]) * (end - start)`. One C-level
+        // memcpy instead of an O(end-start) per-element loop. Used to
+        // initialize per-tile mask arrays (posint_valid).
+        ["bytearray", "fill_range"] => {
+            let args = parse_args!();
+            if args.len() != 4 {
+                return Err(w.err(
+                    em.span(),
+                    "bytearray::fill_range!: expected (arr, start, end, value)",
+                ));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "{0}[{1}:{2}] = bytes([{3}]) * (({2}) - ({1}))",
+                    emits[0].text, emits[1].text, emits[2].text, emits[3].text
+                ),
+                Ty::Unit,
+            )))
+        }
 
         // ============================================================
         // vec::*
@@ -3081,6 +3102,26 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             // Mutate in place — Python `v[:] = [x] * len(v)`.
             Ok(Some(Emitted::atomic(
                 format!("{0}[:] = [{1}] * len({0})", emits[0].text, emits[1].text),
+                Ty::Unit,
+            )))
+        }
+        // `pyrust::vec::fill_range!(v, start, end, value)` →
+        // `v[start:end] = [value] * (end - start)`. One C-level slice
+        // assign instead of an O(end-start) per-element loop. Used to
+        // initialize per-tile mask arrays where the value isn't a byte.
+        ["vec", "fill_range"] => {
+            let args = parse_args!();
+            if args.len() != 4 {
+                return Err(
+                    w.err(em.span(), "vec::fill_range!: expected (vec, start, end, value)")
+                );
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "{0}[{1}:{2}] = [{3}] * (({2}) - ({1}))",
+                    emits[0].text, emits[1].text, emits[2].text, emits[3].text
+                ),
                 Ty::Unit,
             )))
         }

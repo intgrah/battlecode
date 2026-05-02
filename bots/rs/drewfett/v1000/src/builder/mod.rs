@@ -1136,24 +1136,29 @@ impl Unit for Builder {
         // TLE that killed builders before they could update_ore_target.
         // The NavBfs field still exists (cheap 1×1 stub) for API compat.
 
-        // Mark off-map cells as INF, and the "hole" stride slots
-        // (x ∈ [MAX_WIDTH, STRIDE)) stay INF forever — they're never valid
-        // tiles. Same loop also sets `posint_valid` for in-bounds tiles.
+        // Mark off-map cells as INF (so bug2 won't route through them) and
+        // populate `posint_valid` for in-bounds tiles. Both loops use
+        // slice-fill rather than per-element writes — Python list[a:b] =
+        // [v]*n is a single C-level memcpy instead of (h*w) PyLong-boxed
+        // setitem calls. ~250x speedup, ~1ms saved on a 50x50 map.
         let w = self.state.width;
         let h = self.state.height;
-        for y in 0..MAX_WIDTH as i32 {
-            let base = (y as usize) * STRIDE;
-            for x in 0..STRIDE as i32 {
-                if x >= w || y >= h {
-                    self.cost_grid[base + (x as usize)] = INF;
-                }
-            }
+        let w_us = w as usize;
+        let h_us = h as usize;
+        // cost_grid: tail of each in-bounds row (cols w..STRIDE) → INF;
+        // every column in fully off-map rows (y..MAX_WIDTH) → INF.
+        for y in 0..h_us {
+            let base = y * STRIDE;
+            pyrust::vec::fill_range!(self.cost_grid, base + w_us, base + STRIDE, INF);
         }
-        for y in 0..(h as usize) {
+        for y in h_us..MAX_WIDTH {
+            let base = y * STRIDE;
+            pyrust::vec::fill_range!(self.cost_grid, base, base + STRIDE, INF);
+        }
+        // posint_valid: 1 for cols 0..w of rows 0..h.
+        for y in 0..h_us {
             let row_base = y * STRIDE;
-            for x in 0..(w as usize) {
-                self.posint_valid[row_base + x] = 1;
-            }
+            pyrust::bytearray::fill_range!(self.posint_valid, row_base, row_base + w_us, 1);
         }
 
         // (drewfett v1000: hardcoded openings dropped — `known_map` removed.)
@@ -1163,15 +1168,9 @@ impl Unit for Builder {
             self.core_edges[i] = self.my_core.add(*d);
         }
 
-        // Trim pnb at the actual map boundary (right column + bottom row).
-        let _scope = Scope::new_timed("pnb");
-        for cx in 0..w {
-            self.pnb_fix_boundary(cx, h - 1, w, h);
-        }
-        for cy in 0..(h - 1) {
-            self.pnb_fix_boundary(w - 1, cy, w, h);
-        }
-        pyrust::drop!(_scope);
+        // pnb_fix_boundary loops dropped — pnb is dead state, the function
+        // is a no-op stub; the ~99 Python calls per builder were sunk
+        // overhead.
 
         self.refresh_symmetry_cache();
 

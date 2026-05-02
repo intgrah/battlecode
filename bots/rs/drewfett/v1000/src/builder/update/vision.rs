@@ -132,6 +132,15 @@ fn _apply_post_transition(
     let kind = builder.building_kind[i];
     let team = builder.building_team[i];
     _update_cost(builder, i, env, kind, team);
+    // First-turn fast-path: ti_upstream / ax_upstream / dangling_set /
+    // adjacent_to_unconnected_harvester are all empty on turn 1, so
+    // `_check_dangling` falls through to a no-op set-remove and the
+    // splitter sibling loop has nothing to examine. Skip the in_edges
+    // scans entirely. (`update_pnb` is already a no-op stub since pnb
+    // is dead state.)
+    if builder.state.round <= 1 {
+        return;
+    }
     builder.update_pnb(i);
     builder._check_dangling(pos, trigger);
     let feeders: Vec<Position> = pyrust::clone!(builder.in_edges[i]);

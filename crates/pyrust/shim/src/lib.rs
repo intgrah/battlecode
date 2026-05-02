@@ -89,6 +89,7 @@ pub mod vec {
     pub use crate::{
         __pyrust_vec_clear as clear, __pyrust_vec_contains as contains,
         __pyrust_vec_dedup as dedup, __pyrust_vec_extend as extend, __pyrust_vec_fill as fill,
+        __pyrust_vec_fill_range as fill_range,
         __pyrust_vec_first as first, __pyrust_vec_is_empty as is_empty, __pyrust_vec_last as last,
         __pyrust_vec_len as len, __pyrust_vec_new as new, __pyrust_vec_pop as pop,
         __pyrust_vec_pop_back as pop_back, __pyrust_vec_pop_front as pop_front,
@@ -125,6 +126,7 @@ pub mod time {
     pub use crate::__pyrust_time_now_ns as now_ns;
 }
 pub mod bytearray {
+    pub use crate::__pyrust_bytearray_fill_range as fill_range;
     pub use crate::__pyrust_bytearray_new as new;
 }
 pub mod serde {
