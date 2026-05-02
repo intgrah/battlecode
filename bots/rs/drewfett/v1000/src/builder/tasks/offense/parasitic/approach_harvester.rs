@@ -34,9 +34,9 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     let my_id = self_.state.my_id;
     let friends: Vec<(Position, i32)> = pyrust::collect!(pyrust::filter_map!(
         pyrust::iter!(self_.state.all_bots),
-        |(p, id)| {
-            if *id != my_id && pyrust::set::contains!(self_.state.friendly_bots, p) {
-                Some((*p, *id))
+        |t| {
+            if *t.1 != my_id && pyrust::set::contains!(self_.state.friendly_bots, t.0) {
+                Some((*t.0, *t.1))
             } else {
                 None
             }

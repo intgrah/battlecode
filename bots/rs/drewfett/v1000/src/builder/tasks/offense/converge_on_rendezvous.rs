@@ -44,14 +44,13 @@ pub fn converge_on_rendezvous(self_: &mut Builder, ct: &mut Controller<'_>) -> T
     }
 
     if d == 1 {
-        // Adjacent: fire if we can, then refresh the marker. Best-effort:
-        // if can_fire errors (e.g. target moved out of vision mid-turn),
-        // skip the attack but still refresh the marker.
-        if pyrust::unwrap_or!(ct.can_fire(target), false) {
-            try_attack(ct, target);
-        }
-        refresh_rendezvous_marker(self_, ct, target);
-        return None;
+        // Adjacent but not on the tile: builder fire only works on the
+        // builder's OWN tile, so we can't directly damage the target.
+        // Reject so `fire_on_enemy_tile` / `turret_around_harvester` /
+        // other adjacency-aware tasks can pick this turn up.
+        return Some(TaskRejected::new(
+            "adjacent to rendezvous target, deferring to fire/turret tasks",
+        ));
     }
 
     // Not adjacent: walk toward the target. Best-effort marker refresh

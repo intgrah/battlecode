@@ -1,57 +1,37 @@
-//! Launcher swarm: place launchers diagonally adjacent to ISOLATED
-//! enemy harvesters (no other enemy harvester within `ISOLATION_R²`).
+//! Launcher swarm: place launchers in tiles around enemy builder bots,
+//! picking the spot with the best protection (most surrounding walls /
+//! non-passable buildings) and densest enemy-bot coverage. Affordable
+//! and spaced ≥`LAUNCHER_SPACING` Chebyshev apart from existing
+//! friendlies.
 //!
-//! Strategy: an isolated harvester's defender bot sees only one threat
-//! (us) and one resource (the harvester). They can't easily react with
-//! sentinels because that requires building a chain — a single launcher
-//! we placed will throw any defender bot away before they can dig in.
+//! Scoring per candidate `p` (an 8-neighbour of an enemy bot):
+//!   protection = #(walls + non-walkable buildings in p's 8 neighbours)
+//!   bot_score  = #(enemy bots within Chebyshev 1 of p) — these are
+//!                 throwable next turn.
+//!   total = bot_score * 5 + protection
 //!
-//! Placement pattern (diagonal, not cardinal):
-//! ```text
-//!   L . .
-//!   . H .
-//!   . . L
-//! ```
-//! Diagonal because cardinal cardinals would be the harvester's defensive
-//! ring and they'd react. Diagonals look like a road-pave intent and
-//! most teams don't react.
+//! `bot_score` dominates because the throw is the whole point. Protection
+//! is a tiebreaker that biases away from open-field placements.
 
-use cambc::{BuildExtra, Controller, ControllerApi, EntityType, Position};
+use cambc::{BuildExtra, Controller, ControllerApi, EntityType, Environment, Position};
 
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, make_move, try_place};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::util::directions::{DIR4, DIR8};
+use crate::util::directions::DIR8;
 use crate::util::metrics::chebyshev;
 
-/// Other enemy harvester within this Chebyshev distance disqualifies a
-/// candidate as "isolated" — defenders from that other harvester would
-/// react to our launcher.
-const ISOLATION_R: i32 = 5;
-
 /// Don't double-place: skip if a friendly launcher is within this many
-/// tiles (Chebyshev) of the candidate diagonal.
+/// tiles (Chebyshev) of the candidate spot.
 const LAUNCHER_SPACING: i32 = 2;
 
-/// True iff `target` is an enemy harvester with no OTHER enemy harvester
-/// within `ISOLATION_R`.
-fn is_isolated_enemy_harvester(self_: &Builder, target: Position) -> bool {
-    for &other in &self_.nearby_buildings {
-        if other == target {
-            continue;
-        }
-        if self_.kind_at(other) != Some(EntityType::Harvester) {
-            continue;
-        }
-        if self_.team_at(other) == Some(self_.my_team) {
-            continue;
-        }
-        if chebyshev(other, target) <= ISOLATION_R {
-            return false;
-        }
-    }
-    true
-}
+const PASSABLE_BUILDINGS: [EntityType; 5] = [
+    EntityType::Conveyor,
+    EntityType::Road,
+    EntityType::Splitter,
+    EntityType::ArmouredConveyor,
+    EntityType::Bridge,
+];
 
 /// True iff `pos` is buildable terrain we can place a launcher on.
 fn buildable_for_launcher(self_: &Builder, pos: Position) -> bool {
@@ -64,7 +44,6 @@ fn buildable_for_launcher(self_: &Builder, pos: Position) -> bool {
     if self_.kind_at(pos).is_some() {
         return false;
     }
-    // Don't place on a tile a friendly bot occupies.
     !pyrust::dict::contains!(self_.state.all_bots, &pos)
 }
 
@@ -84,32 +63,39 @@ fn launcher_already_nearby(self_: &Builder, pos: Position) -> bool {
     false
 }
 
-/// Pick the diagonal-of-target spot closest to my_pos that is buildable
-/// and not too close to an existing friendly launcher.
-fn pick_diagonal_spot(self_: &Builder, target: Position) -> Option<Position> {
-    let my_pos = self_.state.my_pos;
-    let mut best: Option<Position> = None;
-    let mut best_d: i32 = i32::MAX;
+/// Count of impassable tiles in `p`'s 8 neighbours (out-of-bounds, walls,
+/// non-walkable buildings). Higher = more sheltered launcher spot.
+fn protection_score(self_: &Builder, p: Position) -> i32 {
+    let mut s = 0;
     for d in DIR8 {
-        // Skip cardinals — those are guard-ring spots the enemy will
-        // notice and react to.
-        if pyrust::vec::contains!(DIR4, &d) {
+        let n = p.add(d);
+        if !self_.in_bounds(n) {
+            s += 1;
             continue;
         }
-        let p = target.add(d);
-        if !buildable_for_launcher(self_, p) {
+        if self_.get_env(n) == Some(Environment::Wall) {
+            s += 1;
             continue;
         }
-        if launcher_already_nearby(self_, p) {
-            continue;
-        }
-        let dist = my_pos.distance_squared(p);
-        if dist < best_d {
-            best_d = dist;
-            best = Some(p);
+        if let Some(kind) = self_.kind_at(n)
+            && !pyrust::vec::contains!(PASSABLE_BUILDINGS, &kind)
+        {
+            s += 1;
         }
     }
-    best
+    s
+}
+
+/// Count of enemy builder bots within Chebyshev 1 of `p` — throwable on
+/// the very next launcher turn.
+fn bot_score(self_: &Builder, p: Position) -> i32 {
+    let mut s = 0;
+    for &bot in &self_.state.enemy_bots {
+        if chebyshev(bot, p) <= 1 {
+            s += 1;
+        }
+    }
+    s
 }
 
 pub fn launcher_swarm(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
@@ -117,43 +103,50 @@ pub fn launcher_swarm(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResul
         return Some(TaskRejected::new("cannot afford LAUNCHER"));
     }
 
-    // Find isolated enemy harvesters, closest first.
-    let my_pos = self_.state.my_pos;
-    let mut targets: Vec<Position> = pyrust::vec::new!();
-    for &pos in &pyrust::clone!(self_.nearby_buildings) {
-        if self_.kind_at(pos) != Some(EntityType::Harvester) {
-            continue;
-        }
-        if self_.team_at(pos) == Some(self_.my_team) {
-            continue;
-        }
-        if !is_isolated_enemy_harvester(self_, pos) {
-            continue;
-        }
-        pyrust::vec::push!(targets, pos);
+    let enemy_bots: Vec<Position> =
+        pyrust::collect!(pyrust::copied!(pyrust::iter!(self_.state.enemy_bots)));
+    if pyrust::vec::is_empty!(enemy_bots) {
+        return Some(TaskRejected::new("no enemy bots in vision"));
     }
-    if pyrust::vec::is_empty!(targets) {
-        return Some(TaskRejected::new(
-            "no isolated enemy harvester in vision",
-        ));
-    }
-    pyrust::sort_by_key!(targets, |t| my_pos.distance_squared(*t));
 
-    for target in &targets {
-        let target = *target;
-        let Some(spot) = pick_diagonal_spot(self_, target) else {
-            continue;
-        };
-        // Walk to within action range of the spot.
-        if my_pos.distance_squared(spot) > 2 {
-            make_move(self_, ct, spot);
-            return None;
-        }
-        if try_place(self_, ct, EntityType::Launcher, spot, BuildExtra::None, true) {
-            return None;
+    let my_pos = self_.state.my_pos;
+    let mut best: Option<Position> = None;
+    let mut best_score: i32 = i32::MIN;
+    let mut best_dist: i32 = i32::MAX;
+
+    // Candidate spots = 8-neighbours of every visible enemy bot. Dedup
+    // happens implicitly via the score comparison.
+    for &bot in &enemy_bots {
+        for d in DIR8 {
+            let p = bot.add(d);
+            if !buildable_for_launcher(self_, p) {
+                continue;
+            }
+            if launcher_already_nearby(self_, p) {
+                continue;
+            }
+            let score = bot_score(self_, p) * 5 + protection_score(self_, p);
+            let dist = my_pos.distance_squared(p);
+            if score > best_score || (score == best_score && dist < best_dist) {
+                best_score = score;
+                best_dist = dist;
+                best = Some(p);
+            }
         }
     }
-    Some(TaskRejected::new(
-        "no diagonal-of-isolated-harvester slot available",
-    ))
+
+    let Some(spot) = best else {
+        return Some(TaskRejected::new(
+            "no buildable spot adjacent to any enemy bot",
+        ));
+    };
+
+    if my_pos.distance_squared(spot) > 2 {
+        make_move(self_, ct, spot);
+        return None;
+    }
+    if try_place(self_, ct, EntityType::Launcher, spot, BuildExtra::None, true) {
+        return None;
+    }
+    Some(TaskRejected::new("launcher placement failed"))
 }
