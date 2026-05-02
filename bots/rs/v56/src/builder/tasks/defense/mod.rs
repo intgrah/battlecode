@@ -1,5 +1,6 @@
 //! DEFENSE role policy tree.
 
+pub mod kill_feeder;
 pub mod patrol;
 pub mod stalk_enemy;
 
@@ -7,6 +8,7 @@ use cambc::Controller;
 
 use crate::builder::Builder;
 use crate::builder::tasks::_policy::{Policy, TaskGroup};
+use crate::builder::tasks::defense::kill_feeder::kill_feeder;
 use crate::builder::tasks::defense::patrol::patrol;
 use crate::builder::tasks::defense::stalk_enemy::stalk_enemy;
 use crate::builder::tasks::econ::chains::extend_chain_approach::extend_chain_approach;
@@ -71,6 +73,10 @@ const DEFENSE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "stalk_enemy",
         fn_: stalk_enemy,
+    },
+    Policy::Leaf {
+        name: "kill_feeder",
+        fn_: kill_feeder,
     },
     ECON_INFRASTRUCTURE_GROUP,
     ALERT_PATROL_GROUP,

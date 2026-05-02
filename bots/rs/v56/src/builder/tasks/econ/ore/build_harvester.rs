@@ -42,8 +42,8 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
     }
     // If there's an enemy building on the ore tile, fire at it regardless
     // of harvester affordability — destroying it unblocks placement.
-    if let Some((_, team)) = self_.get_building(target)
-        && team != self_.my_team
+    if let Some(b) = self_.get_building(target)
+        && b.1 != self_.my_team
     {
         let mut args = Map::new();
         pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
