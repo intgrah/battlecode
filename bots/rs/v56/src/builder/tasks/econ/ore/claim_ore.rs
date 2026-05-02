@@ -28,6 +28,30 @@ const fn resolve_target(self_: &Builder) -> Option<Position> {
 
 pub fn claim_ore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let Some(target) = resolve_target(self_) else {
+        let mut args = Map::new();
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("visible_ti"),
+            serde_json::Value::Number(serde_json::Number::from(
+                pyrust::len!(self_.visible_ti_ores) as i64
+            ))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("visible_ax"),
+            serde_json::Value::Number(serde_json::Number::from(
+                pyrust::len!(self_.visible_ax_ores) as i64
+            ))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("ti"),
+            serde_json::Value::Number(serde_json::Number::from(self_.ti))
+        );
+        log(
+            "claim_ore: no target (visible_ti={visible_ti} visible_ax={visible_ax} ti={ti})",
+            args,
+        );
         return Some(TaskRejected::new("no ore_target / ax_ore_target to claim"));
     };
     if !ore_available(self_, target) {
