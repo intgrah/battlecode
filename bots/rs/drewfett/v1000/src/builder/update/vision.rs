@@ -21,7 +21,10 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
             }
             let ti = builder.idx(t);
             if pyrust::vec::contains!(builder.in_edges[ti], &pos) {
-                builder.in_edges[ti] = pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(builder.in_edges[ti])), |&p| p != pos));
+                builder.in_edges[ti] = pyrust::collect!(pyrust::filter!(
+                    pyrust::copied!(pyrust::iter!(builder.in_edges[ti])),
+                    |&p| p != pos
+                ));
                 builder._on_in_edge_removed(t, pos);
                 builder._check_multi_input(t);
                 builder._check_dangling(t, &format!("edge_removed src={pos:?}"));
@@ -328,7 +331,9 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
         let bld_changed = prev_bid != bid;
         if pyrust::is_none!(prev_env) {
             pyrust::vec::push_back!(builder.reflect_queue, i);
-            let is_core = pyrust::is_some_and!(bid, |b| pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Core);
+            let is_core =
+                pyrust::is_some_and!(bid, |b| pyrust::unwrap!(ct.get_entity_type(Some(b)))
+                    == EntityType::Core);
             pyrust::vec::push!(new_observations, (pos, env, is_core));
             if env != Environment::Wall {
                 let pi = i as i32;

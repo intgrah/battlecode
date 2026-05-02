@@ -6,9 +6,9 @@
 //! fire from our turret network, and any reposition the enemy makes is
 //! mirrored.
 
+use crate::config::DEBUG_LOG;
 use cambc::{Controller, Position};
 use serde_json::Map;
-use crate::config::DEBUG_LOG;
 
 use crate::builder::Builder;
 use crate::builder::helpers::make_move;
@@ -54,14 +54,14 @@ pub fn stalk_enemy(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if DEBUG_LOG {
         let mut args = Map::new();
         pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("target"),
-        auto_wrap_position(target)
+            args,
+            pyrust::to_string!("target"),
+            auto_wrap_position(target)
         );
         pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("d"),
-        serde_json::Value::Number(pyrust::into!(target_d))
+            args,
+            pyrust::to_string!("d"),
+            serde_json::Value::Number(pyrust::into!(target_d))
         );
         log("stalk_enemy: following {target} (d²={d})", args);
     }

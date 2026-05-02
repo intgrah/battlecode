@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use crate::config::DEBUG_LOG;
+use std::collections::HashSet;
 
 use cambc::{Controller, ControllerApi, EntityType, Environment, Position, ResourceType};
 use serde_json::{Map, Value};
@@ -10,7 +10,7 @@ use crate::builder::helpers::{
     ax_feeds_target, can_afford_ore_claim, harvester_would_contaminate, is_inward_guard,
     ore_available, pick_ax_ore_target, pick_offensive_ti_ore_target, pick_ore_target,
 };
-use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, base_cost, STRIDE};
+use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, STRIDE, base_cost};
 use crate::util::debug::Scope;
 use crate::util::debug::debug as log;
 use crate::util::directions::DIR4_DELTA;
@@ -199,11 +199,7 @@ pub fn update_unreachable_dangling(builder: &mut Builder) {
         if builder.reach_parent[i] == -1 || find(&mut builder.reach_parent, t) != my_root {
             if DEBUG_LOG {
                 let mut args = Map::new();
-                pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("t"),
-                auto_wrap_position(pos_of(t))
-                );
+                pyrust::dict::insert!(args, pyrust::to_string!("t"), auto_wrap_position(pos_of(t)));
                 log("DANGLING discard(unreachable) t={t}", args);
             }
             pyrust::set::remove!(builder.dangling_set, &t);
@@ -219,11 +215,7 @@ pub fn update_unreachable_dangling(builder: &mut Builder) {
         if builder.reach_parent[i] != -1 && find(&mut builder.reach_parent, i as i32) == my_root {
             if DEBUG_LOG {
                 let mut args = Map::new();
-                pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("t"),
-                auto_wrap_position(tp)
-                );
+                pyrust::dict::insert!(args, pyrust::to_string!("t"), auto_wrap_position(tp));
                 log("DANGLING add(reachable-migrate) t={t}", args);
             }
             pyrust::set::remove!(builder.unreachable_dangling, &t);
@@ -318,10 +310,10 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
     // Tiebreak by (y, x) on top of (my_d, chain_d) so iteration order over
     // the hash collection isn't observable.
     let mut best_score: (i32, i32, i32, i32) = (1 << 30, 1 << 30, 1 << 30, 1 << 30);
-    let dangling_iter: Vec<Position> = pyrust::collect!(pyrust::map!(
-        pyrust::iter!(builder.dangling_set),
-        |p| pos_of(*p)
-    ));
+    let dangling_iter: Vec<Position> =
+        pyrust::collect!(pyrust::map!(pyrust::iter!(builder.dangling_set), |p| {
+            pos_of(*p)
+        }));
     for pos in dangling_iter {
         if let Some(c) = ct
             && !pyrust::unwrap!(c.is_in_vision(pos))
@@ -354,15 +346,16 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
 pub fn update_ore_target(builder: &mut Builder) {
     let mut candidate_ore = pick_ore_target(builder);
     let needs_pick = pyrust::is_none!(builder.ore_target)
-        || pyrust::is_some_and!(builder
-            .ore_target, |t| !ore_available(builder, t))
+        || pyrust::is_some_and!(builder.ore_target, |t| !ore_available(builder, t))
         || pyrust::is_some_and!(builder.ore_target, |t| !builder.is_reachable(t))
-        || pyrust::is_some_and!(builder
-            .ore_target, |t| harvester_would_contaminate(builder, t))
+        || pyrust::is_some_and!(builder.ore_target, |t| harvester_would_contaminate(
+            builder, t
+        ))
         || (pyrust::is_some!(candidate_ore)
             && pyrust::unwrap!(candidate_ore).distance_squared(builder.state.my_pos) <= 2
-            && pyrust::is_some_and!(builder
-                .ore_target, |t| t.distance_squared(builder.state.my_pos) > 2));
+            && pyrust::is_some_and!(builder.ore_target, |t| t
+                .distance_squared(builder.state.my_pos)
+                > 2));
     if needs_pick {
         let sink = pyrust::unwrap_or!(builder.ti_sink, builder.my_core);
         if let Some(c) = candidate_ore
@@ -380,16 +373,16 @@ pub fn update_ore_target(builder: &mut Builder) {
 pub fn update_offensive_ore_target(builder: &mut Builder) {
     let mut candidate = pick_offensive_ti_ore_target(builder);
     let needs_pick = pyrust::is_none!(builder.offensive_ore_target)
-        || pyrust::is_some_and!(builder
-            .offensive_ore_target, |t| !ore_available(builder, t))
-        || pyrust::is_some_and!(builder
-            .offensive_ore_target, |t| !builder.is_reachable(t))
-        || pyrust::is_some_and!(builder
-            .offensive_ore_target, |t| harvester_would_contaminate(builder, t))
+        || pyrust::is_some_and!(builder.offensive_ore_target, |t| !ore_available(builder, t))
+        || pyrust::is_some_and!(builder.offensive_ore_target, |t| !builder.is_reachable(t))
+        || pyrust::is_some_and!(builder.offensive_ore_target, |t| {
+            harvester_would_contaminate(builder, t)
+        })
         || (pyrust::is_some!(candidate)
             && pyrust::unwrap!(candidate).distance_squared(builder.state.my_pos) <= 2
-            && pyrust::is_some_and!(builder
-                .offensive_ore_target, |t| t.distance_squared(builder.state.my_pos) > 2));
+            && pyrust::is_some_and!(builder.offensive_ore_target, |t| t
+                .distance_squared(builder.state.my_pos)
+                > 2));
     if needs_pick {
         let sink = if pyrust::is_some!(builder.symmetry) {
             Some(builder.en_core_guess)
@@ -608,7 +601,10 @@ pub fn update_economy_reachability(builder: &mut Builder) {
     {
         let my_core = builder.my_core;
         let mut roots: Vec<PosInt> = vec![idx_of(my_core)];
-        pyrust::vec::extend!(roots, pyrust::map!(pyrust::iter!(builder.core_edges), |e| idx_of(*e)));
+        pyrust::vec::extend!(
+            roots,
+            pyrust::map!(pyrust::iter!(builder.core_edges), |e| idx_of(*e))
+        );
         flood_back(&builder.in_edges, &roots, &mut builder.reaches_core);
     }
 
@@ -628,8 +624,10 @@ pub fn update_economy_reachability(builder: &mut Builder) {
         &mut builder.upstream_of_dangling,
     );
 
-    builder.congested_junctions =
-        pyrust::collect!(pyrust::map!(pyrust::into_iter!(_detect_congested_junctions(builder)), |p| idx_of(p)));
+    builder.congested_junctions = pyrust::collect!(pyrust::map!(
+        pyrust::into_iter!(_detect_congested_junctions(builder)),
+        |p| idx_of(p)
+    ));
     let cong_roots: Vec<PosInt> =
         pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.congested_junctions)));
     flood_back(
@@ -755,18 +753,18 @@ pub fn check_invariants(builder: &Builder) {
         if DEBUG_LOG {
             let mut args = Map::new();
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("missing"),
-            Value::String(format!("{miss:?}"))
+                args,
+                pyrust::to_string!("missing"),
+                Value::String(format!("{miss:?}"))
             );
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("extra"),
-            Value::String(format!("{extra:?}"))
+                args,
+                pyrust::to_string!("extra"),
+                Value::String(format!("{extra:?}"))
             );
             log(
-            "INVARIANT_FAIL ti_upstream missing={missing} extra={extra}",
-            args,
+                "INVARIANT_FAIL ti_upstream missing={missing} extra={extra}",
+                args,
             );
         }
         for t in pyrust::take!(pyrust::iter!(miss), 4) {
@@ -781,28 +779,28 @@ pub fn check_invariants(builder: &Builder) {
             if DEBUG_LOG {
                 let mut args = Map::new();
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("t"),
-                Value::String(format!("{tp:?}"))
+                    args,
+                    pyrust::to_string!("t"),
+                    Value::String(format!("{tp:?}"))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("ti_in_count"),
-                Value::Number(pyrust::into!(builder._ti_in_count[i]))
+                    args,
+                    pyrust::to_string!("ti_in_count"),
+                    Value::Number(pyrust::into!(builder._ti_in_count[i]))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("ti_harv_at"),
-                Value::Number(pyrust::into!(builder._ti_harv_at[i]))
+                    args,
+                    pyrust::to_string!("ti_harv_at"),
+                    Value::Number(pyrust::into!(builder._ti_harv_at[i]))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("feeders"),
-                Value::String(format!("{feeders:?}"))
+                    args,
+                    pyrust::to_string!("feeders"),
+                    Value::String(format!("{feeders:?}"))
                 );
                 log(
-                "  miss t={t} ti_in_count={ti_in_count} ti_harv_at={ti_harv_at} feeders={feeders}",
-                args,
+                    "  miss t={t} ti_in_count={ti_in_count} ti_harv_at={ti_harv_at} feeders={feeders}",
+                    args,
                 );
             }
         }
@@ -819,18 +817,18 @@ pub fn check_invariants(builder: &Builder) {
         if DEBUG_LOG {
             let mut args = Map::new();
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("missing"),
-            Value::String(format!("{miss:?}"))
+                args,
+                pyrust::to_string!("missing"),
+                Value::String(format!("{miss:?}"))
             );
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("extra"),
-            Value::String(format!("{extra:?}"))
+                args,
+                pyrust::to_string!("extra"),
+                Value::String(format!("{extra:?}"))
             );
             log(
-            "INVARIANT_FAIL ax_upstream missing={missing} extra={extra}",
-            args,
+                "INVARIANT_FAIL ax_upstream missing={missing} extra={extra}",
+                args,
             );
         }
         for t in pyrust::take!(pyrust::iter!(miss), 4) {
@@ -845,28 +843,28 @@ pub fn check_invariants(builder: &Builder) {
             if DEBUG_LOG {
                 let mut args = Map::new();
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("t"),
-                Value::String(format!("{tp:?}"))
+                    args,
+                    pyrust::to_string!("t"),
+                    Value::String(format!("{tp:?}"))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("ax_in_count"),
-                Value::Number(pyrust::into!(builder._ax_in_count[i]))
+                    args,
+                    pyrust::to_string!("ax_in_count"),
+                    Value::Number(pyrust::into!(builder._ax_in_count[i]))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("ax_harv_at"),
-                Value::Number(pyrust::into!(builder._ax_harv_at[i]))
+                    args,
+                    pyrust::to_string!("ax_harv_at"),
+                    Value::Number(pyrust::into!(builder._ax_harv_at[i]))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("feeders"),
-                Value::String(format!("{feeders:?}"))
+                    args,
+                    pyrust::to_string!("feeders"),
+                    Value::String(format!("{feeders:?}"))
                 );
                 log(
-                "  miss t={t} ax_in_count={ax_in_count} ax_harv_at={ax_harv_at} feeders={feeders}",
-                args,
+                    "  miss t={t} ax_in_count={ax_in_count} ax_harv_at={ax_harv_at} feeders={feeders}",
+                    args,
                 );
             }
         }
@@ -883,23 +881,23 @@ pub fn check_invariants(builder: &Builder) {
                 if DEBUG_LOG {
                     let mut args = Map::new();
                     pyrust::dict::insert!(
-                    args,
-                    pyrust::to_string!("t"),
-                    Value::String(format!("{t:?}"))
+                        args,
+                        pyrust::to_string!("t"),
+                        Value::String(format!("{t:?}"))
                     );
                     pyrust::dict::insert!(
-                    args,
-                    pyrust::to_string!("ti"),
-                    Value::Number(pyrust::into!(builder._ti_in_count[i]))
+                        args,
+                        pyrust::to_string!("ti"),
+                        Value::Number(pyrust::into!(builder._ti_in_count[i]))
                     );
                     pyrust::dict::insert!(
-                    args,
-                    pyrust::to_string!("ax"),
-                    Value::Number(pyrust::into!(builder._ax_in_count[i]))
+                        args,
+                        pyrust::to_string!("ax"),
+                        Value::Number(pyrust::into!(builder._ax_in_count[i]))
                     );
                     log(
-                    "INVARIANT_FAIL in_count nonzero with empty in_edges t={t} ti={ti} ax={ax}",
-                    args,
+                        "INVARIANT_FAIL in_count nonzero with empty in_edges t={t} ti={ti} ax={ax}",
+                        args,
                     );
                 }
             }
@@ -921,28 +919,28 @@ pub fn check_invariants(builder: &Builder) {
             if DEBUG_LOG {
                 let mut args = Map::new();
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("t"),
-                Value::String(format!("{t:?}"))
+                    args,
+                    pyrust::to_string!("t"),
+                    Value::String(format!("{t:?}"))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("have"),
-                Value::Number(pyrust::into!(builder._ti_in_count[i]))
+                    args,
+                    pyrust::to_string!("have"),
+                    Value::Number(pyrust::into!(builder._ti_in_count[i]))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("expected"),
-                Value::Number(pyrust::into!(ti_expected))
+                    args,
+                    pyrust::to_string!("expected"),
+                    Value::Number(pyrust::into!(ti_expected))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("in_edges"),
-                Value::String(format!("{:?}", in_edges[i]))
+                    args,
+                    pyrust::to_string!("in_edges"),
+                    Value::String(format!("{:?}", in_edges[i]))
                 );
                 log(
-                "INVARIANT_FAIL ti_in_count drift t={t} have={have} expected={expected} in_edges={in_edges}",
-                args,
+                    "INVARIANT_FAIL ti_in_count drift t={t} have={have} expected={expected} in_edges={in_edges}",
+                    args,
                 );
             }
         }
@@ -954,28 +952,28 @@ pub fn check_invariants(builder: &Builder) {
             if DEBUG_LOG {
                 let mut args = Map::new();
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("t"),
-                Value::String(format!("{t:?}"))
+                    args,
+                    pyrust::to_string!("t"),
+                    Value::String(format!("{t:?}"))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("have"),
-                Value::Number(pyrust::into!(builder._ax_in_count[i]))
+                    args,
+                    pyrust::to_string!("have"),
+                    Value::Number(pyrust::into!(builder._ax_in_count[i]))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("expected"),
-                Value::Number(pyrust::into!(ax_expected))
+                    args,
+                    pyrust::to_string!("expected"),
+                    Value::Number(pyrust::into!(ax_expected))
                 );
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("in_edges"),
-                Value::String(format!("{:?}", in_edges[i]))
+                    args,
+                    pyrust::to_string!("in_edges"),
+                    Value::String(format!("{:?}", in_edges[i]))
                 );
                 log(
-                "INVARIANT_FAIL ax_in_count drift t={t} have={have} expected={expected} in_edges={in_edges}",
-                args,
+                    "INVARIANT_FAIL ax_in_count drift t={t} have={have} expected={expected} in_edges={in_edges}",
+                    args,
                 );
             }
         }
@@ -1058,10 +1056,10 @@ fn _is_junction(builder: &Builder, pos: Position) -> bool {
 /// Derive `self.junctions` from `is_multi_input` using `_is_junction`.
 pub fn update_junctions(builder: &mut Builder) {
     builder.junctions.clear();
-    let candidates: Vec<Position> = pyrust::collect!(pyrust::map!(
-        pyrust::iter!(builder.is_multi_input),
-        |p| pos_of(*p)
-    ));
+    let candidates: Vec<Position> =
+        pyrust::collect!(pyrust::map!(pyrust::iter!(builder.is_multi_input), |p| {
+            pos_of(*p)
+        }));
     for pos in candidates {
         if _is_junction(builder, pos) {
             pyrust::set::add!(builder.junctions, idx_of(pos));
@@ -1071,7 +1069,9 @@ pub fn update_junctions(builder: &mut Builder) {
 
 /// Re-derive `ax_sink` every turn from three option classes.
 pub fn update_foundry_target(builder: &mut Builder) {
-    if pyrust::is_none!(builder.ax_ore_target) && pyrust::vec::is_empty!(builder.ax_harvester_adjacent) {
+    if pyrust::is_none!(builder.ax_ore_target)
+        && pyrust::vec::is_empty!(builder.ax_harvester_adjacent)
+    {
         builder.ax_sink = None;
         builder.foundry_target = None;
         return;
@@ -1183,7 +1183,8 @@ pub fn update_foundry_target(builder: &mut Builder) {
             builder.building_kind[fi],
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
         ) && builder.building_team[fi] == Some(builder.state.my_team);
-        let still_valid_junction = is_transport && pyrust::set::contains!(builder.junctions, &idx_of(ft));
+        let still_valid_junction =
+            is_transport && pyrust::set::contains!(builder.junctions, &idx_of(ft));
         let still_valid_kind_c = is_transport
             && pyrust::set::contains!(builder.reaches_core, &idx_of(ft))
             && !pyrust::set::contains!(builder.reaches_foundry, &idx_of(ft));
@@ -1195,9 +1196,9 @@ pub fn update_foundry_target(builder: &mut Builder) {
         && let Some(chosen) = builder.ax_sink
         && (pyrust::set::contains!(builder.junctions, &idx_of(chosen))
             || (_foundry_local_ok(builder, chosen) && ax_feeds_target(builder, chosen)))
-        {
-            builder.foundry_target = Some(chosen);
-        }
+    {
+        builder.foundry_target = Some(chosen);
+    }
 }
 
 /// Empirical Ti-sink candidate.
@@ -1311,29 +1312,33 @@ pub fn update_ti_sink(builder: &mut Builder) {
         if DEBUG_LOG {
             let mut args = Map::new();
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("from"),
-            Value::String(format!("{:?}", builder.ti_sink))
+                args,
+                pyrust::to_string!("from"),
+                Value::String(format!("{:?}", builder.ti_sink))
             );
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("to"),
-            Value::String(format!("{best:?}"))
-            );
-            pyrust::dict::insert!(args, pyrust::to_string!("tier"), Value::Number(pyrust::into!(tier)));
-            pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("anchor"),
-            Value::String(format!("{anchor:?}"))
+                args,
+                pyrust::to_string!("to"),
+                Value::String(format!("{best:?}"))
             );
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("dist_sq"),
-            Value::Number(pyrust::into!(best_d))
+                args,
+                pyrust::to_string!("tier"),
+                Value::Number(pyrust::into!(tier))
+            );
+            pyrust::dict::insert!(
+                args,
+                pyrust::to_string!("anchor"),
+                Value::String(format!("{anchor:?}"))
+            );
+            pyrust::dict::insert!(
+                args,
+                pyrust::to_string!("dist_sq"),
+                Value::Number(pyrust::into!(best_d))
             );
             log(
-            "update_ti_sink: ti_sink changed from {from} to {to} (tier {tier}, anchor={anchor}, dist_sq={dist_sq})",
-            args,
+                "update_ti_sink: ti_sink changed from {from} to {to} (tier {tier}, anchor={anchor}, dist_sq={dist_sq})",
+                args,
             );
         }
     }
@@ -1356,16 +1361,16 @@ pub fn update_ax_ore_target(builder: &mut Builder) {
     }
     let mut candidate = pick_ax_ore_target(builder);
     let needs_pick = pyrust::is_none!(builder.ax_ore_target)
-        || pyrust::is_some_and!(builder
-            .ax_ore_target, |t| !ore_available(builder, t))
-        || pyrust::is_some_and!(builder
-            .ax_ore_target, |t| !builder.is_reachable(t))
-        || pyrust::is_some_and!(builder
-            .ax_ore_target, |t| harvester_would_contaminate(builder, t))
+        || pyrust::is_some_and!(builder.ax_ore_target, |t| !ore_available(builder, t))
+        || pyrust::is_some_and!(builder.ax_ore_target, |t| !builder.is_reachable(t))
+        || pyrust::is_some_and!(builder.ax_ore_target, |t| harvester_would_contaminate(
+            builder, t
+        ))
         || (pyrust::is_some!(candidate)
             && pyrust::unwrap!(candidate).distance_squared(builder.state.my_pos) <= 2
-            && pyrust::is_some_and!(builder
-                .ax_ore_target, |t| t.distance_squared(builder.state.my_pos) > 2));
+            && pyrust::is_some_and!(builder.ax_ore_target, |t| t
+                .distance_squared(builder.state.my_pos)
+                > 2));
     if needs_pick {
         let sink = pyrust::unwrap_or!(builder.ax_sink, builder.my_core);
         if let Some(c) = candidate

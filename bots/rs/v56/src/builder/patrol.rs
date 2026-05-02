@@ -360,8 +360,13 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     let raw_target = builder.patrol_clusters[ci][idx];
     let core = builder.my_core;
     let expansion = alert_expansion(builder.alert, builder.state.scale);
-    let expanded_target =
-        expand_outward(raw_target, core, expansion, builder.state.width, builder.state.height);
+    let expanded_target = expand_outward(
+        raw_target,
+        core,
+        expansion,
+        builder.state.width,
+        builder.state.height,
+    );
     let advance = builder.state.my_pos.distance_squared(expanded_target) <= 5;
     if advance {
         if builder.patrol_dir > 0 {
@@ -372,12 +377,25 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     }
     builder.patrol_pos_idx = idx;
     let raw_target = builder.patrol_clusters[ci][idx];
-    let target =
-        expand_outward(raw_target, core, expansion, builder.state.width, builder.state.height);
+    let target = expand_outward(
+        raw_target,
+        core,
+        expansion,
+        builder.state.width,
+        builder.state.height,
+    );
 
     let mut args = Map::new();
-    pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
-    pyrust::dict::insert!(args, pyrust::to_string!("raw"), auto_wrap_position(raw_target));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("target"),
+        auto_wrap_position(target)
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("raw"),
+        auto_wrap_position(raw_target)
+    );
     pyrust::dict::insert!(
         args,
         pyrust::to_string!("alert"),

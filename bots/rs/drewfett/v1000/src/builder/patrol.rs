@@ -1,8 +1,8 @@
 //! Translation of `bots/intgrah/v54.7.9/builder/patrol.py`.
 
+use crate::config::DEBUG_LOG;
 use cambc::{Controller, Position};
 use serde_json::Map;
-use crate::config::DEBUG_LOG;
 
 use crate::builder::Builder;
 use crate::builder::helpers::make_move;
@@ -42,10 +42,22 @@ fn _walkable_anchor(builder: &Builder, pos: Position) -> Option<Position> {
 /// bridge / splitter tiles that are downstream of a harvester).
 fn _candidate_iter(builder: &Builder) -> Vec<Position> {
     let mut out: Vec<Position> = pyrust::vec::new!();
-    pyrust::vec::extend!(out, pyrust::map!(pyrust::iter!(builder.my_harvesters), |p| pos_of(*p)));
-    pyrust::vec::extend!(out, pyrust::map!(pyrust::iter!(builder.my_foundries), |p| pos_of(*p)));
-    pyrust::vec::extend!(out, pyrust::map!(pyrust::iter!(builder.ti_upstream), |p| pos_of(*p)));
-    pyrust::vec::extend!(out, pyrust::map!(pyrust::iter!(builder.ax_upstream), |p| pos_of(*p)));
+    pyrust::vec::extend!(
+        out,
+        pyrust::map!(pyrust::iter!(builder.my_harvesters), |p| pos_of(*p))
+    );
+    pyrust::vec::extend!(
+        out,
+        pyrust::map!(pyrust::iter!(builder.my_foundries), |p| pos_of(*p))
+    );
+    pyrust::vec::extend!(
+        out,
+        pyrust::map!(pyrust::iter!(builder.ti_upstream), |p| pos_of(*p))
+    );
+    pyrust::vec::extend!(
+        out,
+        pyrust::map!(pyrust::iter!(builder.ax_upstream), |p| pos_of(*p))
+    );
     pyrust::vec::push!(out, builder.my_core);
     out
 }
@@ -106,9 +118,9 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
                 let mut args = Map::new();
                 pyrust::dict::insert!(args, pyrust::to_string!("head"), auto_wrap_position(h));
                 pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("age"),
-                serde_json::Value::Number(serde_json::Number::from(age))
+                    args,
+                    pyrust::to_string!("age"),
+                    serde_json::Value::Number(serde_json::Number::from(age))
                 );
                 log("patrol: new head {head} (age={age})", args);
             }

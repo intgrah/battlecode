@@ -553,8 +553,7 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             let qlen = pyrust::len!(cycle);
             if qlen > 0 {
                 let raw_target = cycle[builder.patrol_pos_idx % qlen];
-                let target =
-                    expand_outward(raw_target, core, expansion, w, h);
+                let target = expand_outward(raw_target, core, expansion, w, h);
                 vis_tile("patrol_target", Some(target));
             } else {
                 vis_tile("patrol_target", None);

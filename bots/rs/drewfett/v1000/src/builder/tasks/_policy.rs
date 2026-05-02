@@ -86,9 +86,9 @@ fn _run_policy_debug(self_: &mut Builder, ct: &mut Controller<'_>, policy: &Poli
                 if DEBUG_LOG {
                     let mut args = Map::new();
                     pyrust::dict::insert!(
-                    args,
-                    pyrust::to_string!("name"),
-                    serde_json::Value::String(pyrust::to_string!(group.name))
+                        args,
+                        pyrust::to_string!("name"),
+                        serde_json::Value::String(pyrust::to_string!(group.name))
                     );
                     log("{name}: gated off", args);
                 }
@@ -111,14 +111,14 @@ fn _run_policy_debug(self_: &mut Builder, ct: &mut Controller<'_>, policy: &Poli
                     if DEBUG_LOG {
                         let mut args = Map::new();
                         pyrust::dict::insert!(
-                        args,
-                        pyrust::to_string!("name"),
-                        serde_json::Value::String(pyrust::to_string!((*name)))
+                            args,
+                            pyrust::to_string!("name"),
+                            serde_json::Value::String(pyrust::to_string!((*name)))
                         );
                         pyrust::dict::insert!(
-                        args,
-                        pyrust::to_string!("reason"),
-                        serde_json::Value::String(rej.reason)
+                            args,
+                            pyrust::to_string!("reason"),
+                            serde_json::Value::String(rej.reason)
                         );
                         log("{name}: {reason}", args);
                     }

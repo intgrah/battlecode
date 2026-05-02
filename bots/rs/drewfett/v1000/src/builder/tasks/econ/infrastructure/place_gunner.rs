@@ -7,9 +7,7 @@
 //! (`sentinel_facing`). Falls back to placing on `my_pos` after a random
 //! step-off.
 
-use cambc::{
-    BuildExtra, Controller, ControllerApi, Direction, EntityType, Position, Team,
-};
+use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Position, Team};
 
 use crate::builder::Builder;
 use crate::builder::helpers::{move_random, try_place};
@@ -152,7 +150,10 @@ fn enemy_value_at(builder: &Builder, pos: Position) -> i32 {
     {
         let kind_score = if kind == EntityType::Core {
             50
-        } else if matches!(kind, EntityType::Launcher | EntityType::Gunner | EntityType::Sentinel | EntityType::Breach) {
+        } else if matches!(
+            kind,
+            EntityType::Launcher | EntityType::Gunner | EntityType::Sentinel | EntityType::Breach
+        ) {
             10
         } else if kind == EntityType::Foundry {
             6
@@ -221,7 +222,10 @@ pub fn sentinel_facing(
             && nt_kind == EntityType::Sentinel
             && nt_team == self_.my_team
         {
-            let cheb = pyrust::max!(pyrust::abs!((t.x - position.x)), pyrust::abs!((t.y - position.y)));
+            let cheb = pyrust::max!(
+                pyrust::abs!((t.x - position.x)),
+                pyrust::abs!((t.y - position.y))
+            );
             if cheb <= SATURATION_RADIUS {
                 return None;
             }
@@ -269,7 +273,11 @@ pub fn sentinel_facing(
             continue;
         }
 
-        let Some(shootable) = Some(pyrust::unwrap!(ct.get_attackable_tiles_from(position, d, EntityType::Sentinel))) else {
+        let Some(shootable) = Some(pyrust::unwrap!(ct.get_attackable_tiles_from(
+            position,
+            d,
+            EntityType::Sentinel
+        ))) else {
             continue;
         };
         let mut score = 0i32;

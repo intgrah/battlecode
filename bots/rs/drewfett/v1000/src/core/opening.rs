@@ -38,10 +38,10 @@ impl OpeningTemplate {
     #[must_use]
     pub const fn defender_period(self) -> i32 {
         match self {
-            Self::OpenEcon => 5,         // 20% defenders
-            Self::Corridor => 4,         // 25% (current default)
-            Self::ChokeBunker => 3,      // ~33% defenders
-            Self::DefaultBalanced => 4,  // 25% (current default)
+            Self::OpenEcon => 5,        // 20% defenders
+            Self::Corridor => 4,        // 25% (current default)
+            Self::ChokeBunker => 3,     // ~33% defenders
+            Self::DefaultBalanced => 4, // 25% (current default)
         }
     }
 
@@ -121,8 +121,10 @@ pub fn classify(
             }
         }
     }
-    let inner_wall_density = pyrust::float!(inner_walls) / pyrust::float!(pyrust::max!(inner_total, 1));
-    let inner_ore_density = pyrust::float!(inner_ore) / pyrust::float!(pyrust::max!(inner_total, 1));
+    let inner_wall_density =
+        pyrust::float!(inner_walls) / pyrust::float!(pyrust::max!(inner_total, 1));
+    let inner_ore_density =
+        pyrust::float!(inner_ore) / pyrust::float!(pyrust::max!(inner_total, 1));
 
     // Chebyshev distance to enemy core guess.
     let dx = pyrust::abs!((en_core_guess.x - my_core.x));
@@ -136,7 +138,9 @@ pub fn classify(
     if eccentricity >= 2.0 {
         return OpeningTemplate::Corridor;
     }
-    if area >= 30 * 30 && inner_wall_density <= 0.10 && inner_ore_density >= 0.08
+    if area >= 30 * 30
+        && inner_wall_density <= 0.10
+        && inner_ore_density >= 0.08
         && enemy_chebyshev >= 20
     {
         return OpeningTemplate::OpenEcon;

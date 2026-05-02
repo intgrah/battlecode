@@ -166,7 +166,9 @@ pub enum Dump {
     Scalar { value: ScalarValue },
 }
 
-fn serialise_palette_t<T: Serialize + Clone + std::fmt::Display>(p: &Palette<T>) -> serde_json::Value {
+fn serialise_palette_t<T: Serialize + Clone + std::fmt::Display>(
+    p: &Palette<T>,
+) -> serde_json::Value {
     let stops: Vec<serde_json::Value> =
         pyrust::collect!(pyrust::map!(pyrust::iter!(p.stops), |s| {
             serde_json::json!([

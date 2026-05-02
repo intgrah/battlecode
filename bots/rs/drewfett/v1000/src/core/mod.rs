@@ -129,7 +129,8 @@ impl Core {
 
     /// WS-3: per-game initial-spawn count, modulated by opening template.
     fn initial_spawns(&self) -> i32 {
-        let scaled = pyrust::round!((Self::INITIAL_SPAWNS as f64 * self.opening.initial_spawn_factor()));
+        let scaled =
+            pyrust::round!((Self::INITIAL_SPAWNS as f64 * self.opening.initial_spawn_factor()));
         pyrust::max!(scaled, 1.0) as i32
     }
 
@@ -149,13 +150,13 @@ impl Core {
         }
         let eagerness = self.opening.spawn_eagerness();
         let live = pyrust::float!(live_units);
-        let income_threshold = (Self::INCOME_PER_UNIT * live
-            + Self::INCOME_QUADRATIC_TERM * live * live)
-            * eagerness
-            / self.spawn_tempo;
+        let income_threshold =
+            (Self::INCOME_PER_UNIT * live + Self::INCOME_QUADRATIC_TERM * live * live) * eagerness
+                / self.spawn_tempo;
         let has_income = income_rate * 4.0 > income_threshold;
         let surplus_threshold = (pyrust::float!(Self::SURPLUS_BASELINE)
-            + pyrust::float!(Self::SURPLUS_SCALE_FACTOR) * (pyrust::unwrap!(ct.get_scale_percent()) / 100.0))
+            + pyrust::float!(Self::SURPLUS_SCALE_FACTOR)
+                * (pyrust::unwrap!(ct.get_scale_percent()) / 100.0))
             * (2.0 - self.spawn_tempo)
             * eagerness;
         let has_surplus = pyrust::float!(self.state.ti) > surplus_threshold;

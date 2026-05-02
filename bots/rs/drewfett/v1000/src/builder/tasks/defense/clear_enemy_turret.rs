@@ -32,10 +32,7 @@ fn is_enemy_turret(self_: &Builder, pos: Position) -> bool {
     }
     matches!(
         kind,
-        EntityType::Launcher
-            | EntityType::Sentinel
-            | EntityType::Gunner
-            | EntityType::Breach
+        EntityType::Launcher | EntityType::Sentinel | EntityType::Gunner | EntityType::Breach
     )
 }
 

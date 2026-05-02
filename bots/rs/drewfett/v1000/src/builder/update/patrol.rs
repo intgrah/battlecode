@@ -4,8 +4,8 @@
 //! vision disc is maximally disjoint from ours and so contributes the
 //! most fresh information per offset enumerated.
 
-use serde_json::{Map, Value};
 use crate::config::DEBUG_LOG;
+use serde_json::{Map, Value};
 
 use crate::builder::Builder;
 use crate::util::constants::MAX_WIDTH;
@@ -27,13 +27,13 @@ pub fn update_patrol(builder: &mut Builder) {
         if DEBUG_LOG {
             let mut args = Map::new();
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("n"),
-            Value::Number(pyrust::into!(own_count))
+                args,
+                pyrust::to_string!("n"),
+                Value::Number(pyrust::into!(own_count))
             );
             log(
-            "patrol: refreshed {n} own-vision tiles, no friends in vision",
-            args,
+                "patrol: refreshed {n} own-vision tiles, no friends in vision",
+                args,
             );
         }
         return;
@@ -62,13 +62,13 @@ pub fn update_patrol(builder: &mut Builder) {
         if DEBUG_LOG {
             let mut args = Map::new();
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("n"),
-            Value::Number(pyrust::into!(own_count))
+                args,
+                pyrust::to_string!("n"),
+                Value::Number(pyrust::into!(own_count))
             );
             log(
-            "patrol: refreshed {n} own-vision tiles, no farthest friend selected",
-            args,
+                "patrol: refreshed {n} own-vision tiles, no farthest friend selected",
+                args,
             );
         }
         return;
@@ -100,22 +100,30 @@ pub fn update_patrol(builder: &mut Builder) {
     if DEBUG_LOG {
         let mut args = Map::new();
         pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("own"),
-        Value::Number(pyrust::into!(own_count))
+            args,
+            pyrust::to_string!("own"),
+            Value::Number(pyrust::into!(own_count))
         );
         pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("trans"),
-        Value::Number(pyrust::into!(transitive_count))
+            args,
+            pyrust::to_string!("trans"),
+            Value::Number(pyrust::into!(transitive_count))
         );
         pyrust::dict::insert!(args, pyrust::to_string!("friend"), auto_wrap_position(best));
-        pyrust::dict::insert!(args, pyrust::to_string!("d"), Value::Number(pyrust::into!(best_d)));
-        pyrust::dict::insert!(args, pyrust::to_string!("nf"), Value::Number(pyrust::into!(nf)));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("d"),
+            Value::Number(pyrust::into!(best_d))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("nf"),
+            Value::Number(pyrust::into!(nf))
+        );
         log(
-        "patrol: refreshed own={own} + transitive={trans} via farthest friend \
+            "patrol: refreshed own={own} + transitive={trans} via farthest friend \
         {friend} (d²={d}, total friends={nf})",
-        args,
+            args,
         );
     }
 }

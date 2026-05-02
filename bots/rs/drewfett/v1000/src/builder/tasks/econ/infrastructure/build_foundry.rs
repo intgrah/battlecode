@@ -74,9 +74,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
             return None;
         }
         log(
-            &format!(
-                "build_foundry: walking toward {target:?}, can't afford yet"
-            ),
+            &format!("build_foundry: walking toward {target:?}, can't afford yet"),
             Map::new(),
         );
         make_move(self_, ct, target);
@@ -95,9 +93,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
         }
         if !moved {
             log(
-                &format!(
-                    "build_foundry: stuck on {target:?}, cannot step off this turn"
-                ),
+                &format!("build_foundry: stuck on {target:?}, cannot step off this turn"),
                 Map::new(),
             );
             return None;
@@ -108,9 +104,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
         && uid != self_.my_id
     {
         log(
-            &format!(
-                "build_foundry: {target:?} occupied by friendly bot, holding"
-            ),
+            &format!("build_foundry: {target:?} occupied by friendly bot, holding"),
             Map::new(),
         );
         return None;
@@ -126,10 +120,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
             true,
         )
     {
-        log(
-            &format!("build_foundry: PLACED at {target:?}"),
-            Map::new(),
-        );
+        log(&format!("build_foundry: PLACED at {target:?}"), Map::new());
         return None;
     }
 

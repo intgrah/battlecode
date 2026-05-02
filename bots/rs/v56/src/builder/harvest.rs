@@ -588,4 +588,3 @@ pub fn adjacent_pave_targets(builder: &Builder, pos: Position) -> Vec<Position> 
     }
     out
 }
-

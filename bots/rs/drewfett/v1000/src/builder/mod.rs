@@ -27,10 +27,10 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::algorithms::econ_astar::AStarSearch;
-use crate::builder::dump::dump as dump_state;
 use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::algorithms::nav::{BugNav, NavCtx};
 use crate::builder::algorithms::reachability::{find_ro, update_reachability};
+use crate::builder::dump::dump as dump_state;
 use crate::builder::hooks::heal::end_of_turn_heal;
 use crate::builder::hooks::indicators::indicators;
 use crate::builder::hooks::propagate_symmetry::end_of_turn_propagate_symmetry;
@@ -45,7 +45,9 @@ use crate::config::DEBUG_DUMP;
 use crate::config::DEBUG_LOG;
 use crate::core::opening::{OpeningTemplate, classify as classify_opening};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
-use crate::util::constants::{BOUND_RANGE, FLOW_HISTORY_LEN, INF, MAX_WIDTH, POSINT_VALID_LEN, ROAD_COST, STRIDE};
+use crate::util::constants::{
+    BOUND_RANGE, FLOW_HISTORY_LEN, INF, MAX_WIDTH, POSINT_VALID_LEN, ROAD_COST, STRIDE,
+};
 use crate::util::debug::{Scope, debug as log};
 use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
 use crate::util::posint::{PosInt, idx_of};
@@ -497,7 +499,7 @@ impl Builder {
 
     /// In-bounds check (inherent shadow of `Unit::in_bounds`).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub const fn in_bounds(&self, pos: Position) -> bool {
         pos.x >= 0 && pos.x < self.state.width && pos.y >= 0 && pos.y < self.state.height
     }
@@ -505,13 +507,13 @@ impl Builder {
     /// Resolved symmetry (inherent shadow of `Unit::symmetry` so peer code
     /// can use `builder.symmetry()` without importing the trait).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub const fn symmetry(&self) -> Option<Symmetry> {
         self.symmetry
     }
 
     /// Inherent shadow of `Unit::symmetry_guess`.
-    #[must_use] 
+    #[must_use]
     pub fn symmetry_guess(&self) -> Symmetry {
         for sym in [Symmetry::Rot, Symmetry::Ver, Symmetry::Hor] {
             if pyrust::vec::contains!(self.state.symmetry_candidates, &sym) {
@@ -523,7 +525,7 @@ impl Builder {
 
     /// Cached enemy core guess.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub const fn en_core_guess(&self) -> Position {
         self.en_core_guess
     }
@@ -685,13 +687,12 @@ impl Builder {
                 || self.building_team[i] == Some(self.state.my_team))
     }
 
-
-    #[must_use] 
+    #[must_use]
     pub fn get_in_edges(&self, pos: Position) -> Vec<Position> {
         pyrust::clone!(self.in_edges[self.idx(pos)])
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn get_out_edges(&self, pos: Position) -> Vec<Position> {
         pyrust::clone!(self.out_edges[self.idx(pos)])
     }
@@ -740,7 +741,7 @@ impl Builder {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn leads_to_enemy_building(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         if self.building_team[i] != Some(self.state.my_team) {
@@ -1234,19 +1235,19 @@ impl Unit for Builder {
         if DEBUG_LOG {
             let mut args = Map::new();
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("id"),
-            serde_json::Value::Number(serde_json::Number::from(self.state.my_id))
+                args,
+                pyrust::to_string!("id"),
+                serde_json::Value::Number(serde_json::Number::from(self.state.my_id))
             );
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("pos"),
-            auto_wrap_position(self.state.my_pos)
+                args,
+                pyrust::to_string!("pos"),
+                auto_wrap_position(self.state.my_pos)
             );
             pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("round"),
-            serde_json::Value::Number(serde_json::Number::from(self.state.round))
+                args,
+                pyrust::to_string!("round"),
+                serde_json::Value::Number(serde_json::Number::from(self.state.round))
             );
             log("Builder {id} pos={pos} round={round}", args);
         }
