@@ -1208,7 +1208,7 @@ fn _ti_sink_ok(builder: &Builder, pos: Position) -> bool {
     let team = builder.building_team[i];
     let is_conv = matches!(
         kind,
-        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge)
     );
     if !is_conv {
         return false;
