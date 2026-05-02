@@ -45,30 +45,8 @@ pub struct Palette<T> {
 
 impl<T> Palette<T> {
     #[must_use]
-    pub fn new(stops: Vec<PaletteStop<T>>) -> Self {
-        Self {
-            stops,
-            special: pyrust::vec::new!(),
-        }
-    }
-}
-
-impl<T: Clone + PartialEq> Palette<T> {
-    /// Return a copy of the palette with additional special values merged in.
-    #[must_use]
-    pub fn with_special(&self, special: &[(T, Colour)]) -> Self {
-        let mut merged: Vec<(T, Colour)> = pyrust::clone!(self.special);
-        for (k, c) in special {
-            if let Some(slot) = pyrust::find!(merged.iter_mut(), |t| &t.0 == k) {
-                slot.1 = *c;
-            } else {
-                pyrust::vec::push!(merged, (k.clone(), *c));
-            }
-        }
-        Self {
-            stops: pyrust::clone!(self.stops),
-            special: merged,
-        }
+    pub fn new(stops: Vec<PaletteStop<T>>, special: Vec<(T, Colour)>) -> Self {
+        Self { stops, special }
     }
 }
 
@@ -76,44 +54,53 @@ impl<T: Clone + PartialEq> Palette<T> {
 // `Vec`s so they are functions instead.
 #[must_use]
 pub fn green_red() -> Palette<i64> {
-    Palette::new(vec![
-        PaletteStop {
-            t: 0,
-            colour: Colour::new(50, 200, 50, 140),
-        },
-        PaletteStop {
-            t: 100,
-            colour: Colour::new(200, 50, 50, 140),
-        },
-    ])
+    Palette::new(
+        vec![
+            PaletteStop {
+                t: 0,
+                colour: Colour::new(50, 200, 50, 140),
+            },
+            PaletteStop {
+                t: 100,
+                colour: Colour::new(200, 50, 50, 140),
+            },
+        ],
+        pyrust::vec::new!(),
+    )
 }
 
 #[must_use]
 pub fn blue_red() -> Palette<i64> {
-    Palette::new(vec![
-        PaletteStop {
-            t: 0,
-            colour: Colour::new(50, 50, 200, 140),
-        },
-        PaletteStop {
-            t: 100,
-            colour: Colour::new(200, 50, 50, 140),
-        },
-    ])
+    Palette::new(
+        vec![
+            PaletteStop {
+                t: 0,
+                colour: Colour::new(50, 50, 200, 140),
+            },
+            PaletteStop {
+                t: 100,
+                colour: Colour::new(200, 50, 50, 140),
+            },
+        ],
+        pyrust::vec::new!(),
+    )
 }
 
 #[must_use]
 pub fn fog() -> Palette<bool> {
-    Palette::new(vec![
-        PaletteStop {
-            t: false,
-            colour: TRANSPARENT,
-        },
-        PaletteStop {
-            t: true,
-            colour: Colour::new(0, 0, 0, 180),
-        },
-    ])
+    Palette::new(
+        vec![
+            PaletteStop {
+                t: false,
+                colour: TRANSPARENT,
+            },
+            PaletteStop {
+                t: true,
+                colour: Colour::new(0, 0, 0, 180),
+            },
+        ],
+        pyrust::vec::new!(),
+    )
 }
 
 // ---------------------------------------------------------------------
@@ -179,11 +166,11 @@ pub enum Dump {
     Scalar { value: ScalarValue },
 }
 
-fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Value {
+fn serialise_palette_t<T: Serialize + Clone + std::fmt::Display>(p: &Palette<T>) -> serde_json::Value {
     let stops: Vec<serde_json::Value> =
         pyrust::collect!(pyrust::map!(pyrust::iter!(p.stops), |s| {
             serde_json::json!([
-                pyrust::unwrap_or!(serde_json::to_value(&s.t), serde_json::Value::Null),
+                pyrust::serde::to_value!(&s.t),
                 s.colour.as_array()[0],
                 s.colour.as_array()[1],
                 s.colour.as_array()[2],
@@ -192,12 +179,7 @@ fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Valu
         }));
     let mut special_obj = serde_json::Map::new();
     for (k, c) in &p.special {
-        let v = pyrust::unwrap_or!(serde_json::to_value(k), serde_json::Value::Null);
-        let key = if let Some(s) = v.as_str() {
-            pyrust::to_string!(s)
-        } else {
-            pyrust::to_string!(v)
-        };
+        let key = pyrust::to_string!(k);
         pyrust::dict::insert!(
             special_obj,
             key,
@@ -304,13 +286,13 @@ pub fn serialise_dump(v: &Dump) -> serde_json::Value {
             pyrust::dict::insert!(
                 obj,
                 pyrust::to_string!("angles"),
-                pyrust::unwrap_or!(serde_json::to_value(angles), serde_json::Value::Null)
+                pyrust::serde::to_value!(angles)
             );
             if let Some(m) = magnitudes {
                 pyrust::dict::insert!(
                     obj,
                     pyrust::to_string!("magnitudes"),
-                    pyrust::unwrap_or!(serde_json::to_value(m), serde_json::Value::Null)
+                    pyrust::serde::to_value!(m)
                 );
             }
             serde_json::Value::Object(obj)
@@ -380,7 +362,11 @@ impl Dumper {
         let payload = serialise_dump(value);
         let same = self.same_cache.get(name) == Some(&payload);
         if !same {
-            pyrust::dict::insert!(self.same_cache, pyrust::to_string!(name), payload.clone());
+            pyrust::dict::insert!(
+                self.same_cache,
+                pyrust::to_string!(name),
+                pyrust::clone!(payload)
+            );
         }
         let value_field = if same {
             serde_json::json!({"$type": "same"})

@@ -27,6 +27,7 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::algorithms::econ_astar::AStarSearch;
+use crate::builder::dump::dump;
 use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::algorithms::nav::{BugNav, NavCtx};
 use crate::builder::algorithms::reachability::{find_ro, update_reachability};
@@ -1062,7 +1063,7 @@ impl Unit for Builder {
         begin_turn_offense(self, ct);
 
         if DEBUG_DUMP {
-            crate::builder::dump::dump(self, ct);
+            dump(self, ct);
         }
 
         let role = pyrust::expect!(self.role, "role must be set after update");
