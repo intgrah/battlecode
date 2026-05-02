@@ -476,6 +476,9 @@ fn emit_inline_call(
     // result, so DSL detection / macro expansion / method renaming
     // still apply just as for non-inlined call sites.
     let mut body = def.body.clone();
+    for ident in collect_inline_import_heads(&def.body, &def.params) {
+        w.note_inline_import(&def.source_module, &ident);
+    }
     substitute_idents(&mut body, &subst);
     w.push_inlining(name);
     let body_em = emit_expr(w, &body);
@@ -493,6 +496,147 @@ fn emit_inline_call(
         format!("({})[-1]", parts.join(", ")),
         body_em.ty,
     ))
+}
+
+fn collect_inline_import_heads(
+    body: &syn::Expr,
+    params: &[String],
+) -> std::collections::BTreeSet<String> {
+    use syn::visit::Visit;
+
+    struct V<'a> {
+        out: std::collections::BTreeSet<String>,
+        params: std::collections::HashSet<&'a str>,
+    }
+
+    impl V<'_> {
+        fn maybe_record_path(&mut self, path: &syn::Path) {
+            if path.leading_colon.is_some() {
+                return;
+            }
+            let Some(first) = path.segments.first() else {
+                return;
+            };
+            let name = first.ident.to_string();
+            if matches!(name.as_str(), "self" | "Self" | "crate" | "super") {
+                return;
+            }
+            if self.params.contains(name.as_str()) {
+                return;
+            }
+            if should_skip_inline_import_head(path) {
+                return;
+            }
+            self.out.insert(name);
+        }
+    }
+
+    impl<'ast> Visit<'ast> for V<'_> {
+        fn visit_expr_path(&mut self, p: &'ast syn::ExprPath) {
+            if p.qself.is_none() {
+                self.maybe_record_path(&p.path);
+            }
+            syn::visit::visit_expr_path(self, p);
+        }
+
+        fn visit_expr_struct(&mut self, s: &'ast syn::ExprStruct) {
+            if s.qself.is_none() {
+                self.maybe_record_path(&s.path);
+            }
+            syn::visit::visit_expr_struct(self, s);
+        }
+    }
+
+    let mut v = V {
+        out: std::collections::BTreeSet::new(),
+        params: params.iter().map(String::as_str).collect(),
+    };
+    v.visit_expr(body);
+    v.out
+}
+
+fn should_skip_inline_import_head(path: &syn::Path) -> bool {
+    let segs: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
+    let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+    if slice.is_empty() {
+        return true;
+    }
+    if matches!(
+        slice.as_slice(),
+        ["Some" | "None" | "Ok" | "Err"]
+            | ["Option" | "Result", "Some" | "None" | "Ok" | "Err"]
+            | ["serde_json", "Value", "Null"]
+            | ["Value", "Null"]
+            | [
+                "serde_json",
+                "Value",
+                "String" | "Number" | "Bool" | "Object" | "Array"
+            ]
+            | ["Value", "String" | "Number" | "Bool" | "Object" | "Array"]
+            | ["serde_json", "Number", "from"]
+            | ["Number", "from"]
+            | ["serde_json", "to_string"]
+    ) {
+        return true;
+    }
+    let head = slice[0];
+    if matches!(
+        head,
+        "Vec"
+            | "VecDeque"
+            | "HashSet"
+            | "BTreeSet"
+            | "HashMap"
+            | "BTreeMap"
+            | "Map"
+            | "String"
+            | "i8"
+            | "i16"
+            | "i32"
+            | "i64"
+            | "i128"
+            | "isize"
+            | "u8"
+            | "u16"
+            | "u32"
+            | "u64"
+            | "u128"
+            | "usize"
+            | "f32"
+            | "f64"
+    ) {
+        return true;
+    }
+    is_python_builtin_name(head)
+}
+
+fn is_python_builtin_name(name: &str) -> bool {
+    matches!(
+        name,
+        "abs"
+            | "all"
+            | "any"
+            | "bool"
+            | "dict"
+            | "enumerate"
+            | "float"
+            | "int"
+            | "len"
+            | "list"
+            | "max"
+            | "min"
+            | "next"
+            | "print"
+            | "range"
+            | "reversed"
+            | "round"
+            | "set"
+            | "sorted"
+            | "str"
+            | "sum"
+            | "tuple"
+            | "zip"
+    )
 }
 
 /// Walk `e` and replace every single-segment `Expr::Path` whose ident

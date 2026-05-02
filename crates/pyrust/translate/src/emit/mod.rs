@@ -74,6 +74,7 @@ pub fn emit_file(
         }
         w.blank_line();
     }
+    w.mark_deferred_inline_import_insertion_point();
     // Cambc alias prelude: `Direction.North` PascalCase → SCREAMING_SNAKE
     // attribute alias, plus precomputed Position lookup table and PosInt
     // distance tables (dist_sq / manhat / chebyshev) bound on Position.
