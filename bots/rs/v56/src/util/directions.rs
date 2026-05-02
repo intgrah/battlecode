@@ -48,6 +48,22 @@ pub const fn rotate_right(d: Direction) -> Direction {
     }
 }
 
+/// Rotate a direction 45° counter-clockwise. `Centre` is a no-op.
+#[must_use]
+pub const fn rotate_left(d: Direction) -> Direction {
+    match d {
+        Direction::North => Direction::Northwest,
+        Direction::Northwest => Direction::West,
+        Direction::West => Direction::Southwest,
+        Direction::Southwest => Direction::South,
+        Direction::South => Direction::Southeast,
+        Direction::Southeast => Direction::East,
+        Direction::East => Direction::Northeast,
+        Direction::Northeast => Direction::North,
+        Direction::Centre => Direction::Centre,
+    }
+}
+
 /// `(dx, dy)` offsets for `DIR8`, in the same order.
 pub const DIR8_DELTA: [(i32, i32); 8] = [
     (0, -1),  // North

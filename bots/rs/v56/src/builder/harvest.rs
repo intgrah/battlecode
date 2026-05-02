@@ -26,7 +26,7 @@ use crate::builder::helpers::{
     on_enemy_side, ore_available, try_move_with_road,
 };
 use crate::util::debug::debug as log;
-use crate::util::directions::{DIR4, DIR8_DELTA, delta_to_dir};
+use crate::util::directions::{DIR4, delta_to_dir, rotate_left, rotate_right};
 use crate::util::visualiser::auto_wrap_position;
 
 /// Enemy road/conveyor/splitter/bridge cardinal-adjacent to `pos`,
@@ -274,30 +274,39 @@ pub fn place_harvester_guard(
 }
 
 /// Decide barrier vs inward conveyor for a guard at `guard_pos` (a
-/// cardinal of harvester `target`). Rule: barrier iff every tile in
-/// the U around the guard is unwalkable. The U is the 5 tiles around
-/// `guard_pos` on the side away from the harvester: the tile directly
-/// behind the guard, the two perpendicular cardinals, and the two
-/// diagonals adjacent to behind.
+/// cardinal of harvester `target`). Let `d` be the harvester→guard
+/// direction; the away-side tiles are:
+///   - `top`        = guard + d (one past the guard)
+///   - `left_perp`  = guard + rotate_left(rotate_left(d))   (90° CCW)
+///   - `right_perp` = guard + rotate_right(rotate_right(d)) (90° CW)
+///   - `left_diag`  = guard + rotate_left(d)                (45° CCW)
+///   - `right_diag` = guard + rotate_right(d)               (45° CW)
+///
+/// Use a barrier iff:
+///   - `top` is passable (the back is open), AND
+///   - at least one of `{left_perp, left_diag}` is passable, AND
+///   - at least one of `{right_perp, right_diag}` is passable.
+///
+/// Rationale: barrier is justified only when the guard sits in a
+/// genuine open U — back open AND both flanks reachable. If the back
+/// is walled off (no U), or one flank is fully blocked (it's a
+/// corner not a U), the cheaper inward conveyor suffices.
 fn _should_use_barrier(builder: &Builder, guard_pos: Position, target: Position) -> bool {
     let dx = guard_pos.x - target.x;
     let dy = guard_pos.y - target.y;
-    for (ddx, ddy) in DIR8_DELTA {
-        // Tiles in the U: those on or away from the harvester side
-        // relative to guard_pos. Equivalently: dot product with the
-        // guard→harvester direction is non-positive.
-        if dx * ddx + dy * ddy < 0 {
-            continue;
-        }
-        let p = Position {
-            x: guard_pos.x + ddx,
-            y: guard_pos.y + ddy,
-        };
-        if builder.in_bounds(p) && builder.is_passable(p) {
-            return false;
-        }
-    }
-    true
+    let Some(d) = delta_to_dir(dx, dy) else {
+        return false;
+    };
+    let left_perp = rotate_left(rotate_left(d));
+    let right_perp = rotate_right(rotate_right(d));
+    let left_diag = rotate_left(d);
+    let right_diag = rotate_right(d);
+    let passable = |p: Position| builder.in_bounds(p) && builder.is_passable(p);
+    let top_passable = passable(guard_pos.add(d));
+    let left_passable = passable(guard_pos.add(left_perp)) || passable(guard_pos.add(left_diag));
+    let right_passable =
+        passable(guard_pos.add(right_perp)) || passable(guard_pos.add(right_diag));
+    top_passable && left_passable && right_passable
 }
 
 /// Last-resort: when `harvester_feed_cardinal(target_pos)` returns
