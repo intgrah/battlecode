@@ -2996,6 +2996,26 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
         }
 
         // ============================================================
+        // bytearray::*
+        // ============================================================
+        // `pyrust::bytearray::new!(n)` → `bytearray(n)` (n zero bytes).
+        // CPython byte-level read/write avoids per-element PyLong boxing
+        // — used for hot inner-loop arrays of small ints (BFS distance
+        // fields, passability flags). Indexing/iteration is identical
+        // to a list[int] so call sites need no other changes.
+        ["bytearray", "new"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "bytearray::new!: expected (n)"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!("bytearray({})", emits[0].text),
+                Ty::Unknown,
+            )))
+        }
+
+        // ============================================================
         // vec::*
         // ============================================================
         ["vec", "new"] => Ok(Some(Emitted::atomic("[]".to_string(), Ty::List))),
