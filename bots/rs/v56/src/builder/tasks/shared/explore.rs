@@ -9,16 +9,10 @@ use crate::builder::Builder;
 use crate::builder::explore::explore as run_explore;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
-#[pyrust::inline]
-const EXPLORE_MIN_TI: i32 = 100;
-
 pub fn explore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    if self_.ti <= EXPLORE_MIN_TI {
-        return Some(TaskRejected::from_string(format!(
-            "ti={} <= {}; exploring would burn roads we can't recoup",
-            self_.ti, EXPLORE_MIN_TI
-        )));
+
+    if run_explore(self_, ct) {
+        return None;
     }
-    run_explore(self_, ct);
-    None
+    Some(TaskRejected::from_string(format!("didn't move during explore")))
 }
