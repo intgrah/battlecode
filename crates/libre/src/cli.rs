@@ -207,11 +207,20 @@ fn load_rust_bot(dir: &Path, translate: bool, release: bool) -> Result<BotKind, 
 }
 
 fn build_rust_bot(dir: &Path) -> Result<PathBuf, String> {
-    eprintln!("[cambc-libre] cargo build {}", dir.display());
+    // Suppress cargo's progress output and rustc warnings. `--quiet` kills
+    // cargo's "Compiling …" / "Finished" lines; appending `-Awarnings` to
+    // any existing `RUSTFLAGS` allows-all rustc lint output. Errors still
+    // surface (cargo exit status + stderr from the failed crate).
+    let rustflags = match std::env::var("RUSTFLAGS") {
+        Ok(s) if !s.is_empty() => format!("{s} -Awarnings"),
+        _ => "-Awarnings".to_string(),
+    };
     let status = std::process::Command::new("cargo")
         .arg("build")
         .arg("--release")
+        .arg("--quiet")
         .current_dir(dir)
+        .env("RUSTFLAGS", rustflags)
         .status()
         .map_err(|e| format!("cargo build: {e}"))?;
     if !status.success() {
