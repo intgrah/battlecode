@@ -443,6 +443,61 @@ fn _is_zero_length_foundry_spot_p(builder: &Builder, p: PosInt) -> bool {
 /// Foundry candidate: friendly Ti conveyor that reaches the core, is NOT
 /// on a chain already feeding a foundry, and is NOT structurally downstream
 /// of any known Ax harvester.
+/// True iff `pos`'s flow_history contains target resource only (no other).
+/// Empty flow_history returns false.
+fn _flow_is_pure_single(builder: &Builder, pos: Position, want_ti: bool) -> bool {
+    let i = idx_of(pos) as usize;
+    let mut saw_target = false;
+    for (r, _) in &builder.flow_history[i] {
+        match r {
+            Some(ResourceType::Titanium) => {
+                if want_ti {
+                    saw_target = true;
+                } else {
+                    return false;
+                }
+            }
+            Some(ResourceType::RawAxionite | ResourceType::RefinedAxionite) => {
+                if !want_ti {
+                    saw_target = true;
+                } else {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    saw_target
+}
+
+/// True iff `pos` has BOTH Ti and Ax in its flow_history, AND every
+/// in_edge feeder is pure single-resource. The post-connection
+/// signature of a foundry merge tile — non-connector builders use
+/// this to identify the same spot. Port from v56.
+fn _flow_is_mixed_with_pure_sources(builder: &Builder, pos: Position) -> bool {
+    let i = idx_of(pos) as usize;
+    let mut has_ti = false;
+    let mut has_ax = false;
+    for (r, _) in &builder.flow_history[i] {
+        match r {
+            Some(ResourceType::Titanium) => has_ti = true,
+            Some(ResourceType::RawAxionite | ResourceType::RefinedAxionite) => has_ax = true,
+            _ => {}
+        }
+    }
+    if !(has_ti && has_ax) {
+        return false;
+    }
+    for f in &builder.in_edges[i] {
+        let pure_ti = _flow_is_pure_single(builder, *f, true);
+        let pure_ax = _flow_is_pure_single(builder, *f, false);
+        if !(pure_ti || pure_ax) {
+            return false;
+        }
+    }
+    true
+}
+
 fn _foundry_local_ok(builder: &Builder, pos: Position) -> bool {
     let i = idx_of(pos) as usize;
     let kind = builder.building_kind[i];
@@ -490,7 +545,13 @@ fn _foundry_local_ok(builder: &Builder, pos: Position) -> bool {
         }
     }
     if has_ax && !is_foundry_spot && !ax_feeds_target(builder, pos) {
-        return false;
+        // v56 fix: also accept tiles with mixed Ti+Ax history if every
+        // in_edge feeder is a pure single-resource source. That's the
+        // post-connection signature of a foundry merge tile, lets
+        // non-connector builders re-identify it.
+        if !_flow_is_mixed_with_pure_sources(builder, pos) {
+            return false;
+        }
     }
     saw_ti
 }

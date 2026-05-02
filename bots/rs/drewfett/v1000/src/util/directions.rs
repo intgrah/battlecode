@@ -34,6 +34,22 @@ pub const fn is_cardinal(d: Direction) -> bool {
     )
 }
 
+/// Rotate a direction 45° clockwise. `Centre` is a no-op.
+#[must_use]
+pub const fn rotate_right(d: Direction) -> Direction {
+    match d {
+        Direction::North => Direction::Northeast,
+        Direction::Northeast => Direction::East,
+        Direction::East => Direction::Southeast,
+        Direction::Southeast => Direction::South,
+        Direction::South => Direction::Southwest,
+        Direction::Southwest => Direction::West,
+        Direction::West => Direction::Northwest,
+        Direction::Northwest => Direction::North,
+        Direction::Centre => Direction::Centre,
+    }
+}
+
 /// `(dx, dy)` offsets for `DIR8`, in the same order.
 pub const DIR8_DELTA: [(i32, i32); 8] = [
     (0, -1),  // North

@@ -128,30 +128,31 @@ fn _feeds_enemy_combat(ct: &mut Controller<'_>, my_team: Team, outputs: &[Positi
 pub struct Sentinel {
     state: UnitState,
     idle_turns: i32,
+    starved_turns: i32,
 }
 
 impl Sentinel {
+    /// Self-destruct iff idle AND ammo-starved for at least this many
+    /// turns AND no enemy in vision. Same threshold as gunner.
+    const SELF_DESTRUCT_THRESHOLD: i32 = 30;
+
     #[must_use]
     pub fn new() -> Self {
         Self {
             state: UnitState::new(),
             idle_turns: 0,
+            starved_turns: 0,
         }
     }
 
     fn try_self_destruct(&mut self, ct: &mut Controller<'_>) {
         let my_team = self.state.my_team;
-        let mut has_ally = false;
         for uid in pyrust::unwrap!(ct.get_nearby_units(None)) {
-            if pyrust::unwrap!(ct.get_team(Some(uid))) == my_team {
-                has_ally = true;
-            } else {
+            if pyrust::unwrap!(ct.get_team(Some(uid))) != my_team {
                 return;
             }
         }
-        if has_ally {
-            pyrust::unwrap!(ct.self_destruct());
-        }
+        pyrust::unwrap!(ct.self_destruct());
     }
 }
 
@@ -167,6 +168,16 @@ impl Unit for Sentinel {
     fn run(&mut self, ct: &mut Controller<'_>) {
         self.state.cache_per_turn_state(ct);
         self.state.check_symmetry_marker(ct);
+
+        // Update ammo-starvation counter every turn (cooldown or not).
+        // A connected, supplied sentinel sees ammo > 0 most of the
+        // time. A sentinel cut off from its chain stays at 0.
+        if pyrust::unwrap!(ct.get_ammo_amount()) > 0 {
+            self.starved_turns = 0;
+        } else {
+            self.starved_turns += 1;
+        }
+
         if pyrust::unwrap!(ct.get_action_cooldown()) > 0 {
             return;
         }
@@ -225,16 +236,18 @@ impl Unit for Sentinel {
         {
             pyrust::unwrap!(ct.fire(target));
             self.idle_turns = 0;
-        } else {
-            self.idle_turns += 1;
-            // Self-destruct disabled: a sentinel placed deliberately for
-            // defensive coverage shouldn't suicide because no enemies
-            // are visible — that's the *whole point* of holding the
-            // perimeter. The 30 Ti is sunk; keep collecting on it.
-            //
-            // if self.idle_turns > SELF_DESTRUCT_THRESHOLD {
-            //     self.try_self_destruct(ct);
-            // }
+            return;
+        }
+        self.idle_turns += 1;
+        // Recycle iff we've been idle AND starved long enough AND no
+        // enemy is in vision. Same gating as gunner — a healthy
+        // sentinel with no current targets keeps its slot (deterrent
+        // value), but a disconnected one sitting forever with no
+        // ammo is dead weight.
+        if self.idle_turns > Self::SELF_DESTRUCT_THRESHOLD
+            && self.starved_turns > Self::SELF_DESTRUCT_THRESHOLD
+        {
+            self.try_self_destruct(ct);
         }
     }
 }
