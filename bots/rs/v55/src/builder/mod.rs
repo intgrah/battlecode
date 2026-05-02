@@ -617,25 +617,23 @@ impl Builder {
             return false;
         }
         let kind = self.building_kind[i];
-        // Routers (Conveyor / ArmouredConveyor / Bridge / Splitter) have
-        // their forward output(s) populated in `out_edges`. Splitter has 3
-        // entries — iterating covers all of them.
-        // Harvesters output ore to all four cardinals (LRU rotation each
-        // round); foundries output refined-ax via whichever side has
-        // capacity. For both we conservatively scan the 4 cardinals.
-        let outputs: Vec<Position> = match kind {
+        // Only routers we're willing to destroy: Conveyor / ArmouredConveyor /
+        // Bridge / Splitter. Their forward output(s) are populated in
+        // `out_edges` (Splitter has 3 entries — iterating covers them).
+        // Harvesters and foundries are excluded: even if they leak resources
+        // we don't tear down our own production buildings.
+        if !matches!(
+            kind,
             Some(
                 EntityType::Conveyor
-                | EntityType::ArmouredConveyor
-                | EntityType::Bridge
-                | EntityType::Splitter,
-            ) => pyrust::clone!(self.out_edges[i]),
-            Some(EntityType::Harvester | EntityType::Foundry) => {
-                pyrust::collect!(pyrust::map!(pyrust::iter!(DIR4), |&d| pos.add(d)))
-            }
-            _ => return false,
-        };
-        for out in &outputs {
+                    | EntityType::ArmouredConveyor
+                    | EntityType::Bridge
+                    | EntityType::Splitter
+            )
+        ) {
+            return false;
+        }
+        for out in &self.out_edges[i] {
             if !self.in_bounds(*out) {
                 continue;
             }
