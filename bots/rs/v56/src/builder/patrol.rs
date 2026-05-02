@@ -29,9 +29,9 @@ use crate::util::symmetry::ALL as SYM_ALL;
 use crate::util::visualiser::auto_wrap_position;
 
 #[pyrust::inline]
-const _ALERT_BOOST_TO: i32 = 30;
+const _ALERT_BOOST_TO: i32 = 60;
 #[pyrust::inline]
-const _ALERT_MAX: i32 = 30;
+const _ALERT_MAX: i32 = 60;
 #[pyrust::inline]
 /// Turns before earliest possible enemy arrival at our core to one-shot
 /// max-alert all builders. `min_chebyshev_to_mirrored_core - this`.
@@ -122,8 +122,8 @@ fn _min_enemy_arrival(builder: &Builder) -> i32 {
 }
 
 /// Bump alert if any enemy bot OR turret is in vision; else decay by
-/// 1 every other turn (floored at 0). One-shot pre-emptive max-alert
-/// at `min_enemy_arrival - _PRE_EMPTIVE_BUFFER`. Capped at `_ALERT_MAX`.
+/// 1 (floored at 0). One-shot pre-emptive max-alert at
+/// `min_enemy_arrival - _PRE_EMPTIVE_BUFFER`. Capped at `_ALERT_MAX`.
 pub fn update_alert(builder: &mut Builder) {
     let has_enemy = !pyrust::vec::is_empty!(builder.state.enemy_bots)
         || pyrust::is_some!(builder.nearest_enemy_turret);
@@ -131,7 +131,7 @@ pub fn update_alert(builder: &mut Builder) {
         if builder.alert < _ALERT_BOOST_TO {
             builder.alert = _ALERT_BOOST_TO;
         }
-    } else if builder.alert > 0 && builder.state.round % 2 == 0 {
+    } else if builder.alert > 0 {
         builder.alert -= 1;
     }
     let trigger = _min_enemy_arrival(builder) - _PRE_EMPTIVE_BUFFER;
