@@ -543,7 +543,6 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         }
         vis_scalar_bool("opportunistic", builder.opportunistic);
         let n_clusters = pyrust::len!(builder.patrol_clusters);
-        let core = builder.my_core;
         let expansion = alert_expansion(builder.alert, builder.state.scale);
         if n_clusters == 0 {
             vis_tile("patrol_target", None);
@@ -553,7 +552,8 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             let qlen = pyrust::len!(cycle);
             if qlen > 0 {
                 let raw_target = cycle[builder.patrol_pos_idx % qlen];
-                let target = expand_outward(raw_target, core, expansion, w, h);
+                let centroid = builder.patrol_cluster_centroids[ci];
+                let target = expand_outward(raw_target, centroid, expansion, w, h);
                 vis_tile("patrol_target", Some(target));
             } else {
                 vis_tile("patrol_target", None);
@@ -565,13 +565,14 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
                 if pyrust::vec::is_empty!(q) {
                     continue;
                 }
+                let centroid = builder.patrol_cluster_centroids[i];
                 let mut raw: Vec<Position> = pyrust::clone!(q);
                 pyrust::vec::push!(raw, q[0]);
                 let mut exp: Vec<Position> = pyrust::vec::new!();
                 for p in q {
-                    pyrust::vec::push!(exp, expand_outward(*p, core, expansion, w, h));
+                    pyrust::vec::push!(exp, expand_outward(*p, centroid, expansion, w, h));
                 }
-                pyrust::vec::push!(exp, expand_outward(q[0], core, expansion, w, h));
+                pyrust::vec::push!(exp, expand_outward(q[0], centroid, expansion, w, h));
                 vis(
                     &format!("patrol_cycle_{i}"),
                     &Dump::Path {
@@ -600,27 +601,26 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             "rounds_since_harvester_add",
             i64::from(builder.state.round - builder.last_harvester_add_round),
         );
-        // Locus of the bot's chosen cluster: union of discs of radius
-        // sqrt(econ_explore_radius_sq) around each cluster member,
-        // clamped to map bounds. ECON/PermEcon explore is restricted to
-        // these tiles.
+        // Union locus across all clusters: tiles within
+        // sqrt(econ_explore_radius_sq) of any cluster member. ECON /
+        // PermEcon explore-target picking is filtered to this set;
+        // ore picking is NOT (uses econ_radius_sq instead).
         if n_clusters > 0 {
-            let ci = pyrust::min!(builder.patrol_cluster_idx, n_clusters - 1);
-            let cluster = &builder.patrol_clusters[ci];
             let r2 = builder.econ_explore_radius_sq;
             let mut locus: HashSet<Position> = pyrust::set::new!();
-            for m in cluster {
-                for y in 0..h {
-                    for x in 0..w {
-                        let p = Position { x, y };
-                        if p.distance_squared(*m) <= r2 {
-                            pyrust::set::add!(locus, p);
+            for cluster in &builder.patrol_clusters {
+                for m in cluster {
+                    for y in 0..h {
+                        for x in 0..w {
+                            let p = Position { x, y };
+                            if p.distance_squared(*m) <= r2 {
+                                pyrust::set::add!(locus, p);
+                            }
                         }
                     }
                 }
             }
             vis_tiles("econ_explore_locus", pyrust::copied!(pyrust::iter!(locus)));
-            vis_scalar_int("econ_explore_cluster_idx", ci as i64);
         }
         // for y in 0..h {
         //     let base = (y as usize) * MAX_WIDTH;

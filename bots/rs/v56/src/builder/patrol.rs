@@ -33,7 +33,7 @@ const _ALERT_MAX: i32 = 30;
 #[pyrust::inline]
 const _EXPANSION_LOW: f64 = 8.0;
 #[pyrust::inline]
-const _CLUSTER_THRESHOLD: i32 = 200;
+const _CLUSTER_THRESHOLD: i32 = 100;
 #[pyrust::inline]
 const _REROLL_INTERVAL: i32 = 50;
 
@@ -66,23 +66,20 @@ pub fn update_econ_explore_radius(builder: &mut Builder) {
 }
 
 /// True iff `p` is within `econ_explore_radius_sq` of any member of
-/// the bot's chosen cluster. Vacuously true if there are no clusters.
+/// any cluster. Vacuously true if there are no clusters. Used as a soft
+/// bound on ECON/PermEcon explore-target selection only — does NOT
+/// constrain ore picking.
 #[must_use]
-pub fn in_chosen_cluster_locus(builder: &Builder, p: Position) -> bool {
-    let n = pyrust::len!(builder.patrol_clusters);
-    if n == 0 {
+pub fn in_any_cluster_locus(builder: &Builder, p: Position) -> bool {
+    if pyrust::vec::is_empty!(builder.patrol_clusters) {
         return true;
     }
-    let ci = if builder.patrol_cluster_idx < n {
-        builder.patrol_cluster_idx
-    } else {
-        0
-    };
     let r = builder.econ_explore_radius_sq;
-    let cluster = &builder.patrol_clusters[ci];
-    for m in cluster {
-        if p.distance_squared(*m) <= r {
-            return true;
+    for cluster in &builder.patrol_clusters {
+        for m in cluster {
+            if p.distance_squared(*m) <= r {
+                return true;
+            }
         }
     }
     false
@@ -121,17 +118,26 @@ pub fn alert_expansion(alert: i32, scale: f64) -> f64 {
     _expansion_cap(scale) * (1.0 - t)
 }
 
-pub fn expand_outward(t: Position, core: Position, expansion: f64, w: i32, h: i32) -> Position {
-    let dx = pyrust::float!((t.x - core.x));
-    let dy = pyrust::float!((t.y - core.y));
+/// Push `t` outward from `centroid` by `expansion` tiles along the
+/// (t - centroid) ray. Clamped to the map bounds. `centroid` is a
+/// float because it's the running mean of cluster members.
+pub fn expand_outward(
+    t: Position,
+    centroid: (f64, f64),
+    expansion: f64,
+    w: i32,
+    h: i32,
+) -> Position {
+    let dx = pyrust::float!(t.x) - centroid.0;
+    let dy = pyrust::float!(t.y) - centroid.1;
     let len_sq = dx * dx + dy * dy;
     if len_sq <= 0.0 {
         return t;
     }
     let len = pyrust::sqrt!(len_sq);
     let factor = 1.0 + expansion / len;
-    let nx = pyrust::round!((dx * factor)) as i32 + core.x;
-    let ny = pyrust::round!((dy * factor)) as i32 + core.y;
+    let nx = pyrust::round!((dx * factor + centroid.0)) as i32;
+    let ny = pyrust::round!((dy * factor + centroid.1)) as i32;
     Position {
         x: pyrust::max!(0, pyrust::min!(nx, w - 1)),
         y: pyrust::max!(0, pyrust::min!(ny, h - 1)),
@@ -358,11 +364,11 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
         idx = (builder.state.my_id as usize) % qlen;
     }
     let raw_target = builder.patrol_clusters[ci][idx];
-    let core = builder.my_core;
+    let centroid = builder.patrol_cluster_centroids[ci];
     let expansion = alert_expansion(builder.alert, builder.state.scale);
     let expanded_target = expand_outward(
         raw_target,
-        core,
+        centroid,
         expansion,
         builder.state.width,
         builder.state.height,
@@ -379,7 +385,7 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     let raw_target = builder.patrol_clusters[ci][idx];
     let target = expand_outward(
         raw_target,
-        core,
+        centroid,
         expansion,
         builder.state.width,
         builder.state.height,

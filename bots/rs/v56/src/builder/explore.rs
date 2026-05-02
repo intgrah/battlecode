@@ -20,7 +20,7 @@ use cambc::{Controller, Position};
 
 use crate::builder::Builder;
 use crate::builder::helpers::make_move;
-use crate::builder::patrol::in_chosen_cluster_locus;
+use crate::builder::patrol::in_any_cluster_locus;
 use crate::builder::role::Role;
 use crate::util::constants::MAX_WIDTH;
 
@@ -118,7 +118,7 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
             // chosen-cluster shape locus (union of small discs around
             // each cluster member). Other roles ignore the bound.
             if matches!(builder.role, Some(Role::Econ | Role::PermEcon))
-                && !in_chosen_cluster_locus(builder, p)
+                && !in_any_cluster_locus(builder, p)
             {
                 continue;
             }
