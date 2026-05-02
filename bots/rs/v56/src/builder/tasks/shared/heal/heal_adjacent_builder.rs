@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/shared/heal/heal_adjacent_builder.py`.
-//!
 //! Heal a damaged friendly builder bot within action range. Skips
 //! bots standing on a damaged enemy building — those bots are mid-kill
 //! and would lose progress if we patched them up. Bails out under the

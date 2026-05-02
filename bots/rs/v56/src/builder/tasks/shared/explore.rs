@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/shared/explore.py`.
-//!
 //! Walk toward unexplored tiles to grow the bot's known map. Gated on
 //! `ti > EXPLORE_MIN_TI`: exploring lays roads, so a starving bot would
 //! strand titanium it can't recoup. Delegates the actual movement to

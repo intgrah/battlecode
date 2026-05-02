@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/ore/claim_ore.py`.
-//!
 //! Walk onto an unharvested ore tile to claim it. Highest-priority of
 //! the three ore-claim phases. Single responsibility: navigate (with
 //! contest-clearing) onto `ore_target` or `ax_ore_target`. No conveyor

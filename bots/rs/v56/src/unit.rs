@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/unit/__init__.py`.
-//!
 //! Models the Python `Unit` / `CoreAwareUnit` class hierarchy as two traits
 //! plus a shared `UnitState` struct. Concrete unit types (Breach, Gunner,
 //! Builder, Core, …) embed a `UnitState` and implement `Unit::state` /

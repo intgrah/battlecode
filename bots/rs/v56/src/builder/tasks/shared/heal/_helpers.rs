@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/shared/heal/_helpers.py`.
-//!
 //! Shared helpers for the heal leaves: enemy-attacker counting,
 //! multi-builder deconfliction, healer-count math, wounded-enemy detection,
 //! and the "I'm low-HP on an enemy tile, fight to death instead of heal"

@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/push/claim_offensive_ore.py`.
-//!
 //! Walk onto `offensive_ore_target` (enemy-side ore picked by the
 //! inverse-bisector gate) to claim it. Mirrors `claim_ore` but uses the
 //! offense-specific target.

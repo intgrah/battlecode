@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/algorithms/bug2_planner.py`.
-//!
 //! Bug2 plan generator that mutates a `path_idx` list in place.
 //!
 //! Drains under a budget per turn — yields after each walker step, after

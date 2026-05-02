@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/infrastructure/fix_enemy_conveyor.py`.
-//!
 //! Destroy any nearby tile that `leads_to_enemy_building` (i.e. a
 //! friendly conveyor whose downstream chain ultimately reaches an enemy
 //! building, leaking our resources to them) and pave a road in its place.

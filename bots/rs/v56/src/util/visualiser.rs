@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/util/visualiser.py`.
-//!
 //! Visualisation primitives. Defines the `Dump` enum (each variant a typed
 //! payload the viewer knows how to render) and the `Dumper` struct that bots
 //! use to emit a per-turn JSON tree of named dump nodes.

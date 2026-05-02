@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/util/directions.py`.
-
 use cambc::{Direction, Position};
 
 /// `N, NE, E, SE, S, SW, W, NW` — the eight non-CENTRE directions, in

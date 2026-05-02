@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/hooks/heal.py`.
-
 use cambc::{Controller, ControllerApi, EntityType};
 use serde_json::Map;
 

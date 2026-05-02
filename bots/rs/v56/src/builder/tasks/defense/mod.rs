@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/defense/`.
-//!
 //! DEFENSE role policy tree.
 
 pub mod patrol;

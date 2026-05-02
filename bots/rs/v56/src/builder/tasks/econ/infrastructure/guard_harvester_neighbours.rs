@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/infrastructure/guard_harvester_neighbours.py`.
-//!
 //! Guard work around our Ti harvesters / claimed-but-unbuilt ore tiles.
 
 use std::collections::HashSet;

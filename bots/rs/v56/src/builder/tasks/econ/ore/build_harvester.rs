@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/ore/build_harvester.py`.
-//!
 //! Step off the claimed ore tile and place a harvester in the same
 //! turn. Lowest-priority of the three ore-claim phases — fires only after
 //! `claim_ore` is satisfied (we stand on the ore) and `guard_harvester_neighbours`

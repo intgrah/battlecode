@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/turret_around_harvester.py`.
-//!
 //! Place gunner / sentinel turrets adjacent to a vulnerable enemy
 //! harvester, capping at 2 gunners + 1 sentinel per harvester.
 

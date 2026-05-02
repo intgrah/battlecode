@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/shared/heal/heal_buildings.py`.
-//!
 //! Heal a damaged friendly building. Picks a `repair_pos` (committed
 //! target) via `_best_healable_building`'s deconflicted scoring, walks
 //! toward it, and tries `try_heal` on the best in-range tile both before

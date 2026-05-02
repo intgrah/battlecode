@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/util/constants.py`.
-
 use cambc::{EntityType, GameConstants};
 
 #[pyrust::inline]

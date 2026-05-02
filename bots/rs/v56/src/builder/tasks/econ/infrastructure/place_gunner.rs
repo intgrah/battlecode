@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/infrastructure/place_gunner.py`.
-//!
 //! Defensive gunner / sentinel placement adjacent to a friendly harvester.
 //! Iterates DIR8 neighbours: gunner placement requires a forward-ray that
 //! hits an enemy harvester or transport (via `gunner_facing`); sentinel

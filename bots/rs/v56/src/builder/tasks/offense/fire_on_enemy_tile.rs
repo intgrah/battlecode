@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/fire_on_enemy_tile.py`.
-//!
 //! Standing on an enemy building cardinal to a vulnerable enemy
 //! harvester: fire on it (2 Ti for 2 dmg). Tracks `last_fire = (pos,
 //! expected_hp)` so a future visit can detect enemy heals.

@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/chains/extend_chain_approach.py`.
-//!
 //! Walk toward `dangling_output` and lay a conveyor segment along the
 //! A* path to its sink (Ti -> `ti_sink`, Ax -> `ax_sink`). No range gate — the
 //! builder will travel as far as needed. Fires only when the in-range

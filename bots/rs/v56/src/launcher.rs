@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/launcher/__init__.py`.
-
 use cambc::{Controller, ControllerApi, EntityType, Environment, GameConstants, Position};
 
 use crate::unit::{Unit, UnitState};

@@ -543,7 +543,6 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         }
         vis_scalar_bool("opportunistic", builder.opportunistic);
         let n_clusters = pyrust::len!(builder.patrol_clusters);
-        let expansion = alert_expansion(builder.alert, builder.state.scale);
         if n_clusters == 0 {
             vis_tile("patrol_target", None);
         } else {
@@ -553,6 +552,7 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             if qlen > 0 {
                 let raw_target = cycle[builder.patrol_pos_idx % qlen];
                 let centroid = builder.patrol_cluster_centroids[ci];
+                let expansion = alert_expansion(builder.alert, builder.state.scale, qlen);
                 let target = expand_outward(raw_target, centroid, expansion, w, h);
                 vis_tile("patrol_target", Some(target));
             } else {
@@ -565,7 +565,10 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
                 if pyrust::vec::is_empty!(q) {
                     continue;
                 }
+                let qlen_i = pyrust::len!(q);
                 let centroid = builder.patrol_cluster_centroids[i];
+                let expansion =
+                    alert_expansion(builder.alert, builder.state.scale, qlen_i);
                 let mut raw: Vec<Position> = pyrust::clone!(q);
                 pyrust::vec::push!(raw, q[0]);
                 let mut exp: Vec<Position> = pyrust::vec::new!();

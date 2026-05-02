@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/chains/extend_chain_in_range.py`.
-//!
 //! Lay a conveyor segment from `dangling_output` toward its sink, only
 //! when the dangling end is within builder vision. The cached
 //! `dangling_output` is refreshed every turn by `update_dangling` (no

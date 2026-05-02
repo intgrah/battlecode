@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/parasitic/walk_to_cached_target.py`.
-//!
 //! Walk back toward a cached `offense_target` when no fresh harvester is
 //! visible. Used when a builder commits to a target, walks out of vision of
 //! it, then needs to keep walking back. Routes via `offense_launcher` if

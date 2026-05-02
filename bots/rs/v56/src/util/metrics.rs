@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/util/metrics.py`.
-
 use cambc::Position;
 
 /// L-1 distance.

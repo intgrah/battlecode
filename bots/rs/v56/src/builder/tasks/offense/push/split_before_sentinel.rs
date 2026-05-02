@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/push/split_before_sentinel.py`.
-//!
 //! Upgrade the conveyor immediately upstream of a friendly sentinel into
 //! a splitter, forking the offensive chain into three outputs.
 

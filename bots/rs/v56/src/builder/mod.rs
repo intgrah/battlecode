@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/__init__.py`.
-//!
 //! `Builder` is the bot's most complex unit — it owns map belief, conveyor
 //! routing graphs, navigation state, role/task scheduling, and per-turn
 //! ephemeral sets. Submodules implement the algorithms (`algorithms/`),

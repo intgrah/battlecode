@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/rejected.py`.
-//!
 //! Failure model is Option-shape, not Result: `None` = task fired,
 //! `Some(TaskRejected)` = task rejected. Dodges Python exceptions
 //! (which would be non-deterministic if any unrelated exception
