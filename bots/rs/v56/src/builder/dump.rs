@@ -9,7 +9,7 @@ use cambc::{Controller, Position};
 
 use crate::builder::Builder;
 use crate::builder::algorithms::reachability::find_ro;
-use crate::builder::patrol::{alert_expansion, expand_outward};
+use crate::builder::patrol::{alert_expansion, expand_outward, money_factor};
 use crate::util::constants::{INF, MAX_WIDTH};
 use crate::util::debug::{Scope, vis};
 use crate::util::visualiser::{Colour, Dump, Palette, PaletteStop, ScalarValue, TRANSPARENT};
@@ -554,7 +554,12 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
                 if qlen > 0 {
                     let raw_target = cycle[builder.patrol_pos_idx % qlen];
                     let centroid = builder.patrol_cluster_centroids[ci];
-                    let expansion = alert_expansion(builder.alert, builder.state.scale, qlen);
+                    let expansion = alert_expansion(
+                        builder.alert,
+                        builder.state.scale,
+                        qlen,
+                        money_factor(builder),
+                    );
                     let target = expand_outward(raw_target, centroid, expansion, w, h);
                     vis_tile("patrol_target", Some(target));
                 } else {
@@ -569,7 +574,12 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
                     }
                     let qlen_i = pyrust::len!(q);
                     let centroid = builder.patrol_cluster_centroids[i];
-                    let expansion = alert_expansion(builder.alert, builder.state.scale, qlen_i);
+                    let expansion = alert_expansion(
+                        builder.alert,
+                        builder.state.scale,
+                        qlen_i,
+                        money_factor(builder),
+                    );
                     let mut raw: Vec<Position> = pyrust::clone!(q);
                     pyrust::vec::push!(raw, q[0]);
                     let mut exp: Vec<Position> = pyrust::vec::new!();
