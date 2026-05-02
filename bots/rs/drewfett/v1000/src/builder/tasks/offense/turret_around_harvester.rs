@@ -6,7 +6,7 @@
 use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, Position};
 
 use crate::builder::Builder;
-use crate::builder::helpers::{can_afford, move_random, try_place};
+use crate::builder::helpers::{move_random, try_place};
 use crate::builder::tasks::offense::converge_on_rendezvous::place_marker_best_effort;
 use crate::builder::tasks::offense::helpers::{
     friendly_bot_adjacent, gunner_chain_facing, is_allied_transport, pick_harvester_target,
@@ -104,6 +104,7 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
         place_marker_best_effort(self_, ct, payload);
     }
 
+    move_random(self_, ct);
     let mut direction = direction_to(build_position, enemy_core);
     if direction == direction_to(build_position, target) {
         direction = rotate_right(direction);
@@ -130,57 +131,29 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
         }
     }
 
-    // adgato v56 9fd3c751: pave road to claim the spot when we can't yet
-    // afford the turret; only burn move_random if we actually place. Avoids
-    // wasting motion when the can_afford gate blocks placement.
-    let mut placed = false;
     if n_gunner < 2 {
         let gdir = gunner_chain_facing(self_, build_position);
         if let Some(gd) = gdir {
-            if can_afford(self_, EntityType::Gunner) {
-                move_random(self_, ct);
-                placed = try_place(
-                    self_,
-                    ct,
-                    EntityType::Gunner,
-                    build_position,
-                    BuildExtra::Direction(gd),
-                    true,
-                );
-            } else {
-                try_place(
-                    self_,
-                    ct,
-                    EntityType::Road,
-                    build_position,
-                    BuildExtra::None,
-                    false,
-                );
-            }
+            try_place(
+                self_,
+                ct,
+                EntityType::Gunner,
+                build_position,
+                BuildExtra::Direction(gd),
+                true,
+            );
         }
     }
 
-    if !placed && n_sentinel == 0 && self_.get_env_p(target_p) == Some(Environment::OreTitanium) {
-        if can_afford(self_, EntityType::Sentinel) {
-            move_random(self_, ct);
-            try_place(
-                self_,
-                ct,
-                EntityType::Sentinel,
-                build_position,
-                BuildExtra::Direction(direction),
-                true,
-            );
-        } else {
-            try_place(
-                self_,
-                ct,
-                EntityType::Road,
-                build_position,
-                BuildExtra::None,
-                false,
-            );
-        }
+    if n_sentinel == 0 && self_.get_env_p(target_p) == Some(Environment::OreTitanium) {
+        try_place(
+            self_,
+            ct,
+            EntityType::Sentinel,
+            build_position,
+            BuildExtra::Direction(direction),
+            true,
+        );
     }
 
     if pyrust::unwrap!(ct.can_build_road(build_position)) {
