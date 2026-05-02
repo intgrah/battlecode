@@ -33,7 +33,9 @@ struct Frame {
     t0_ns: Option<u64>,
 }
 
-/// Per-bot debug state. One instance per process via `DebugCtx::global()`.
+/// Process-global debug state. The `Dumper`'s same_cache is keyed by
+/// `(current_bot_id, name)` so multiple builders running through the
+/// same static still get per-bot same-elision.
 pub struct DebugCtx {
     /// The root node of the current turn's tree. `None` when no scope is
     /// active. Owns all nested children.
@@ -41,11 +43,15 @@ pub struct DebugCtx {
     /// Frame stack. Empty when no scope is active. The top frame is always
     /// the current scope; new children are appended to it.
     frames: Vec<Frame>,
-    /// Per-unit same-elision dumper for `vis()`.
+    /// Per-bot same-elision dumper for `vis()`.
     dumper: Dumper,
     /// Microseconds spent inside the previous `flush()` call. Recorded into
     /// the next root as `prev_flush_us` so the visualiser can show I/O cost.
     last_flush_us: u64,
+    /// The id of the bot currently running. Set by `set_current_bot` at
+    /// the top of each `Player::run`. Used by `Dumper` as part of the
+    /// same_cache key.
+    pub current_bot_id: i32,
 }
 
 impl DebugCtx {
@@ -56,6 +62,7 @@ impl DebugCtx {
             frames: pyrust::vec::new!(),
             dumper: Dumper::new(),
             last_flush_us: 0,
+            current_bot_id: -1,
         }
     }
 
@@ -164,7 +171,7 @@ impl DebugCtx {
             node = &mut node["children"][idx];
         }
         let children = pyrust::serde::array_mut!(node["children"]);
-        self.dumper.dump(children, name, value);
+        self.dumper.dump(children, self.current_bot_id, name, value);
     }
 
     pub fn flush(&mut self) {
@@ -187,10 +194,10 @@ impl Default for DebugCtx {
     }
 }
 
-/// Process-global debug context. Lazily initialised on first access. Each
-/// cdylib has its own copy of `CTX`, and the engine serialises bot calls
-/// per turn, so the unsynchronised access is safe on the single-threaded
-/// hot path.
+/// Process-global debug context. The `Dumper` inside same-elides per
+/// `(bot_id, name)`, so multiple builders sharing the static still get
+/// per-builder same_cache isolation. `current_bot_id` is set at the top
+/// of `Player::run` via `set_current_bot` and used by `Dumper.dump`.
 static mut CTX: Option<DebugCtx> = None;
 
 #[allow(static_mut_refs)]
@@ -199,6 +206,15 @@ fn ctx() -> &'static mut DebugCtx {
         unsafe { CTX = Some(DebugCtx::new()) };
     }
     unsafe { pyrust::unwrap!(pyrust::as_mut!(CTX)) }
+}
+
+/// Set the bot id used as the same-elision cache key for subsequent
+/// `vis()` calls. Call at the top of each `run()` before any scope opens.
+pub fn set_current_bot(id: i32) {
+    if !DEBUG_LOG {
+        return;
+    }
+    ctx().current_bot_id = id;
 }
 
 /// Tree-internal scope guard. Constructed via `Scope::new` (untimed) or

@@ -59,6 +59,8 @@ pub struct UnitState {
     pub ax: i32,
     /// Scale percent / 100 at the start of the turn.
     pub scale: f64,
+    /// Count of living friendly units (this team) at the start of the turn.
+    pub unit_count: i32,
     /// Cardinal `(direction, position)` pairs from `my_pos`, in-bounds only.
     pub dir_neighbours_4: Vec<(Direction, Position)>,
     /// All 8 `(direction, position)` pairs from `my_pos`, in-bounds only.
@@ -103,6 +105,7 @@ impl UnitState {
             ti: 0,
             ax: 0,
             scale: 0.0,
+            unit_count: 0,
             dir_neighbours_4: pyrust::vec::new!(),
             dir_neighbours_8: pyrust::vec::new!(),
             neighbours_4: pyrust::vec::new!(),
@@ -154,6 +157,7 @@ impl UnitState {
         let round = pyrust::unwrap!(ct.get_current_round());
         let (ti, ax) = pyrust::unwrap!(ct.get_global_resources());
         let scale = pyrust::unwrap!(ct.get_scale_percent()) / 100.0;
+        let unit_count = pyrust::unwrap!(ct.get_unit_count());
         let nearby_tiles = pyrust::unwrap!(ct.get_nearby_tiles(None));
 
         let mut enemy_bots: HashSet<Position> = pyrust::set::new!();
@@ -182,6 +186,7 @@ impl UnitState {
         self.ti = ti;
         self.ax = ax;
         self.scale = scale;
+        self.unit_count = unit_count;
         self.nearby_tiles = nearby_tiles;
         self.enemy_bots = enemy_bots;
         self.friendly_bots = friendly_bots;

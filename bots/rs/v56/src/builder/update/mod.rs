@@ -50,6 +50,10 @@ pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
         role::update_role(builder);
     }
     {
+        let _g = Scope::new_timed("alert");
+        crate::builder::patrol::update_alert(builder);
+    }
+    {
         let _g = Scope::new_timed("econ");
         econ::update_map_econ(builder, ct);
     }

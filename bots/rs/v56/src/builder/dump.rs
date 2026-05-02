@@ -118,6 +118,40 @@ fn _crop_bool(arr: &[bool], w: i32, h: i32) -> Vec<bool> {
     out
 }
 
+/// Per-tile count of non-None entries in `flow_history`. Cropped to map
+/// dims, returned as i16 grid for the dump.
+fn _flow_volume_grid(builder: &Builder, w: i32, h: i32) -> Vec<i16> {
+    let mut out = Vec::with_capacity((w * h) as usize);
+    for y in 0..h {
+        let base = (y as usize) * MAX_WIDTH;
+        for x in 0..w {
+            let i = base + (x as usize);
+            let v = pyrust::count!(pyrust::filter!(
+                pyrust::iter!(builder.flow_history[i]),
+                |t| pyrust::is_some!(t.0)
+            )) as i16;
+            pyrust::vec::push!(out, v);
+        }
+    }
+    out
+}
+
+fn p_volume() -> Palette<i64> {
+    Palette {
+        stops: vec![
+            PaletteStop {
+                t: 0,
+                colour: TRANSPARENT,
+            },
+            PaletteStop {
+                t: 8,
+                colour: Colour::new(240, 80, 80, 200),
+            },
+        ],
+        special: pyrust::vec::new!(),
+    }
+}
+
 /// Tiles inside our econ disc — eligible for ECON/DEFENSE ore claims.
 fn _econ_disc_tiles(builder: &Builder) -> HashSet<Position> {
     let mut tiles: HashSet<Position> = pyrust::set::new!();
@@ -261,9 +295,6 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
     let _g = Scope::new("dump");
     {
         let _g = Scope::new("identity");
-        vis_scalar_int("id", i64::from(builder.state.my_id));
-        vis_tile("pos", Some(builder.state.my_pos));
-        vis_scalar_int("round", i64::from(builder.state.round));
         match builder.role {
             Some(r) => vis_scalar_str("role", &format!("{r}")),
             None => vis_scalar_null("role"),
@@ -408,6 +439,30 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             vis_tile("dangling_output", builder.dangling_output);
         }
         {
+            let _g = Scope::new("conv_greedy");
+            if let Some(ref pp) = builder.last_greedy_path {
+                let colour = if builder.last_greedy_path_is_ax {
+                    Colour::new(200, 0, 255, 255)
+                } else {
+                    Colour::new(80, 160, 255, 255)
+                };
+                vis(
+                    "path",
+                    &Dump::Path {
+                        points: pyrust::clone!(pp),
+                        colour,
+                    },
+                );
+            }
+        }
+        vis(
+            "flow_volume",
+            &Dump::I16Grid {
+                data: _flow_volume_grid(builder, w, h),
+                palette: p_volume(),
+            },
+        );
+        {
             let _g = Scope::new("sets");
             vis_tiles(
                 "dangling_set",
@@ -480,11 +535,6 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         );
     }
     {
-        let _g = Scope::new("resources");
-        vis_scalar_int("ti", i64::from(builder.state.ti));
-        vis_scalar_int("ax", i64::from(builder.state.ax));
-    }
-    {
         let _g = Scope::new("misc");
         vis_tile("repair_pos", builder.repair_pos);
         vis_scalar_bool("repaired_prev", builder.repaired_prev);
@@ -494,10 +544,22 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             None => vis_scalar_null("explore_heading"),
         }
         vis_scalar_bool("opportunistic", builder.opportunistic);
-        vis_tile("patrol_head", builder.patrol_head);
-        // let mut patrol_age: Vec<f32> = vec![-1.0; (w * h) as usize];
-        // let mut last_seen_grid: Vec<i16> = vec![0; (w * h) as usize];
-        let crnd = builder.state.round;
+        let queue = &builder.patrol_queue;
+        if !pyrust::vec::is_empty!(queue) {
+            let target = queue[builder.patrol_queue_idx % pyrust::len!(queue)];
+            vis_tile("patrol_target", Some(target));
+            let mut closed: Vec<Position> = pyrust::clone!(queue);
+            pyrust::vec::push!(closed, queue[0]);
+            vis(
+                "patrol_cycle",
+                &Dump::Path {
+                    points: closed,
+                    colour: Colour::new(255, 200, 80, 200),
+                },
+            );
+        } else {
+            vis_tile("patrol_target", None);
+        }
         // for y in 0..h {
         //     let base = (y as usize) * MAX_WIDTH;
         //     let row_base = (y * w) as usize;
@@ -521,33 +583,6 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         //         palette: p_dist(),
         //     },
         // );
-        let mut best_age: i32 = -1;
-        let mut best_dist: i32 = 1 << 30;
-        let mut best_pos: Option<Position> = None;
-        let mx = builder.state.my_pos.x;
-        let my_y = builder.state.my_pos.y;
-        let mut candidates: Vec<Position> =
-            pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.my_harvesters)));
-        pyrust::vec::extend!(
-            candidates,
-            pyrust::copied!(pyrust::iter!(builder.my_foundries))
-        );
-        pyrust::vec::push!(candidates, builder.my_core);
-        for p in &candidates {
-            let age = crnd - builder.last_seen[(p.y as usize) * MAX_WIDTH + (p.x as usize)];
-            if age < best_age {
-                continue;
-            }
-            let dxv = p.x - mx;
-            let dyv = p.y - my_y;
-            let d = dxv * dxv + dyv * dyv;
-            if age > best_age || d < best_dist {
-                best_age = age;
-                best_dist = d;
-                best_pos = Some(*p);
-            }
-        }
-        vis_tile("patrol_target", best_pos);
         vis_scalar_int(
             "reflect_queue_len",
             pyrust::len!(builder.reflect_queue) as i64,

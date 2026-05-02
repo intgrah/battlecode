@@ -6,7 +6,7 @@
 //!
 //! The returned path is in the same shape A* produces:
 //! `[start, p1, p2, …, target]` where consecutive pairs are either
-//! `r²==1` (cardinal conveyor) or `r²∈[3, 9]` (bridge).
+//! `r²==1` (cardinal conveyor) or `r²∈[2, 9]` (bridge).
 
 use cambc::{Position, ResourceType};
 
@@ -64,7 +64,7 @@ fn _routable(builder: &Builder, pos: Position, resource: ResourceType) -> bool {
     is_inward_guard(builder, pos)
 }
 
-/// Pick a bridge destination (`r²∈[3, 9]`) that's both reachable and
+/// Pick a bridge destination (`r²∈[2, 9]`) that's both reachable and
 /// strictly closer to `target` than `cur`. Tiebreak: smallest squared
 /// distance to target, then lex on Position. Returns None if no bridge
 /// makes progress.
@@ -82,7 +82,7 @@ fn _greedy_bridge(
     for dx in -3..=3i32 {
         for dy in -3..=3i32 {
             let d2 = dx * dx + dy * dy;
-            if d2 < 3 || d2 > 9 {
+            if d2 < 2 || d2 > 9 {
                 continue;
             }
             let next = Position {

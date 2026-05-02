@@ -46,24 +46,11 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
                 Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
                     if nt == Some(my_team) =>
                 {
-                    // The conveyor's output is the back-of-harvester check.
-                    // n.add(cdir) where cdir = direction(n), but here we
-                    // need to know if the output points away from the
-                    // harvester. Equivalent: out_edges[ni][0] != pos.
-                    if let Some(&out) = pyrust::vec::first!(builder.out_edges[ni])
-                        && out != pos
-                    {
-                        // The conveyor faces somewhere else than the
-                        // harvester's tile. If that destination is itself
-                        // a friendly harvester, this conveyor pushes
-                        // INTO another harvester — skip; otherwise it's
-                        // a real outbound feeder.
-                        if !(builder.in_bounds(out)
-                            && builder.kind_at(out) == Some(EntityType::Harvester))
-                        {
-                            adjacent_conveyor = true;
-                            break;
-                        }
+                    // Inward conveyors don't count as consumers (treated as
+                    // if no building exists).
+                    if !is_inward_guard(builder, n) {
+                        adjacent_conveyor = true;
+                        break;
                     }
                 }
                 Some(
@@ -121,6 +108,16 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
     pyrust::sort_by_key!(changed, |p| (p.y, p.x));
     for p in changed {
         builder._check_dangling(p, "unconn_flip");
+    }
+
+    // Re-validate every visible tile. _check_dangling early-exits cheaply
+    // on non-admitted tiles. This catches inward conveyors that just
+    // became inward (a builder/harvester appeared on the target ore) and
+    // any other classification drift that incremental triggers miss.
+    let mut visible_tiles: Vec<Position> = pyrust::clone!(builder.state.nearby_tiles);
+    pyrust::sort_by_key!(visible_tiles, |p| (p.y, p.x));
+    for p in visible_tiles {
+        builder._check_dangling(p, "visible_revalidate");
     }
 }
 
@@ -343,7 +340,7 @@ fn _pure_ax_merge_ok(builder: &Builder, pos: Position) -> bool {
     let team = builder.building_team[i];
     if !matches!(
         kind,
-        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge)
     ) {
         return false;
     }
@@ -791,9 +788,10 @@ pub fn update_foundry_target(builder: &mut Builder) {
     }
 }
 
-/// Empirical Ti-sink candidate: friendly conveyor (or armoured), not inward
-/// guard, not upstream of dangling, not congested, no Ax in flow_history.
-/// Must be reachable.
+/// Basic Ti-sink candidate filter: friendly Conveyor / ArmouredConveyor /
+/// Bridge, reachable, not an inward guard, no Ax in flow_history.
+/// Congestion is checked separately by walking the downstream chain in
+/// `update_ti_sink`.
 fn _ti_sink_ok(builder: &Builder, pos: Position) -> bool {
     if !builder.is_reachable(pos) {
         return false;
@@ -803,7 +801,7 @@ fn _ti_sink_ok(builder: &Builder, pos: Position) -> bool {
     let team = builder.building_team[i];
     if !matches!(
         kind,
-        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge)
     ) {
         return false;
     }
@@ -813,45 +811,108 @@ fn _ti_sink_ok(builder: &Builder, pos: Position) -> bool {
     if is_inward_guard(builder, pos) {
         return false;
     }
-    if pyrust::vec::contains!(builder.upstream_of_dangling, &pos) {
-        return false;
-    }
-    if _tile_volume(builder, pos) >= FLOW_HISTORY_LEN {
-        return false;
-    }
     !_flow_has_ax(builder, pos)
 }
 
-/// Pick where new Ti chains should terminate: closest valid Ti-sink in
-/// vision, falling back to the nearest core_edge if nothing matches.
+/// Walk the downstream chain from `t` via `out_edges`. Visits transport
+/// tiles (Conveyor / ArmouredConveyor / Bridge / Splitter) and stops at
+/// Core (excluded) or Foundry (included). Branches that terminate
+/// elsewhere (dangling) are dead — they don't count as reaching a sink.
+/// Returns `Some(max_volume)` over all visited transport tiles iff at
+/// least one branch reaches a Core or Foundry; else `None`.
+fn _downstream_chain_max_vol(builder: &Builder, t: Position) -> Option<i32> {
+    let mut visited: HashSet<Position> = pyrust::set::new!();
+    let mut stack: Vec<Position> = vec![t];
+    let mut max_vol: i32 = 0;
+    let mut reached_sink = false;
+    while let Some(p) = pyrust::vec::pop!(stack) {
+        if pyrust::vec::contains!(visited, &p) {
+            continue;
+        }
+        pyrust::set::add!(visited, p);
+        let i = (p.y as usize) * MAX_WIDTH + (p.x as usize);
+        let kind = builder.building_kind[i];
+        let team = builder.building_team[i];
+        match kind {
+            Some(EntityType::Core) if team == Some(builder.state.my_team) => {
+                reached_sink = true;
+            }
+            Some(EntityType::Foundry) if team == Some(builder.state.my_team) => {
+                reached_sink = true;
+                let v = _tile_volume(builder, p) as i32;
+                if v > max_vol {
+                    max_vol = v;
+                }
+            }
+            Some(
+                EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Bridge
+                | EntityType::Splitter,
+            ) if team == Some(builder.state.my_team) => {
+                let v = _tile_volume(builder, p) as i32;
+                if v > max_vol {
+                    max_vol = v;
+                }
+                for o in &builder.out_edges[i] {
+                    pyrust::vec::push!(stack, *o);
+                }
+            }
+            _ => {
+                // Dangling / non-transport — branch dies.
+            }
+        }
+    }
+    if reached_sink { Some(max_vol) } else { None }
+}
+
+/// Pick where new Ti chains should terminate. Find the closest valid
+/// candidate (friendly conveyor / armoured / bridge, not inward,
+/// reachable, no Ax in flow_history). Run the downstream-chain check
+/// once on it: walk via `out_edges` to core (excluded) or foundry
+/// (included); require at least one branch reaches a real sink, AND
+/// max tile volume <= 6. If congested, fall back to nearest reachable
+/// core_edge — do not try other conveyor candidates.
 pub fn update_ti_sink(builder: &mut Builder) {
     let anchor = pyrust::unwrap_or!(builder.dangling_output, builder.state.my_pos);
-    let mut best: Option<Position> = None;
+
+    let mut best_cand: Option<Position> = None;
     let mut best_d: i32 = 1 << 30;
     let nearby = pyrust::clone!(builder.state.nearby_tiles);
     for pos in &nearby {
         if !_ti_sink_ok(builder, *pos) {
             continue;
         }
-        let d = anchor.distance_squared(*pos);
+        let d = pyrust::abs!((anchor.x - pos.x)) + pyrust::abs!((anchor.y - pos.y));
         if d < best_d {
             best_d = d;
-            best = Some(*pos);
+            best_cand = Some(*pos);
         }
     }
-    if pyrust::is_none!(best) {
+
+    let mut chosen: Option<Position> = None;
+    if let Some(cand) = best_cand
+        && let Some(max_vol) = _downstream_chain_max_vol(builder, cand)
+        && max_vol <= 6
+    {
+        chosen = Some(cand);
+    }
+
+    if pyrust::is_none!(chosen) {
+        let mut bd: i32 = 1 << 30;
         for edge in &builder.core_edges {
             if !builder.is_reachable(*edge) {
                 continue;
             }
-            let d = anchor.distance_squared(*edge);
-            if d < best_d {
-                best_d = d;
-                best = Some(*edge);
+            let d = pyrust::abs!((anchor.x - edge.x)) + pyrust::abs!((anchor.y - edge.y));
+            if d < bd {
+                bd = d;
+                chosen = Some(*edge);
             }
         }
     }
-    if best != builder.ti_sink {
+
+    if chosen != builder.ti_sink {
         let mut args = Map::new();
         pyrust::dict::insert!(
             args,
@@ -861,7 +922,7 @@ pub fn update_ti_sink(builder: &mut Builder) {
         pyrust::dict::insert!(
             args,
             pyrust::to_string!("to"),
-            Value::String(format!("{best:?}"))
+            Value::String(format!("{chosen:?}"))
         );
         pyrust::dict::insert!(
             args,
@@ -870,15 +931,15 @@ pub fn update_ti_sink(builder: &mut Builder) {
         );
         pyrust::dict::insert!(
             args,
-            pyrust::to_string!("dist_sq"),
-            Value::Number(pyrust::into!(best_d))
+            pyrust::to_string!("cand"),
+            Value::String(format!("{best_cand:?}"))
         );
         log(
-            "update_ti_sink: ti_sink changed from {from} to {to} (anchor={anchor}, dist_sq={dist_sq})",
+            "update_ti_sink: ti_sink changed from {from} to {to} (anchor={anchor}, cand={cand})",
             args,
         );
     }
-    builder.ti_sink = best;
+    builder.ti_sink = chosen;
 }
 
 /// Pick the nearest unclaimed Ax-ore tile, gated on round AND Ti buffer.

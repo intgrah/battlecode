@@ -356,17 +356,22 @@ impl Dumper {
     }
 
     /// Append a vis node to `scope_children`. If the payload equals the last
-    /// value emitted under `name`, write a `{"$type": "same"}` marker so the
-    /// viewer can reuse the previous turn's value.
-    pub fn dump(&mut self, scope_children: &mut Vec<serde_json::Value>, name: &str, value: &Dump) {
+    /// value emitted under `(bot_id, name)`, write a `{"$type": "same"}` marker
+    /// so the viewer can reuse the previous turn's value. Per-bot keying
+    /// prevents cross-bot pollution when multiple Player instances share
+    /// this Dumper.
+    pub fn dump(
+        &mut self,
+        scope_children: &mut Vec<serde_json::Value>,
+        bot_id: i32,
+        name: &str,
+        value: &Dump,
+    ) {
         let payload = serialise_dump(value);
-        let same = self.same_cache.get(name) == Some(&payload);
+        let key = format!("{bot_id}:{name}");
+        let same = self.same_cache.get(&key) == Some(&payload);
         if !same {
-            pyrust::dict::insert!(
-                self.same_cache,
-                pyrust::to_string!(name),
-                pyrust::clone!(payload)
-            );
+            pyrust::dict::insert!(self.same_cache, key, pyrust::clone!(payload));
         }
         let value_field = if same {
             serde_json::json!({"$type": "same"})

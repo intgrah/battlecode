@@ -31,6 +31,7 @@ use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::algorithms::nav::{BugNav, NavCtx};
 use crate::builder::algorithms::reachability::{find_ro, update_reachability};
 use crate::builder::dump::dump;
+use crate::builder::helpers::is_inward_guard;
 use crate::builder::hooks::heal::end_of_turn_heal;
 use crate::builder::hooks::indicators::indicators;
 use crate::builder::hooks::propagate_symmetry::end_of_turn_propagate_symmetry;
@@ -44,7 +45,7 @@ use crate::config::{DEBUG_DUMP, HARDCODE};
 use crate::hardcode::identify::{KnownMap, identify_map};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH, ROAD_COST};
-use crate::util::debug::{Scope, debug as log};
+use crate::util::debug::Scope;
 use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
 use crate::util::symmetry::Symmetry;
 use crate::util::visualiser::auto_wrap_position;
@@ -179,6 +180,11 @@ pub struct Builder {
     pub dangling_set: HashSet<Position>,
     pub dangling_output: Option<Position>,
 
+    /// Last greedy-route path produced by chain extension this turn.
+    /// Cleared at start of each turn; consumed by the dump.
+    pub last_greedy_path: Option<Vec<Position>>,
+    pub last_greedy_path_is_ax: bool,
+
     // Repair
     pub repair_pos: Option<Position>,
     pub repaired_prev: bool,
@@ -207,12 +213,19 @@ pub struct Builder {
     pub _prev_ti: i32,
 
     // Patrol
-    pub patrol_head: Option<Position>,
-    /// Index into the per-turn-recomputed patrol cycle. Persists across
-    /// turns so we keep advancing along the cycle instead of restarting.
-    /// Reset to `(my_id mod cycle_len)` whenever the current value falls
-    /// outside the cycle (first run, or after the cycle shrank).
-    pub patrol_cycle_idx: usize,
+    /// Cyclic queue of patrol targets — seeded at post_init with the
+    /// 4 core-footprint corners, then expanded incrementally as
+    /// harvesters are observed (insertion-NN: O(N) per add). Per-turn
+    /// patrol cost is O(1).
+    pub patrol_queue: Vec<Position>,
+    /// Index into `patrol_queue`. Persists across turns. Reset to
+    /// `(my_id mod len)` whenever it falls outside bounds.
+    pub patrol_queue_idx: usize,
+    /// Alert level: 0 (calm) up to MAX_ALERT (max). Bumped on enemy
+    /// sighting, decays each turn. Controls how far OUTSIDE the
+    /// patrol cycle the bot ranges — high alert → tight on infra,
+    /// low alert → expanded ring further from core (= exploration).
+    pub alert: i32,
     pub last_seen: [i32; MAX_N],
     pub _vision_offsets: Vec<(i32, i32, i32)>,
 
@@ -334,6 +347,8 @@ impl Builder {
             ti_sink: None,
             dangling_set: pyrust::set::new!(),
             dangling_output: None,
+            last_greedy_path: None,
+            last_greedy_path_is_ax: false,
             repair_pos: None,
             repaired_prev: true,
             en_core_seen: false,
@@ -349,8 +364,9 @@ impl Builder {
             // Game starts with 500 Ti (game_constants); first turn's delta
             // resolves to 0, so we don't dump 500 into the window slot.
             _prev_ti: 500,
-            patrol_head: None,
-            patrol_cycle_idx: usize::MAX,
+            patrol_queue: pyrust::vec::new!(),
+            patrol_queue_idx: usize::MAX,
+            alert: 0,
             last_seen: [0; MAX_N],
             _vision_offsets: vision_offsets,
             explore_target: None,
@@ -977,6 +993,12 @@ impl Builder {
             None if env_i != Some(Environment::Wall) => true,
             Some(EntityType::Road) if team == Some(my_team) => true,
             Some(EntityType::Marker) => true,
+            // Inward conveyors are treated as if no building exists.
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+                if is_inward_guard(self, t) =>
+            {
+                true
+            }
             _ => false,
         };
         if !admit_terrain {
@@ -1069,6 +1091,17 @@ impl Unit for Builder {
         self.state.init_static_state(ct);
         let core = self.resolve_my_core(ct);
         self.set_my_core(core);
+        // Seed patrol queue with the 4 corners of the 3×3 core footprint
+        // so the cycle is well-defined even before any harvester is built.
+        for &(dx, dy) in &[(-1, -1), (1, -1), (-1, 1), (1, 1)] {
+            let c = Position {
+                x: core.x + dx,
+                y: core.y + dy,
+            };
+            if self.in_bounds(c) {
+                pyrust::vec::push!(self.patrol_queue, c);
+            }
+        }
 
         let r = self.state.rng.random();
         self.opportunistic = r < 0.5;
@@ -1135,7 +1168,6 @@ impl Unit for Builder {
             pyrust::to_string!("round"),
             serde_json::Value::Number(serde_json::Number::from(self.state.round))
         );
-        log("Builder {id} pos={pos} round={round}", args);
 
         update(self, ct);
         begin_turn_offense(self, ct);
