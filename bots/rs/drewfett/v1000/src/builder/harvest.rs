@@ -27,7 +27,7 @@ use crate::builder::helpers::{
     ore_available, try_move_with_road,
 };
 use crate::util::debug::debug as log;
-use crate::util::directions::{DIR4, DIR8_DELTA, delta_to_dir};
+use crate::util::directions::{DIR4, delta_to_dir};
 use crate::util::posint::{dist_sq, idx_of, pos_of};
 use crate::util::visualiser::auto_wrap_position;
 
@@ -290,27 +290,28 @@ pub fn place_harvester_guard(
     false
 }
 
-/// v56-ported: barrier iff every tile in the U around the guard is
-/// unwalkable. The U is the 5 tiles around `guard_pos` on the side away
-/// from the harvester: directly behind + 2 perpendicular cardinals + 2
-/// behind-diagonals. If ANY is passable, prefer conveyor.
+/// U-shape local-connectivity check.
 fn _should_use_barrier(builder: &Builder, guard_pos: Position, target: Position) -> bool {
     let dx = guard_pos.x - target.x;
     let dy = guard_pos.y - target.y;
-    for (ddx, ddy) in DIR8_DELTA {
-        // Skip tiles on the harvester side (dot product < 0).
-        if dx * ddx + dy * ddy < 0 {
-            continue;
-        }
-        let p = Position {
-            x: guard_pos.x + ddx,
-            y: guard_pos.y + ddy,
-        };
-        if builder.in_bounds(p) && builder.is_passable_p(idx_of(p)) {
-            return false;
-        }
-    }
-    true
+    let Some(d) = delta_to_dir(dx, dy) else {
+        return false;
+    };
+    let top = guard_pos.add(d);
+    let left_perp = rotate_left(rotate_left(d));
+    let right_perp = rotate_right(rotate_right(d));
+    let left_diag = rotate_left(d);
+    let right_diag = rotate_right(d);
+
+    let passable =
+        |pos: Position| -> bool { builder.in_bounds(pos) && builder.is_passable_p(idx_of(pos)) };
+
+    let top_passable = passable(top);
+    let left_passable = passable(guard_pos.add(left_perp)) || passable(guard_pos.add(left_diag));
+    let right_passable = passable(guard_pos.add(right_perp)) || passable(guard_pos.add(right_diag));
+
+    let must_use_conveyor = (!top_passable) && left_passable && right_passable;
+    !must_use_conveyor
 }
 
 /// Last-resort: when `harvester_feed_cardinal(target_pos)` returns
