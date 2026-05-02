@@ -204,6 +204,18 @@ pub fn needs_harvester_guard(
     if pyrust::vec::contains!(io_reserved, &cardinal) {
         return false;
     }
+    // Don't guard ore cardinals — they're potential future harvester
+    // spots. Placing a defensive conveyor here triggers thrashing:
+    // a future bot claims the ore via claim_ore (which destroys the
+    // conveyor), then this task replaces it next turn while another
+    // bot is mid-claim. Leave ore cardinals to claim_ore.
+    let cp = idx_of(cardinal);
+    if matches!(
+        builder.get_env_p(cp),
+        Some(Environment::OreTitanium | Environment::OreAxionite)
+    ) {
+        return false;
+    }
     if is_guarded_cardinal(builder, cardinal) {
         return false;
     }
@@ -218,6 +230,48 @@ pub fn needs_harvester_guard(
         && builder.out_edges[ci][0] == target
     {
         return false;
+    }
+    true
+}
+
+/// If `cardinal` is currently a friendly Barrier but the U-shape rule
+/// would now choose a conveyor (local connectivity changed since
+/// placement), destroy + place an inward-facing conveyor.
+///
+/// Caller restricts to pre-harvest moments (target is `ore_target` /
+/// `ax_ore_target`) — running around live harvesters causes thrashing.
+pub fn convert_stale_barrier_to_conveyor(
+    builder: &mut Builder,
+    ct: &mut Controller<'_>,
+    cardinal: Position,
+    target: Position,
+) -> bool {
+    let cp = idx_of(cardinal);
+    if builder.kind_at_p(cp) != Some(EntityType::Barrier) {
+        return false;
+    }
+    if builder.team_at_p(cp) != Some(builder.state.my_team) {
+        return false;
+    }
+    if _should_use_barrier(builder, cardinal, target) {
+        return false;
+    }
+    let dx = target.x - cardinal.x;
+    let dy = target.y - cardinal.y;
+    let Some(inward) = delta_to_dir(dx, dy) else {
+        return false;
+    };
+    if !can_afford(builder, EntityType::Conveyor) {
+        return false;
+    }
+    if !pyrust::unwrap!(ct.can_destroy(cardinal)) {
+        return false;
+    }
+    pyrust::unwrap!(ct.destroy(cardinal));
+    builder.apply_local_destroy(cardinal);
+    if pyrust::unwrap!(ct.can_build_conveyor(cardinal, inward)) {
+        pyrust::unwrap!(ct.build_conveyor(cardinal, inward));
+        return true;
     }
     true
 }
