@@ -13,7 +13,7 @@
 //! - Higher pipeline priority (above `stalk_enemy`) — kill the launcher
 //!   first, chase the enemy bot second.
 
-use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Position};
+use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, Position};
 
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, make_move, move_random, try_place};
@@ -36,16 +36,19 @@ fn is_enemy_turret(self_: &Builder, pos: Position) -> bool {
     )
 }
 
+/// `side` is a deliverer for a sentinel at `pos` iff it's a structural
+/// feeder of `pos` or a friendly **Ti** harvester. Ax harvesters output
+/// raw Ax which sentinels can't use as ammo — wrongly counting them as
+/// deliverers loses a potential enemy-attack facing.
 fn delivers_ammo(self_: &Builder, pos: Position, side: Position) -> bool {
     let in_edges = &self_.in_edges[idx_of(pos) as usize];
     if pyrust::vec::contains!(in_edges, &side) {
         return true;
     }
-    if let Some((kind, team)) = self_.get_building(side) {
-        kind == EntityType::Harvester && team == self_.my_team
-    } else {
-        false
-    }
+    let i = idx_of(side) as usize;
+    self_.building_kind[i] == Some(EntityType::Harvester)
+        && self_.building_team[i] == Some(self_.my_team)
+        && self_.env[i] == Some(Environment::OreTitanium)
 }
 
 fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> Option<Direction> {
@@ -54,7 +57,11 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
         let d = DIR8[ii];
         let dp = DIR8_INT[ii];
         let fp = pos_p + dp;
-        if self_.posint_valid[fp as usize] != 0 && delivers_ammo(self_, pos, pos_of(fp)) {
+        if fp >= 0
+            
+            && self_.posint_valid[fp as usize] != 0
+            && delivers_ammo(self_, pos, pos_of(fp))
+        {
             continue;
         }
         let tiles = pyrust::unwrap!(ct.get_attackable_tiles_from(pos, d, EntityType::Sentinel));

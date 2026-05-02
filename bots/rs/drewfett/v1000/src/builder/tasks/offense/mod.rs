@@ -16,7 +16,6 @@ use crate::builder::tasks::offense::parasitic::OFFENSE_PARASITIC_GROUP;
 use crate::builder::tasks::offense::push::OFFENSE_PUSH_GROUP;
 use crate::builder::tasks::offense::scout_toward_enemy::scout_toward_enemy;
 use crate::builder::tasks::offense::turret_around_harvester::turret_around_harvester;
-use crate::builder::tasks::shared::deny_enemy_ore::deny_enemy_ore;
 use crate::builder::tasks::shared::heal::HEAL_GROUP;
 
 const PUSH_ROLE_CHILDREN: &[Policy] = &[
@@ -30,10 +29,6 @@ const PUSH_ROLE_CHILDREN: &[Policy] = &[
         fn_: turret_around_harvester,
     },
     OFFENSE_PUSH_GROUP,
-    Policy::Leaf {
-        name: "deny_enemy_ore",
-        fn_: deny_enemy_ore,
-    },
     Policy::Leaf {
         name: "scout_toward_enemy",
         fn_: scout_toward_enemy,
@@ -59,10 +54,6 @@ const PARASITIC_ROLE_CHILDREN: &[Policy] = &[
         fn_: turret_around_harvester,
     },
     OFFENSE_PARASITIC_GROUP,
-    Policy::Leaf {
-        name: "deny_enemy_ore",
-        fn_: deny_enemy_ore,
-    },
     Policy::Leaf {
         name: "scout_toward_enemy",
         fn_: scout_toward_enemy,

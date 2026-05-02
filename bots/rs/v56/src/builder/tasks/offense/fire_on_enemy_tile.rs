@@ -16,13 +16,13 @@ pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     let vulnerable = vulnerable_harvesters(self_);
     if pyrust::vec::is_empty!(vulnerable) {
         return Some(TaskRejected::new(
-            "not cardinally adjacent to a vulnerable harvester",
+            "not cardinally adjacent to a vulnerable harvester (none vulnerable)",
         ));
     }
     let target = pick_harvester_target(self_, &vulnerable);
     if self_.my_pos.distance_squared(target) != 1 {
         return Some(TaskRejected::new(
-            "not cardinally adjacent to a vulnerable harvester",
+            "not cardinally adjacent to a vulnerable harvester (not adjacent)",
         ));
     }
 

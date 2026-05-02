@@ -16,10 +16,27 @@ use cambc::Controller;
 use crate::builder::Builder;
 use crate::config::DEBUG_INVARIANTS;
 use crate::util::debug::Scope;
+use crate::util::posint::idx_of;
 use crate::util::trace;
 
 pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
     let _g = Scope::new_timed("update");
+    {
+        // Repopulate vision_mask before prune. Zero last turn's PosInts,
+        // set 1 for current nearby_tiles. Lets prune + vision + tasks
+        // skip ct.is_in_vision FFI in favour of an O(1) array read.
+        let _g = Scope::new_timed("vision_mask");
+        for &p in &builder.last_vision {
+            builder.vision_mask[p as usize] = 0;
+        }
+        let mut cur: Vec<i32> = pyrust::vec::new!();
+        for &pos in &builder.state.nearby_tiles {
+            let pi = idx_of(pos);
+            builder.vision_mask[pi as usize] = 1;
+            pyrust::vec::push!(cur, pi);
+        }
+        builder.last_vision = cur;
+    }
     {
         let _g = Scope::new_timed("prune");
         trace::enter(ct, "prune");
@@ -31,6 +48,13 @@ pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
         trace::enter(ct, "vision");
         vision::update_vision(builder, ct);
         trace::exit(ct, "vision");
+    }
+    {
+        // Mirror cost_grid passability into nav_bfs for any tile in
+        // current vision. set_passable no-ops on unchanged tiles, so
+        // this is cheap once steady-state.
+        let _g = Scope::new_timed("nav_bfs_sync");
+        builder.sync_nav_bfs_passable();
     }
     {
         let _g = Scope::new_timed("markers");

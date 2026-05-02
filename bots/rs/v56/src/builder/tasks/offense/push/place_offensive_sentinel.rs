@@ -6,6 +6,8 @@ use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Positi
 
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, make_move, move_random, try_place};
+use serde_json::Map;
+use crate::util::debug::{debug as log};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::constants::MAX_WIDTH;
 use crate::util::directions::DIR8;
@@ -65,9 +67,6 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
 }
 
 pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    if !can_afford(self_, EntityType::Sentinel) {
-        return Some(TaskRejected::new("cannot afford SENTINEL"));
-    }
 
     let mut best_pos: Option<Position> = None;
     let mut best_facing: Option<Direction> = None;
@@ -99,6 +98,22 @@ pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) ->
             "no dangling end with an enemy in sentinel range",
         ));
     };
+
+    if self_.my_pos.distance_squared(best_pos) <= 2 && !can_afford(self_, EntityType::Sentinel) {
+        try_place(
+            self_,
+            ct,
+            EntityType::Road,
+            best_pos,
+            BuildExtra::None,
+            false,
+        );
+        log(
+            "cannot afford SENTINEL, paved with road",
+            Map::new(),
+        );
+        return None;
+    }
 
     if self_.my_pos == best_pos {
         move_random(self_, ct);

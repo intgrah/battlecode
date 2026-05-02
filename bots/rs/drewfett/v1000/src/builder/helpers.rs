@@ -619,6 +619,35 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
     }
 }
 
+/// True iff the friendly transport at `p` has its first out-edge land
+/// on a friendly tile that hosts a chain consumer.
+#[must_use]
+fn _transport_output_to_friendly_chain_p(builder: &Builder, p: PosInt) -> bool {
+    let i = p as usize;
+    if pyrust::vec::is_empty!(builder.out_edges[i]) {
+        return false;
+    }
+    let target = builder.out_edges[i][0];
+    if !builder.in_bounds(target) {
+        return false;
+    }
+    let ti = idx_of(target) as usize;
+    if builder.building_team[ti] != Some(builder.state.my_team) {
+        return false;
+    }
+    matches!(
+        builder.building_kind[ti],
+        Some(
+            EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Bridge
+                | EntityType::Splitter
+                | EntityType::Foundry
+                | EntityType::Core
+        )
+    )
+}
+
 /// PosInt-native variant. Returns the chosen feed cardinal as a `PosInt`.
 #[must_use]
 pub fn harvester_feed_cardinal_p(builder: &Builder, ore_p: PosInt) -> Option<PosInt> {
@@ -646,201 +675,65 @@ pub fn harvester_feed_cardinal_p(builder: &Builder, ore_p: PosInt) -> Option<Pos
         return None;
     };
 
-    let mut tier1: Vec<PosInt> = pyrust::vec::new!();
-    let mut tier2: Vec<PosInt> = pyrust::vec::new!();
-    let mut classification: Vec<(Position, &'static str)> = pyrust::vec::new!();
+    // v56-ported PRIMARY/FALLBACK feed cardinal:
+    // PRIMARY = empty / friendly Road / friendly Marker / friendly transport
+    //   whose first out-edge lands on a friendly chain consumer / friendly
+    //   Splitter with back-input == ore / friendly Core
+    // FALLBACK = inward conveyors (output points back at ore)
+    // Among feedable, pick closest-to-sink within highest non-empty tier.
     let posint_valid = &builder.posint_valid;
-    let my_p = idx_of(builder.state.my_pos);
+    let my_team = builder.state.my_team;
+    let mut primary: Option<(i32, PosInt)> = None;
+    let mut fallback: Option<(i32, PosInt)> = None;
     for &d in &DIR4_INT {
         let np = ore_p + d;
         if np < 0 || posint_valid[np as usize] == 0 {
             continue;
         }
         let ci = np as usize;
-        let c = pos_of(np);
-        if np == my_p {
-            if DEBUG_LOG {
-                pyrust::vec::push!(classification, (c, "my_pos"));
-            }
-            continue;
-        }
         if builder.env[ci] == Some(Environment::Wall) {
-            if DEBUG_LOG {
-                pyrust::vec::push!(classification, (c, "wall"));
-            }
             continue;
         }
         let kind = builder.building_kind[ci];
         let team = builder.building_team[ci];
-        if matches!(
-            kind,
-            Some(
-                EntityType::Bridge
-                    | EntityType::Conveyor
-                    | EntityType::ArmouredConveyor
-                    | EntityType::Splitter
-            )
-        ) && team != Some(builder.state.my_team)
-        {
-            if DEBUG_LOG {
-                pyrust::vec::push!(classification, (c, "enemy_transport"));
-            }
-            continue;
-        }
-        match kind {
-            Some(EntityType::Bridge) => {
-                let target = if pyrust::vec::is_empty!(builder.out_edges[ci]) {
-                    c
-                } else {
-                    builder.out_edges[ci][0]
-                };
-                if target == ore_pos {
-                    if DEBUG_LOG {
-                        pyrust::vec::push!(
-                            classification,
-                            (c, "inward_guard: bridge target == ore")
-                        );
-                    }
-                } else {
-                    pyrust::vec::push!(tier1, np);
-                    if DEBUG_LOG {
-                        pyrust::vec::push!(classification, (c, "tier1: bridge"));
-                    }
-                }
-                continue;
-            }
-            Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
-                let target = if pyrust::vec::is_empty!(builder.out_edges[ci]) {
-                    c
-                } else {
-                    builder.out_edges[ci][0]
-                };
-                if target == ore_pos {
-                    if DEBUG_LOG {
-                        pyrust::vec::push!(
-                            classification,
-                            (c, "inward_guard: conveyor output -> ore")
-                        );
-                    }
-                } else {
-                    pyrust::vec::push!(tier1, np);
-                    if DEBUG_LOG {
-                        pyrust::vec::push!(classification, (c, "tier1: outward conveyor"));
-                    }
-                }
-                continue;
+        let primary_feedable = match kind {
+            None => true,
+            Some(EntityType::Road | EntityType::Marker) => true,
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge) => {
+                team == Some(my_team) && _transport_output_to_friendly_chain_p(builder, np)
             }
             Some(EntityType::Splitter) => {
-                // Splitter back-input cell = mirror of forward across c.
-                // From the 3 outputs: 4*c - sum(outputs) = c - forward_dir.
-                let outs = &builder.out_edges[ci];
-                if pyrust::len!(outs) == 3 {
-                    let back = crate::building::splitter_back_input(c, outs);
-                    if back == ore_pos {
-                        pyrust::vec::push!(tier1, np);
-                        if DEBUG_LOG {
-                            pyrust::vec::push!(classification, (c, "tier1: outward splitter"));
-                        }
-                    } else {
-                        if DEBUG_LOG {
-                            pyrust::vec::push!(
-                                classification,
-                                (c, "inward_guard: splitter back not -> ore")
-                            );
-                        }
-                    }
-                }
-                continue;
+                team == Some(my_team)
+                    && pyrust::len!(builder.out_edges[ci]) == 3
+                    && crate::building::splitter_back_input(pos_of(np), &builder.out_edges[ci])
+                        == ore_pos
             }
-            Some(
-                EntityType::Foundry
-                | EntityType::Core
-                | EntityType::Harvester
-                | EntityType::Barrier,
-            ) => {
-                if DEBUG_LOG {
-                    pyrust::vec::push!(classification, (c, "blocking_building"));
-                }
-                continue;
-            }
-            _ => {}
-        }
-        // Escape check for tier 2.
-        let dx = c.x - ore_pos.x;
-        let dy = c.y - ore_pos.y;
-        let Some(d_away) = delta_to_dir(dx, dy) else {
-            continue;
+            Some(EntityType::Core) => team == Some(my_team),
+            _ => false,
         };
-        let u_shape = [
-            c.add(d_away),
-            c.add(rotate_left(rotate_left(d_away))),
-            c.add(rotate_right(rotate_right(d_away))),
-            c.add(rotate_left(d_away)),
-            c.add(rotate_right(d_away)),
-        ];
-        let has_escape = pyrust::any!(pyrust::iter!(u_shape), |p| builder.in_bounds(*p)
-            && builder.is_passable(*p));
-        if !has_escape {
-            if DEBUG_LOG {
-                pyrust::vec::push!(classification, (c, "no_escape"));
+        let inward = !primary_feedable
+            && matches!(
+                kind,
+                Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+            )
+            && is_inward_guard_p(builder, np);
+        let dsq = dist_sq(np, sink_p);
+        if primary_feedable {
+            if pyrust::is_none_or!(primary, |p: (i32, PosInt)| dsq < p.0) {
+                primary = Some((dsq, np));
             }
-            continue;
-        }
-        pyrust::vec::push!(tier2, np);
-        if DEBUG_LOG {
-            pyrust::vec::push!(classification, (c, "tier2"));
+        } else if inward && pyrust::is_none_or!(fallback, |p: (i32, PosInt)| dsq < p.0) {
+            fallback = Some((dsq, np));
         }
     }
 
-    let chosen: Option<PosInt> = if !pyrust::vec::is_empty!(tier1) {
-        Some(*pyrust::unwrap!(pyrust::min_by!(
-            pyrust::iter!(tier1),
-            |q| dist_sq(**q, sink_p)
-        )))
-    } else if !pyrust::vec::is_empty!(tier2) {
-        Some(*pyrust::unwrap!(pyrust::min_by!(
-            pyrust::iter!(tier2),
-            |q| dist_sq(**q, sink_p)
-        )))
+    if let Some(t) = primary {
+        Some(t.1)
+    } else if let Some(t) = fallback {
+        Some(t.1)
     } else {
         None
-    };
-
-    if pyrust::is_none!(chosen) {
-        let label = format!("feed_pick_{}_{}", ore_pos.x, ore_pos.y);
-        let _g = Scope::new(&label);
-        if DEBUG_LOG {
-            let mut args = Map::new();
-            pyrust::dict::insert!(args, pyrust::to_string!("ore"), auto_wrap_position(ore_pos));
-            log("feed_pick({ore}): NONE", args);
-        }
-        for d in DIR4 {
-            let c = ore_pos.add(d);
-            if !builder.in_bounds(c) {
-                continue;
-            }
-            let mut status_found: Option<&str> = None;
-            for t in pyrust::iter!(classification) {
-                if t.0 == c {
-                    status_found = Some(t.1);
-                    break;
-                }
-            }
-            let status = pyrust::unwrap_or!(status_found, "?");
-            if DEBUG_LOG {
-                let mut args = Map::new();
-                pyrust::dict::insert!(args, pyrust::to_string!("c"), auto_wrap_position(c));
-                pyrust::dict::insert!(
-                    args,
-                    pyrust::to_string!("status"),
-                    serde_json::Value::String(pyrust::to_string!(status))
-                );
-                log("  {c}: {status}", args);
-            }
-        }
     }
-
-    chosen
 }
 
 /// Cardinals of `ore_pos` that must NOT be barriered.
@@ -1174,45 +1067,85 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
     // harvester_would_contaminate, harvester_feed_cardinal). With many
     // friendly bots in the friendlies list, this dominated the search
     // budget before the reorder.
+    //
+    // Each rejection emits a `_pick_ore` log line under DEBUG_LOG so the
+    // debug-dump scope tree records why a candidate was filtered. Reads
+    // back via `scripts/dump_decode.py` for skip-ore investigation.
     for &pi in ore_list {
         if !builder.is_reachable_p(pi) {
+            _log_pick_reject(pi, "unreachable");
             continue;
         }
         if dist_sq(pi, core_idx) > econ_radius_sq {
+            _log_pick_reject(pi, "outside_econ_disc");
             continue;
         }
         let pos = pos_of(pi);
         if !ore_available_p(builder, pi, pos) {
+            _log_pick_reject(pi, "ore_unavailable");
             continue;
         }
         let d = dist_sq(my_idx, pi);
         if d >= min_dist {
+            // No log: we already have a closer pick, this isn't a "skip".
             continue;
         }
         let i = pi as usize;
         match bk[i] {
-            Some(EntityType::Harvester) => continue,
+            Some(EntityType::Harvester) => {
+                _log_pick_reject(pi, "harvester_already");
+                continue;
+            }
             None | Some(EntityType::Road | EntityType::Marker | EntityType::Barrier) => {}
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
                 if !is_inward_guard_p(builder, pi) {
+                    _log_pick_reject(pi, "conveyor_not_inward");
                     continue;
                 }
             }
-            _ => continue,
+            _ => {
+                _log_pick_reject(pi, "blocking_kind");
+                continue;
+            }
         }
         if !claims_by_proximity_p(my_idx, my_id, pi, pyrust::copied!(pyrust::iter!(friends))) {
+            _log_pick_reject(pi, "friend_closer");
             continue;
         }
         if harvester_would_contaminate_p(builder, pi) {
+            _log_pick_reject(pi, "would_contaminate");
             continue;
         }
         if pyrust::is_none!(harvester_feed_cardinal_p(builder, pi)) {
+            _log_pick_reject(pi, "no_feed_cardinal");
             continue;
         }
         min_dist = d;
         best_target = Some(pos);
     }
     best_target
+}
+
+#[cfg(any())]
+fn _log_pick_reject(_pi: PosInt, _reason: &'static str) {}
+
+#[cfg(not(any()))]
+fn _log_pick_reject(pi: PosInt, reason: &'static str) {
+    if !crate::config::DEBUG_LOG {
+        return;
+    }
+    let mut args = serde_json::Map::new();
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("pos"),
+        crate::util::visualiser::auto_wrap_position(pos_of(pi))
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("reason"),
+        serde_json::Value::String(pyrust::to_string!(reason))
+    );
+    crate::util::debug::debug("_pick_ore reject {pos}: {reason}", args);
 }
 
 const _UPSTREAM_MAX_NODES: usize = 80;

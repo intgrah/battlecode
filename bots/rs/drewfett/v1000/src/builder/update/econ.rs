@@ -67,15 +67,16 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
     let prev_unconn = pyrust::set::clone!(builder.adjacent_to_unconnected_harvester);
     let tmp_unconn = pyrust::set::clone!(builder.adjacent_to_unconnected_harvester);
     pyrust::set::clear!(builder.adjacent_to_unconnected_harvester);
+    let mask_e = pyrust::clone!(builder.vision_mask);
     for &p in pyrust::iter!(&tmp_unconn) {
-        if !pyrust::unwrap!(ct.is_in_vision(pos_of(p))) {
+        if mask_e[p as usize] == 0 {
             pyrust::set::add!(builder.adjacent_to_unconnected_harvester, p);
         }
     }
     let tmp_harv = pyrust::set::clone!(builder.adjacent_to_harvester);
     pyrust::set::clear!(builder.adjacent_to_harvester);
     for &p in pyrust::iter!(&tmp_harv) {
-        if !pyrust::unwrap!(ct.is_in_vision(pos_of(p))) {
+        if mask_e[p as usize] == 0 {
             pyrust::set::add!(builder.adjacent_to_harvester, p);
         }
     }
@@ -462,6 +463,11 @@ fn _foundry_local_ok(builder: &Builder, pos: Position) -> bool {
     if pyrust::vec::contains!(builder.reaches_foundry, &idx_of(pos)) {
         return false;
     }
+    // Reject tiles structurally downstream of an existing foundry — they'd
+    // receive refined Ax from F1 and clog if we placed F2 here.
+    if pyrust::vec::contains!(builder.downstream_of_foundry, &idx_of(pos)) {
+        return false;
+    }
     let is_foundry_spot = _is_zero_length_foundry_spot(builder, pos);
     if !is_foundry_spot {
         if pyrust::vec::contains!(builder.ax_harvester_adjacent, &idx_of(pos)) {
@@ -595,6 +601,7 @@ fn _detect_saturated_tiles(builder: &Builder) -> Vec<Position> {
 pub fn update_economy_reachability(builder: &mut Builder) {
     builder.reaches_core = pyrust::set::new!();
     builder.reaches_foundry = pyrust::set::new!();
+    builder.downstream_of_foundry = pyrust::set::new!();
     builder.upstream_of_dangling = pyrust::set::new!();
     builder.upstream_of_congestion = pyrust::set::new!();
 
@@ -612,6 +619,13 @@ pub fn update_economy_reachability(builder: &mut Builder) {
         let roots: Vec<PosInt> =
             pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.my_foundries)));
         flood_back(&builder.in_edges, &roots, &mut builder.reaches_foundry);
+        // Forward flood over `out_edges` from foundry roots: any conveyor
+        // that would receive the foundry's refined Ax output. Placing a
+        // new foundry here would clog. The roots themselves are
+        // foundries, which never qualify as Ti-conveyor candidates anyway.
+        let roots2: Vec<PosInt> =
+            pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.my_foundries)));
+        flood_back(&builder.out_edges, &roots2, &mut builder.downstream_of_foundry);
     }
 
     let dangling_roots: Vec<PosInt> = pyrust::collect!(pyrust::filter!(
@@ -1208,7 +1222,7 @@ fn _ti_sink_ok(builder: &Builder, pos: Position) -> bool {
     let team = builder.building_team[i];
     let is_conv = matches!(
         kind,
-        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge)
     );
     if !is_conv {
         return false;

@@ -29,6 +29,7 @@ use serde_json::Map;
 use crate::builder::algorithms::econ_astar::AStarSearch;
 use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::algorithms::nav::{BugNav, NavCtx};
+use crate::builder::algorithms::nav_bfs::NavBfs;
 use crate::builder::algorithms::reachability::{find_ro, update_reachability};
 use crate::builder::dump::dump as dump_state;
 use crate::builder::hooks::heal::end_of_turn_heal;
@@ -135,6 +136,9 @@ pub struct Builder {
     /// `state.nearby_tiles`. Avoids 580k `ct.is_in_vision` engine calls
     /// per game (~172ms total: 130ns×580k direct + engine overhead).
     pub vision_mask: Vec<u8>,
+    /// PosInts that had `vision_mask == 1` last turn — lets us reset
+    /// the mask in O(prev-vision-size) instead of memsetting BOUND_RANGE.
+    pub last_vision: Vec<i32>,
 
     /// Passable-neighbour list per tile (flat indices). Pre-built for full
     /// `MAX_WIDTH × MAX_WIDTH`; trimmed in `post_init` for the actual map.
@@ -152,6 +156,12 @@ pub struct Builder {
 
     /// Bug2-bounded planner + `dp_step` path-follower. Persists across turns.
     pub bugnav: BugNav,
+
+    /// Backwards-BFS navigation. Maintains a dist field from the current
+    /// goal; `step_bfs` reads it via gradient descent. Lives parallel to
+    /// `bugnav` — `next_step_toward` tries BFS first and falls back to
+    /// bug2 if BFS hasn't found a path.
+    pub nav_bfs: NavBfs,
 
     /// WS-6: memoized bug2 results across turns. Key is `(start, target)` of a
     /// completed plan, value is the ordered tile sequence (start ... target).
@@ -200,6 +210,11 @@ pub struct Builder {
     pub ax_harvester_adjacent: HashSet<PosInt>,
     pub reaches_core: HashSet<PosInt>,
     pub reaches_foundry: HashSet<PosInt>,
+    /// Tiles structurally downstream of a friendly foundry's output —
+    /// computed by forward-flooding `out_edges` from `my_foundries`. A Ti
+    /// conveyor here would receive refined Ax from the foundry and clog,
+    /// so it must not become a new `foundry_target`.
+    pub downstream_of_foundry: HashSet<PosInt>,
     pub ti_upstream: HashSet<PosInt>,
     pub ax_upstream: HashSet<PosInt>,
     pub upstream_of_dangling: HashSet<PosInt>,
@@ -336,12 +351,14 @@ impl Builder {
             _ax_in_count: [0; BOUND_RANGE],
             posint_valid: vec![0u8; POSINT_VALID_LEN],
             vision_mask: vec![0u8; BOUND_RANGE],
+            last_vision: pyrust::vec::new!(),
             pnb,
             reach_parent: [-1; BOUND_RANGE],
             reach_frontier: pyrust::vec::new!(),
             conv_search: AStarSearch::new(),
             ax_conv_search: AStarSearch::new(),
             bugnav: BugNav::new(),
+            nav_bfs: NavBfs::new(1, 1),
             budget_telemetry: BudgetTelemetry::new(),
             bug2_path_cache: HashMap::new(),
             bug2_path_cache_order: VecDeque::new(),
@@ -360,6 +377,7 @@ impl Builder {
             ax_harvester_adjacent: pyrust::set::new!(),
             reaches_core: pyrust::set::new!(),
             reaches_foundry: pyrust::set::new!(),
+            downstream_of_foundry: pyrust::set::new!(),
             ti_upstream: pyrust::set::new!(),
             ax_upstream: pyrust::set::new!(),
             upstream_of_dangling: pyrust::set::new!(),
@@ -602,6 +620,9 @@ impl Builder {
 
     #[must_use]
     pub const fn is_passable(&self, pos: Position) -> bool {
+        if pos.x < 0 || pos.x >= self.state.width || pos.y < 0 || pos.y >= self.state.height {
+            return false;
+        }
         self.cost_grid[self.idx(pos)] != INF
     }
 
@@ -765,6 +786,12 @@ impl Builder {
         if !self.in_bounds(output_location) {
             return false;
         }
+        // Ignore enemy markers — 1HP placeholders, not real infrastructure.
+        // Our stack destroys the marker on arrival and the tile clears.
+        let oi = self.idx(output_location);
+        if self.building_kind[oi] == Some(EntityType::Marker) {
+            return false;
+        }
         self.is_enemy_building(output_location)
     }
 
@@ -837,11 +864,44 @@ impl Builder {
         self.reach_parent = ctx.reach_parent;
     }
 
-    /// One A* step toward `target`. Returns the next position to step to,
-    /// or `None` if the goal is unreachable / already at goal. Borrow-splits
-    /// internally so the bugnav state and the cost grid can be passed
-    /// simultaneously.
+    /// Sync NavBfs passability from cost_grid for tiles in
+    /// `state.nearby_tiles`. cost_grid `!= INF` means walkable.
+    /// Cheap: O(60) per turn, set_passable no-ops when unchanged.
+    pub fn sync_nav_bfs_passable(&mut self) {
+        let w = self.state.width;
+        let my_team = self.state.my_team;
+        let nearby = pyrust::clone!(self.state.nearby_tiles);
+        for pos in &nearby {
+            let real_i = pos.y * w + pos.x;
+            let pi = idx_of(*pos) as usize;
+            let walkable = self.cost_grid[pi] != INF;
+            self.nav_bfs.set_passable(real_i, walkable);
+            // Tiebreak preference: friendly Road tiles. Empty tiles and
+            // other passable buildings won't be flagged.
+            let is_road = self.building_kind[pi] == Some(EntityType::Road)
+                && self.building_team[pi] == Some(my_team);
+            self.nav_bfs.set_road(real_i, is_road);
+        }
+    }
+
+    /// One step toward `target`. Tries BFS first (gradient descent on
+    /// the dist field), falls back to bug2 if BFS hasn't reached the
+    /// agent's tile yet (initial turns) or returns no-path.
     pub fn bugnav_step(&mut self, target: Position) -> Option<Position> {
+        // BFS attempt — uses up to ~256 queue pops per call. Reaches
+        // the agent in ≤1 call for typical map sizes once goal is set.
+        let bfs_step = self.nav_bfs.search(self.state.my_pos, target, 1024);
+        if let Some(path) = bfs_step
+            && pyrust::len!(path) >= 2
+        {
+            // BFS suggested a step. Trust it unless the chosen tile is
+            // a friendly bot (BFS doesn't know about transient bot
+            // positions); in that case fall through to bug2.
+            let next = path[1];
+            if !pyrust::dict::contains!(self.state.all_bots, &next) {
+                return Some(next);
+            }
+        }
         let Self {
             bugnav,
             cost_grid,
@@ -1173,6 +1233,18 @@ impl Unit for Builder {
 
         let s = pyrust::float!(pyrust::max!(self.state.width, self.state.height));
         self.econ_radius_sq = pyrust::round!(((0.7 * s) * (0.7 * s))) as i32;
+
+        // Re-create NavBfs with actual map dimensions, then fully build
+        // its pnb tables in one shot (max ~2500 real tiles → ~10k ops,
+        // fast). No chunked init; we'd rather pay the post_init cost than
+        // run partial BFS on the first few turns.
+        self.nav_bfs = NavBfs::new(
+            self.state.width,
+            self.state.height,
+        );
+        while !self.nav_bfs.ready() {
+            self.nav_bfs.init_pnb_chunk(10000);
+        }
 
         // Mark off-map cells as INF, and the "hole" stride slots
         // (x ∈ [MAX_WIDTH, STRIDE)) stay INF forever — they're never valid
