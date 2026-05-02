@@ -5,6 +5,7 @@ reachability
 ore targets being ignored
 
 FIXED
+defend against launchers w/ sentinels
 bug2 can't path to impassible
 don't extend a path instead of waiting for sentinel
 place a road instead of turret if we can't afford
