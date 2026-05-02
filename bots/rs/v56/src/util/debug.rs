@@ -224,12 +224,12 @@ pub fn set_current_bot(id: i32) {
 /// struct (it ignores `#[cfg]`), so Python emission still gets `with`-blocks
 /// regardless of the native build's cfg state.
 #[pyrust::context_manager]
-#[cfg(debug_log)]
+#[cfg(any(debug_assertions, debug_log))]
 pub struct Scope {
     pub label: String,
 }
 
-#[cfg(debug_log)]
+#[cfg(any(debug_assertions, debug_log))]
 impl Scope {
     /// Push an untimed scope onto the stack. The returned guard pops on drop.
     #[must_use]
@@ -251,7 +251,7 @@ impl Scope {
     }
 }
 
-#[cfg(debug_log)]
+#[cfg(any(debug_assertions, debug_log))]
 impl Drop for Scope {
     fn drop(&mut self) {
         ctx().pop_scope();
@@ -259,10 +259,10 @@ impl Drop for Scope {
 }
 
 #[pyrust::context_manager]
-#[cfg(not(debug_log))]
+#[cfg(not(any(debug_assertions, debug_log)))]
 pub struct Scope;
 
-#[cfg(not(debug_log))]
+#[cfg(not(any(debug_assertions, debug_log)))]
 impl Scope {
     #[inline(always)]
     #[must_use]
