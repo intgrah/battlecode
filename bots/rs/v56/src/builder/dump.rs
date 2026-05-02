@@ -516,6 +516,10 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             vis_tile("last_fire", pyrust::opt_map!(builder.last_fire, |t| t.0));
             vis_tile("nearest_enemy_turret", builder.nearest_enemy_turret);
             vis_tiles(
+                "enemy_turrets",
+                pyrust::copied!(pyrust::iter!(builder.enemy_turrets)),
+            );
+            vis_tiles(
                 "enemy_turret_ray_tiles",
                 pyrust::copied!(pyrust::iter!(builder.enemy_turret_ray_tiles)),
             );
