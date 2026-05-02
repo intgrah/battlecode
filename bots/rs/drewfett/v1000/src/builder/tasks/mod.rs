@@ -42,7 +42,6 @@ use crate::builder::tasks::offense::scout_toward_enemy::scout_toward_enemy;
 use crate::builder::tasks::offense::turret_around_harvester::turret_around_harvester;
 use crate::builder::tasks::shared::explore::explore;
 use crate::builder::tasks::shared::heal::HEAL_GROUP;
-use crate::builder::tasks::shared::opportunistic_attack::opportunistic_attack;
 use crate::builder::tasks::shared::wander::wander;
 
 // =====================================================================
@@ -58,10 +57,6 @@ const DEFENDER_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "fire_on_enemy_tile",
         fn_: fire_on_enemy_tile,
-    },
-    Policy::Leaf {
-        name: "opportunistic_attack",
-        fn_: opportunistic_attack,
     },
     HEAL_GROUP,
     ECON_INFRASTRUCTURE_GROUP,
@@ -150,10 +145,6 @@ const FREE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "fire_on_enemy_tile",
         fn_: fire_on_enemy_tile,
-    },
-    Policy::Leaf {
-        name: "opportunistic_attack",
-        fn_: opportunistic_attack,
     },
     HEAL_GROUP,
     ECON_INFRASTRUCTURE_GROUP,
