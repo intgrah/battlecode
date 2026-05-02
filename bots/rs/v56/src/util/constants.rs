@@ -24,7 +24,7 @@ pub const MAX_N: usize = MAX_WIDTH * MAX_WIDTH;
 #[pyrust::inline]
 /// Round at which Ax development opens up: builders may start picking
 /// Ax-ore claims AND placing foundries.
-pub const AX_ROUND_GATE: i32 = 100;
+pub const AX_ROUND_GATE: i32 = 40;
 
 /// Base `(titanium, refined_axionite)` cost for each entity type, before
 /// scaling. Mirrors Python `BASE_COST: dict[EntityType, tuple[int, int]]`.

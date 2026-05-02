@@ -276,30 +276,37 @@ pub fn can_afford(builder: &Builder, etype: EntityType) -> bool {
 /// it inward (worst case 3 sides), and route the chain back to
 /// `sink_pos`.
 #[must_use]
-pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> i32 {
+/// Manhattan-distance chain cost between `ore_pos` and `sink_pos`,
+/// charged at one scaled conveyor per tile.
+fn _chain_cost(builder: &Builder, ore_pos: Position, sink_pos: Position) -> i32 {
     let s = builder.state.scale;
-    let h_cost =
-        (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Harvester)).0) * (1.0 + s)) as i32;
     let c_cost = (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Conveyor)).0) * s) as i32;
-    let b_cost = (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Bridge)).0) * s) as i32;
-    let r_cost = pyrust::max!(
-        ((pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Road)).0) * s) as i32),
-        1
-    );
-    let d_pos = manhattan(builder.state.my_pos, ore_pos);
-    let d_sink = manhattan(ore_pos, sink_pos);
-    let walk_cost = d_pos * r_cost;
-    let ring_cost = 3 * c_cost;
-    let chain_cost = (pyrust::float!(d_sink)
-        * pyrust::mul_add!(
-            0.7f64,
-            f64::from(c_cost),
-            0.3 * pyrust::float!(b_cost) / 3.0
-        )) as i32;
-    h_cost + ring_cost + chain_cost + walk_cost
+    manhattan(ore_pos, sink_pos) * c_cost
 }
 
-/// Leniency multiplier on `required_ti_for_ore_claim`. Decaying
+/// Ti-claim cost: harvester + chain conveyors back to the sink.
+#[must_use]
+pub fn required_ti_for_ti_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> i32 {
+    let s = builder.state.scale;
+    let h_cost = (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Harvester)).0) * s) as i32;
+    h_cost + _chain_cost(builder, ore_pos, sink_pos)
+}
+
+/// Ax-claim cost: harvester + (foundry, if we don't already own one) +
+/// chain conveyors back to the sink.
+#[must_use]
+pub fn required_ti_for_ax_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> i32 {
+    let s = builder.state.scale;
+    let h_cost = (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Harvester)).0) * s) as i32;
+    let f_cost = if pyrust::set::is_empty!(builder.my_foundries) {
+        (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Foundry)).0) * s) as i32
+    } else {
+        0
+    };
+    h_cost + f_cost + _chain_cost(builder, ore_pos, sink_pos)
+}
+
+/// Leniency multiplier on `required_ti_for_*_claim`. Decaying
 /// exponential in friendly harvester count: starts at 0.65, asymptotes to 1.60.
 #[must_use]
 pub fn ore_claim_leniency(builder: &Builder) -> f64 {
@@ -308,9 +315,16 @@ pub fn ore_claim_leniency(builder: &Builder) -> f64 {
 }
 
 #[must_use]
-pub fn can_afford_ore_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> bool {
+pub fn can_afford_ti_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> bool {
     builder.state.ti
-        >= (pyrust::float!(required_ti_for_ore_claim(builder, ore_pos, sink_pos))
+        >= (pyrust::float!(required_ti_for_ti_claim(builder, ore_pos, sink_pos))
+            * ore_claim_leniency(builder)) as i32
+}
+
+#[must_use]
+pub fn can_afford_ax_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> bool {
+    builder.state.ti
+        >= (pyrust::float!(required_ti_for_ax_claim(builder, ore_pos, sink_pos))
             * ore_claim_leniency(builder)) as i32
 }
 
@@ -716,14 +730,6 @@ pub fn harvester_io_cardinals(builder: &Builder, ore_pos: Position) -> HashSet<P
         ) {
             pyrust::set::add!(reserved, *c);
         }
-        // A friendly Road on a cardinal is a planned step-off / feed slot.
-        // Reserve it permanently — even if the feed pick later drifts to
-        // a different cardinal, this road must not be overwritten.
-        if builder.kind_at(*c) == Some(EntityType::Road)
-            && builder.team_at(*c) == Some(builder.state.my_team)
-        {
-            pyrust::set::add!(reserved, *c);
-        }
     }
     if let Some(feed) = harvester_feed_cardinal(builder, ore_pos) {
         pyrust::set::add!(reserved, feed);
@@ -797,76 +803,10 @@ pub fn pick_offensive_ti_ore_target(
         ) {
             continue;
         }
-        if harvester_would_contaminate(builder, pos) {
-            continue;
-        }
         min_dist = d;
         best_target = Some(pos);
     }
     best_target
-}
-
-#[must_use]
-pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
-    let ore_env = builder.get_env(pos);
-    let (bad_upstream, bad_flows): (&HashSet<Position>, &[ResourceType]) =
-        if ore_env == Some(Environment::OreTitanium) {
-            (
-                &builder.ax_upstream,
-                &[ResourceType::RawAxionite, ResourceType::RefinedAxionite],
-            )
-        } else if ore_env == Some(Environment::OreAxionite) {
-            (&builder.ti_upstream, &[ResourceType::Titanium])
-        } else {
-            return false;
-        };
-    let mut pure_ti_conveyor_count = 0;
-    let mut heavy_hostile_count = 0;
-    let mut hostile_found = false;
-    for d in DIR4 {
-        let n = pos.add(d);
-        if !builder.in_bounds(n) {
-            continue;
-        }
-        let Some((kind, team)) = builder.get_building(n) else {
-            continue;
-        };
-        if !matches!(
-            kind,
-            EntityType::Conveyor
-                | EntityType::ArmouredConveyor
-                | EntityType::Splitter
-                | EntityType::Bridge
-        ) {
-            continue;
-        }
-        if team != builder.state.my_team {
-            continue;
-        }
-        let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
-        let is_bad = pyrust::vec::contains!(bad_upstream, &n)
-            || pyrust::any!(
-                pyrust::iter!(builder.flow_history[ni]),
-                |t| pyrust::is_some_and!(t.0, |res| pyrust::vec::contains!(bad_flows, &res))
-            );
-        if !is_bad {
-            continue;
-        }
-        hostile_found = true;
-        if ore_env == Some(Environment::OreAxionite) {
-            if kind == EntityType::Conveyor {
-                pure_ti_conveyor_count += 1;
-            } else {
-                heavy_hostile_count += 1;
-            }
-        }
-    }
-    if !hostile_found {
-        return false;
-    }
-    !(ore_env == Some(Environment::OreAxionite)
-        && heavy_hostile_count == 0
-        && pure_ti_conveyor_count == 1)
 }
 
 #[pyrust::inline]
@@ -930,9 +870,8 @@ pub fn build_ore_friendlies(builder: &Builder) -> Vec<(Position, i32)> {
 
 /// Cap on *expensive* filter chains per pick-ore call. The cheap O(1)
 /// filters (is_reachable, distance, ore_available, kind_at) run for
-/// every candidate; only the bottom three expensive ones
-/// (claims_by_proximity / harvester_would_contaminate /
-/// harvester_feed_cardinal) are gated by this cap. Bounds the
+/// every candidate; only the bottom expensive ones (claims_by_proximity
+/// / harvester_feed_cardinal) are gated by this cap. Bounds the
 /// per-turn cost without starving on "5 random picks all fail" —
 /// every visible ore still gets a fair shot at the cheap filters.
 const _PICK_ORE_DEEP_BUDGET: i32 = 3;
@@ -965,7 +904,6 @@ pub fn pick_ore(
         let mut n_kind: i32 = 0;
         let mut n_deep: i32 = 0;
         let mut n_claims: i32 = 0;
-        let mut n_contam: i32 = 0;
         let mut n_feed: i32 = 0;
         let mut min_dist = i32::MAX;
         for pos in &candidates {
@@ -1016,15 +954,6 @@ pub fn pick_ore(
                 continue;
             }
             n_claims += 1;
-            pyrust::with!(Scope::new_timed("pick_ore_contam"), {
-                if harvester_would_contaminate(builder, pos) {
-                    skip = true;
-                }
-            });
-            if skip {
-                continue;
-            }
-            n_contam += 1;
             pyrust::with!(Scope::new_timed("pick_ore_feed"), {
                 if pyrust::is_none!(harvester_feed_cardinal(builder, pos)) {
                     skip = true;
@@ -1087,16 +1016,11 @@ pub fn pick_ore(
                 );
                 pyrust::dict::insert!(
                     args,
-                    pyrust::to_string!("contam"),
-                    serde_json::Value::Number(serde_json::Number::from(n_contam))
-                );
-                pyrust::dict::insert!(
-                    args,
                     pyrust::to_string!("feed"),
                     serde_json::Value::Number(serde_json::Number::from(n_feed))
                 );
                 log(
-                    "pick_ore: env={env} n={n} reach={reach} econ={econ} avail={avail} dist={dist} kind={kind} deep={deep} claims={claims} contam={contam} feed={feed}",
+                    "pick_ore: env={env} n={n} reach={reach} econ={econ} avail={avail} dist={dist} kind={kind} deep={deep} claims={claims} feed={feed}",
                     args,
                 );
             });

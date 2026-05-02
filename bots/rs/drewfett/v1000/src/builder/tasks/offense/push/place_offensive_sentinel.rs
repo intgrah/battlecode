@@ -4,7 +4,7 @@
 //! enemy structure. Candidates come from `dangling_set` (chain tips, never
 //! existing conveyors).
 
-use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Position};
+use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, Position};
 
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, make_move, move_random, try_place};
@@ -51,7 +51,7 @@ fn delivers_ammo(self_: &Builder, pos: Position, side: Position) -> bool {
     let i = idx_of(side) as usize;
     self_.building_kind[i] == Some(EntityType::Harvester)
         && self_.building_team[i] == Some(self_.my_team)
-        && self_.env[i] == Some(cambc::Environment::OreTitanium)
+        && self_.env[i] == Some(Environment::OreTitanium)
 }
 
 /// First DIR8 direction such that a sentinel at `pos` facing `d`

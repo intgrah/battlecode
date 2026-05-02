@@ -3,7 +3,9 @@ use std::collections::HashSet;
 use cambc::{Controller, ControllerApi, EntityType, Environment, GameConstants, Position};
 
 use crate::builder::Builder;
-use crate::builder::patrol::{insert_into_clusters, remove_from_clusters};
+use crate::builder::patrol::{
+    insert_into_clusters, insert_into_existing_cluster, remove_from_clusters,
+};
 use crate::building::{edge_targets, make_building};
 use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, ROAD_COST};
 use crate::util::directions::DIR8;
@@ -28,6 +30,17 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
         }
         builder.out_edges[i] = pyrust::vec::new!();
         builder._on_out_edges_changed(pos);
+    }
+    if matches!(
+        old_kind,
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+    ) && old_team == Some(my_team)
+    {
+        remove_from_clusters(
+            &mut builder.patrol_clusters,
+            &mut builder.patrol_cluster_centroids,
+            pos,
+        );
     }
     match old_kind {
         Some(EntityType::Foundry) if old_team == Some(my_team) => {
@@ -95,6 +108,13 @@ pub fn _add_topology(
                 }
                 builder._check_dangling(*t, &format!("edge_added src={pos:?}"));
             }
+            if matches!(kind, EntityType::Conveyor | EntityType::ArmouredConveyor) {
+                insert_into_existing_cluster(
+                    &mut builder.patrol_clusters,
+                    &mut builder.patrol_cluster_centroids,
+                    pos,
+                );
+            }
             return;
         }
     }
@@ -138,7 +158,6 @@ fn _apply_post_transition(
     let kind = builder.building_kind[i];
     let team = builder.building_team[i];
     _update_cost(builder, i, env, kind, team);
-    builder.update_pnb(i);
     builder._check_dangling(pos, trigger);
     let feeders: Vec<Position> = pyrust::clone!(builder.in_edges[i]);
     for feeder in &feeders {
