@@ -61,7 +61,7 @@ impl Gunner {
                 }
                 if pyrust::unwrap!(ct.get_team(Some(bid))) == my_team {
                     if etype == EntityType::Road {
-                        if first_friendly_road.is_none() {
+                        if pyrust::is_none!(first_friendly_road) {
                             first_friendly_road = Some(cur);
                         }
                         continue;
@@ -74,13 +74,13 @@ impl Gunner {
                 // Enemy HVT reached. If a friendly road was in the way,
                 // fire at the road — engine hits it first; next turn the
                 // road is gone and we can shoot through.
-                return Some(first_friendly_road.unwrap_or(cur));
+                return Some(pyrust::unwrap_or!(first_friendly_road, cur));
             }
             if let Some(&uid) = self.state.all_bots.get(&cur) {
                 if pyrust::unwrap!(ct.get_team(Some(uid))) == my_team {
                     return None;
                 }
-                return Some(first_friendly_road.unwrap_or(cur));
+                return Some(pyrust::unwrap_or!(first_friendly_road, cur));
             }
         }
         None
