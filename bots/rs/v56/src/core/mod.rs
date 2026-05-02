@@ -232,8 +232,9 @@ impl Unit for Core {
         let denominator = pyrust::float!(50 * 50 - 20 * 20);
         let raw = 18.0 + numerator / denominator;
         self.max_team_units = pyrust::round!(raw) as i32;
-        let _scope = Scope::new_timed("spawn_tempo");
-        self.spawn_tempo = compute_spawn_tempo(self.state.width, self.state.height, ct);
+        pyrust::with!(Scope::new_timed("spawn_tempo"), {
+            self.spawn_tempo = compute_spawn_tempo(self.state.width, self.state.height, ct);
+        });
     }
 
     fn run(&mut self, ct: &mut Controller<'_>) {

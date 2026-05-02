@@ -138,6 +138,19 @@ pub use prelude::PyDisplay;
 /// Inert attribute consumed by `pyrust-translate`. See
 /// `pyrust_macros::context_manager` for behaviour.
 pub use pyrust_macros::context_manager;
+
+/// `with!(EXPR, { body })` — Rust expands to `{ let _g = EXPR; body }`
+/// (RAII guard scoped to the block). pyrust-translate recognises the
+/// macro and emits `with EXPR as _g:` followed by the indented body.
+/// EXPR's type should be `#[pyrust::context_manager]`-annotated so the
+/// emitted Python class has `__enter__`/`__exit__`.
+#[macro_export]
+macro_rules! with {
+    ($cm:expr, $body:block) => {{
+        let _g = $cm;
+        $body
+    }};
+}
 /// Inert attribute consumed by `pyrust-translate`. Marks the type as a
 /// Python `Exception` subclass.
 pub use pyrust_macros::exception;
