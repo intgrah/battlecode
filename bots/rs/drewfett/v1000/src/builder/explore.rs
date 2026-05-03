@@ -92,10 +92,16 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
         0.4 + (cap - 0.4) * pyrust::float!(builder.state.round) / 100.0
     );
     let radius = (pyrust::float!(pyrust::max!(w, h)) * frac) as i32;
-    // Defenders anchor at my_core (not my_pos) to avoid a drift feedback
-    // loop where chasing an enemy moves my_pos and the next exploration
-    // sample-center moves with it.
-    let center = if is_offense {
+    // Pre-econ Free bots: sample around my_core, not en_core_guess. Without
+    // any harvester the bot is contributing nothing by walking deep into
+    // enemy territory; covering nearby fog (which may reveal ore on our
+    // side) is more productive. As soon as one harvester comes online the
+    // gate flips — Free bots fan out toward the enemy half via the radius
+    // cap of 1.0 × max(w, h).
+    // Defenders also anchor at my_core (not my_pos) — chasing an enemy
+    // moves my_pos and would form a drift feedback loop.
+    let pre_econ = pyrust::vec::is_empty!(builder.my_harvesters);
+    let center = if is_offense && !pre_econ {
         builder.en_core_guess
     } else {
         builder.my_core

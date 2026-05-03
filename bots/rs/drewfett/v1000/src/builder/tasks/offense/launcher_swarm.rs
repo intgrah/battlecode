@@ -41,7 +41,7 @@ fn buildable_for_launcher(self_: &Builder, pos: Position) -> bool {
     if !self_.is_buildable(pos) {
         return false;
     }
-    if self_.kind_at(pos).is_some() {
+    if pyrust::is_some!(self_.kind_at(pos)) {
         return false;
     }
     !pyrust::dict::contains!(self_.state.all_bots, &pos)
