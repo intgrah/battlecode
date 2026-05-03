@@ -12,10 +12,37 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::config::DEBUG_LOG;
 use crate::util::debug::debug as log;
 use crate::util::directions::DIR4_DELTA;
+use crate::util::metrics::chebyshev;
 use crate::util::posint::idx_of;
 use crate::util::visualiser::auto_wrap_position;
 
+/// Buffer turns subtracted from the closest possible enemy-arrival
+/// chebyshev distance. Until that turn, defer proactive harvester
+/// guarding — the placements often get overwritten in the early game.
+#[pyrust::inline]
+const GUARD_BUFFER: i32 = 4;
+
 pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
+    // Gate: don't proactively guard harvesters until the earliest possible
+    // enemy arrival is GUARD_BUFFER turns away.
+    {
+        let mut min_d: i32 = i32::MAX;
+        for sym in pyrust::copied!(pyrust::iter!(self_.state.symmetry_candidates)) {
+            let en = sym.action(self_.my_core, self_.state.width, self_.state.height);
+            let d = chebyshev(self_.my_core, en);
+            if d < min_d {
+                min_d = d;
+            }
+        }
+        let gate = min_d - GUARD_BUFFER;
+        if self_.state.round < gate {
+            return Some(TaskRejected::from_string(format!(
+                "deferred: round {} < guard gate {} (min enemy arrival {})",
+                self_.state.round, gate, min_d
+            )));
+        }
+    }
+
     // Hoisted hot-loop refs: avoid LOAD_ATTR per iteration in Python.
     let my_team = self_.state.my_team;
     let ek = &self_.building_kind;

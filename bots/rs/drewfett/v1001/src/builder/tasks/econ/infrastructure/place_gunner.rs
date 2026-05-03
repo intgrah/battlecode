@@ -179,6 +179,12 @@ fn enemy_value_at(builder: &Builder, pos: Position) -> i32 {
     if let Some((kind, team)) = builder.get_building(pos)
         && team != builder.my_team
     {
+        // Score by chain-disruption value, not Ti rebuild cost. Transports
+        // (Conveyor/Splitter/Bridge) cut a chain when destroyed, so they
+        // outrank harvesters. ArmouredConveyor is slightly less valuable
+        // than Conveyor — costs more to replace, so the enemy may not.
+        // Foundry is excluded (score 0): destroying one wastes their
+        // scaling investment in our favour, so leave them up.
         let kind_score = if kind == EntityType::Core {
             50
         } else if matches!(
@@ -186,17 +192,17 @@ fn enemy_value_at(builder: &Builder, pos: Position) -> i32 {
             EntityType::Launcher | EntityType::Gunner | EntityType::Sentinel | EntityType::Breach
         ) {
             10
-        } else if kind == EntityType::Foundry {
+        } else if matches!(
+            kind,
+            EntityType::Conveyor | EntityType::Splitter | EntityType::Bridge
+        ) {
+            7
+        } else if kind == EntityType::ArmouredConveyor {
             6
         } else if kind == EntityType::Harvester {
             5
-        } else if kind == EntityType::Bridge {
-            4
-        } else if matches!(kind, EntityType::Splitter | EntityType::ArmouredConveyor) {
-            3
-        } else if kind == EntityType::Conveyor {
-            2
         } else {
+            // Foundry deliberately scored 0 — see comment above.
             0
         };
         score += kind_score;

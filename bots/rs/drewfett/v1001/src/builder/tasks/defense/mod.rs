@@ -3,10 +3,12 @@
 //! DEFENSE role policy tree.
 
 pub mod clear_enemy_turret;
+pub mod kill_feeder;
 pub mod patrol;
 pub mod stalk_enemy;
 
 use crate::builder::tasks::_policy::{Policy, TaskGroup};
+use crate::builder::tasks::defense::kill_feeder::kill_feeder;
 use crate::builder::tasks::defense::patrol::patrol;
 use crate::builder::tasks::defense::stalk_enemy::stalk_enemy;
 use crate::builder::tasks::econ::chains::extend_chain_approach::extend_chain_approach;
@@ -16,7 +18,6 @@ use crate::builder::tasks::econ::ore::build_harvester::build_harvester;
 use crate::builder::tasks::econ::ore::claim_ore::claim_ore;
 use crate::builder::tasks::shared::explore::explore;
 use crate::builder::tasks::shared::heal::HEAL_GROUP;
-use crate::builder::tasks::shared::opportunistic_attack::opportunistic_attack;
 use crate::builder::tasks::shared::wander::wander;
 
 const DEFENSE_CHILDREN: &[Policy] = &[
@@ -29,6 +30,10 @@ const DEFENSE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "stalk_enemy",
         fn_: stalk_enemy,
+    },
+    Policy::Leaf {
+        name: "kill_feeder",
+        fn_: kill_feeder,
     },
     Policy::Leaf {
         name: "patrol",
@@ -45,10 +50,6 @@ const DEFENSE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "extend_chain_approach",
         fn_: extend_chain_approach,
-    },
-    Policy::Leaf {
-        name: "opportunistic_attack",
-        fn_: opportunistic_attack,
     },
     Policy::Leaf {
         name: "explore",

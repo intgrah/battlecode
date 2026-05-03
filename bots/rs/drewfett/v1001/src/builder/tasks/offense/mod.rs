@@ -5,6 +5,7 @@
 pub mod converge_on_rendezvous;
 pub mod fire_on_enemy_tile;
 pub mod helpers;
+pub mod launcher_swarm;
 pub mod parasitic;
 pub mod push;
 pub mod scout_toward_enemy;
@@ -12,6 +13,7 @@ pub mod turret_around_harvester;
 
 use crate::builder::tasks::_policy::{Policy, TaskGroup};
 use crate::builder::tasks::offense::fire_on_enemy_tile::fire_on_enemy_tile;
+use crate::builder::tasks::offense::launcher_swarm::launcher_swarm;
 use crate::builder::tasks::offense::parasitic::OFFENSE_PARASITIC_GROUP;
 use crate::builder::tasks::offense::push::OFFENSE_PUSH_GROUP;
 use crate::builder::tasks::offense::scout_toward_enemy::scout_toward_enemy;
@@ -27,6 +29,10 @@ const PUSH_ROLE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "turret_around_harvester",
         fn_: turret_around_harvester,
+    },
+    Policy::Leaf {
+        name: "launcher_swarm",
+        fn_: launcher_swarm,
     },
     OFFENSE_PUSH_GROUP,
     Policy::Leaf {
@@ -52,6 +58,10 @@ const PARASITIC_ROLE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "turret_around_harvester",
         fn_: turret_around_harvester,
+    },
+    Policy::Leaf {
+        name: "launcher_swarm",
+        fn_: launcher_swarm,
     },
     OFFENSE_PARASITIC_GROUP,
     Policy::Leaf {

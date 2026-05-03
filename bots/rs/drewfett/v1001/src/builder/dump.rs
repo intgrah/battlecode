@@ -541,7 +541,6 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             Some((x, y)) => vis_scalar_str("explore_heading", &format!("({x},{y})")),
             None => vis_scalar_null("explore_heading"),
         }
-        vis_scalar_bool("opportunistic", builder.opportunistic);
         vis_tile("patrol_head", builder.patrol_head);
         let mut patrol_age: Vec<f32> = vec![-1.0; (w * h) as usize];
         let mut last_seen_grid: Vec<i16> = vec![0; (w * h) as usize];
