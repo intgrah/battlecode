@@ -41,7 +41,6 @@ use crate::builder::tasks::offense::scout_toward_enemy::scout_toward_enemy;
 use crate::builder::tasks::offense::turret_around_harvester::turret_around_harvester;
 use crate::builder::tasks::shared::explore::explore;
 use crate::builder::tasks::shared::heal::HEAL_GROUP;
-use crate::builder::tasks::shared::opportunistic_attack::opportunistic_attack;
 use crate::builder::tasks::shared::wander::wander;
 
 // =====================================================================
@@ -57,10 +56,6 @@ const DEFENDER_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "fire_on_enemy_tile",
         fn_: fire_on_enemy_tile,
-    },
-    Policy::Leaf {
-        name: "opportunistic_attack",
-        fn_: opportunistic_attack,
     },
     HEAL_GROUP,
     ECON_INFRASTRUCTURE_GROUP,
@@ -127,7 +122,7 @@ pub static DEFENDER_GROUP: Policy = Policy::Group(&DEFENDER_GROUP_INNER);
 //
 // Bots whose role is `Free`. Opportunistic; each task self-gates by
 // position + claim-by-proximity. Order:
-//   1. Reflexes (heal_self via HEAL_GROUP, opportunistic_attack, fire)
+//   1. Reflexes (heal_self via HEAL_GROUP, fire)
 //   2. Defensive infra placement (place_gunner / etc.) when adjacent to
 //      friendly harvester — incidental defense while passing through
 //   3. Heal damaged friendlies (claim-by-proximity)
@@ -144,10 +139,6 @@ const FREE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "fire_on_enemy_tile",
         fn_: fire_on_enemy_tile,
-    },
-    Policy::Leaf {
-        name: "opportunistic_attack",
-        fn_: opportunistic_attack,
     },
     HEAL_GROUP,
     ECON_INFRASTRUCTURE_GROUP,

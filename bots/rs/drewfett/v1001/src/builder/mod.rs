@@ -27,6 +27,7 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::algorithms::econ_astar::AStarSearch;
+use crate::builder::algorithms::econ_astar::AstarStep;
 use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::algorithms::nav::{BugNav, NavCtx};
 use crate::builder::algorithms::nav_bfs::NavBfs;
@@ -289,7 +290,6 @@ pub struct Builder {
     pub saw_kill_commit: Option<(Position, i32)>,
 
     // post_init-derived
-    pub opportunistic: bool,
     pub econ_radius_sq: i32,
     /// 8 perimeter tiles of the core's 3x3 block.
     pub core_edges: [Position; 8],
@@ -442,7 +442,6 @@ impl Builder {
             saw_threat_at: HashMap::new(),
             saw_rendezvous_at: None,
             saw_kill_commit: None,
-            opportunistic: false,
             econ_radius_sq: 0,
             core_edges: [Position { x: 0, y: 0 }; 8],
             opening: OpeningTemplate::DefaultBalanced,
@@ -773,19 +772,23 @@ impl Builder {
 
     /// Run the Ti A* search. Constructs an `EconAstarCtx` from this
     /// builder's borrowed state and forwards to `conv_search.search`.
+    /// `budget_us` is the absolute turn-elapsed CPU threshold (μs); the
+    /// search returns `Pending` if exceeded mid-loop and resumes on the
+    /// next call with the same `(start, target, resource)`.
     pub fn ti_conv_astar(
         &mut self,
         ct: &mut Controller<'_>,
         start: Position,
         target: Position,
         resource: ResourceType,
-    ) -> Option<Vec<Position>> {
+        budget_us: u64,
+    ) -> AstarStep {
         let mut ctx = self.make_econ_ctx();
-        let path = self
+        let step = self
             .conv_search
-            .search(ct, start, target, resource, &mut ctx);
+            .search(ct, start, target, resource, budget_us, &mut ctx);
         self.absorb_econ_ctx(ctx);
-        path
+        step
     }
 
     /// Run the Ax A* search. Same shape as `ti_conv_astar` but goes
@@ -796,13 +799,14 @@ impl Builder {
         start: Position,
         target: Position,
         resource: ResourceType,
-    ) -> Option<Vec<Position>> {
+        budget_us: u64,
+    ) -> AstarStep {
         let mut ctx = self.make_econ_ctx();
-        let path = self
+        let step = self
             .ax_conv_search
-            .search(ct, start, target, resource, &mut ctx);
+            .search(ct, start, target, resource, budget_us, &mut ctx);
         self.absorb_econ_ctx(ctx);
-        path
+        step
     }
 
     fn make_econ_ctx(&self) -> EconAstarCtx {
@@ -1161,9 +1165,6 @@ impl Unit for Builder {
         self.state.init_static_state(ct);
         let core = self.resolve_my_core(ct);
         self.set_my_core(core);
-
-        let r = self.state.rng.random();
-        self.opportunistic = r < 0.5;
 
         let r2 = self.state.rng.random();
         self.patrol_dir = if r2 < 0.5 { 1 } else { -1 };
