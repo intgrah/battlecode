@@ -94,9 +94,7 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
     // Don't place a turret cardinal to our own Ax harvester — would
     // intercept raw Ax flow to the foundry.
     if blocks_ax_harvester(self_, self_.my_pos) {
-        return Some(TaskRejected::new(
-            "would block friendly Ax harvester feed",
-        ));
+        return Some(TaskRejected::new("would block friendly Ax harvester feed"));
     }
 
     let build_position = self_.my_pos;

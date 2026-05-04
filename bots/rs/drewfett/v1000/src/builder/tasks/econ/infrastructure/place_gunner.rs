@@ -7,7 +7,9 @@
 //! (`sentinel_facing`). Falls back to placing on `my_pos` after a random
 //! step-off.
 
-use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, Position, Team};
+use cambc::{
+    BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, Position, Team,
+};
 
 use crate::builder::Builder;
 use crate::builder::helpers::{move_random, try_place};
