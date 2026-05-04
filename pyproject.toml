@@ -44,7 +44,6 @@ render-map = "scripts.render_map:main"
 bench-nav = "bench_nav.__main__:main"
 build = "scripts.build:main"
 obfuscate = "scripts.obfuscate:main"
-blueprint-preview = "scripts.blueprint_preview:main"
 replay-times = "scripts.replay_times:main"
 replay-livelock = "scripts.replay_livelock:main"
 connected-textures = "scripts.connected_textures:main"
@@ -127,5 +126,4 @@ members = [
     "pkg/proto",
     "pkg/bench_nav",
     "pkg/hitl",
-    "pkg/blueprint",
 ]

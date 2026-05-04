@@ -14,7 +14,6 @@ resolution-markers = [
 members = [
     "battlecode",
     "bench-nav",
-    "blueprint",
     "bot-adgato-bfs-test",
     "bot-adgato-dummy",
     "bot-adgato-dummy3",
@@ -309,11 +308,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [{ name = "jinja2", specifier = ">=3.1.6" }]
-
-[[package]]
-name = "blueprint"
-version = "0.1.0"
-source = { virtual = "pkg/blueprint" }
 
 [[package]]
 name = "bot-adgato-bfs-test"
