@@ -87,6 +87,10 @@ enum Command {
     /// shell completions for the `opening` subcommand.
     #[command(name = "_list-openings", hide = true)]
     ListOpenings,
+    /// Internal: list `*.bp` files under maps/blueprints. Used by shell
+    /// completions for the `blueprint` subcommand.
+    #[command(name = "_list-blueprints", hide = true)]
+    ListBlueprints,
 }
 
 enum Inputs {
@@ -118,7 +122,18 @@ fn parse_command(command: Command, config: &CambcConfig) -> Result<Inputs, Strin
                 .map(Inputs::Replay)
         }
         Command::Blueprint { map } => {
-            let resolved = resolve_map(&map, config)?;
+            // Accept either a map (resolve as .map26) or a blueprint (.bp).
+            // For .bp: pass through; titan_blueprint will read its `map:`
+            // header and locate the map. For bare names: try map first,
+            // fall back to maps/blueprints/<name>.bp.
+            let resolved = if map.extension().and_then(|s| s.to_str()) == Some("bp")
+                && map.is_file()
+            {
+                map.canonicalize()
+                    .map_err(|e| format!("{}: {e}", map.display()))?
+            } else {
+                resolve_map_or_bp(&map, config)?
+            };
             titan_blueprint::parse_args(vec![OsString::new(), resolved.into_os_string()])
                 .map(Inputs::Blueprint)
         }
@@ -148,10 +163,36 @@ fn parse_command(command: Command, config: &CambcConfig) -> Result<Inputs, Strin
         Command::Completions { .. }
         | Command::ListMaps
         | Command::ListReplays
-        | Command::ListOpenings => {
+        | Command::ListOpenings
+        | Command::ListBlueprints => {
             unreachable!("non-app commands handled in main")
         }
     }
+}
+
+/// Resolve a map-or-blueprint argument. Tries the map resolver first
+/// (handles bare names like `pong` → `<maps>/pong.map26`); falls back to
+/// `<project_root>/maps/blueprints/<name>.bp` if no map matches.
+fn resolve_map_or_bp(path: &Path, config: &CambcConfig) -> Result<PathBuf, String> {
+    if let Ok(p) = resolve_map(path, config) {
+        return Ok(p);
+    }
+    let bare = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+    let stem = bare.strip_suffix(".bp").unwrap_or(bare);
+    let bp = config
+        .project_root
+        .join("maps")
+        .join("blueprints")
+        .join(format!("{stem}.bp"));
+    if bp.is_file() {
+        return bp
+            .canonicalize()
+            .map_err(|e| format!("{}: {e}", bp.display()));
+    }
+    Err(format!(
+        "neither map nor blueprint found for `{}`",
+        path.display()
+    ))
 }
 
 /// Resolve a map argument to an absolute `.map26` file. Mirrors
@@ -263,6 +304,29 @@ fn walk_for_extension(dir: &Path, ext: &str, out: &mut Vec<String>) {
     }
 }
 
+/// Print the stem of every `*.bp` file under `<project_root>/maps/blueprints/`.
+fn list_blueprints(config: &CambcConfig) {
+    let dir = config.project_root.join("maps").join("blueprints");
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return;
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .filter_map(|e| {
+            let p = e.path();
+            if p.extension().and_then(|s| s.to_str()) == Some("bp") {
+                p.file_stem().map(|n| n.to_string_lossy().into_owned())
+            } else {
+                None
+            }
+        })
+        .collect();
+    names.sort();
+    for n in names {
+        println!("{n}");
+    }
+}
+
 /// Print the stem of every `*.replay26` in the project root.
 fn list_replays(config: &CambcConfig) {
     let Ok(entries) = std::fs::read_dir(&config.project_root) else {
@@ -308,6 +372,7 @@ end
 
 complete -c titan -n "__fish_titan_using_subcommand replay; and test (__titan_pos) -le 1" -f -a "(titan _list-replays)"
 complete -c titan -n "__fish_titan_using_subcommand blueprint; and test (__titan_pos) -le 1" -f -a "(titan _list-maps)"
+complete -c titan -n "__fish_titan_using_subcommand blueprint; and test (__titan_pos) -le 1" -f -a "(titan _list-blueprints)"
 complete -c titan -n "__fish_titan_using_subcommand bugnav; and test (__titan_pos) -le 1" -f -a "(titan _list-maps)"
 complete -c titan -n "__fish_titan_using_subcommand opening; and test (__titan_pos) -le 1" -f -a "(titan _list-openings)"
 complete -c titan -n "__fish_titan_using_subcommand opening; and test (__titan_pos) -le 1" -f -a "(titan _list-maps)"
@@ -568,6 +633,10 @@ fn main() -> eframe::Result {
         }
         Command::ListOpenings => {
             list_openings(&config);
+            std::process::exit(0);
+        }
+        Command::ListBlueprints => {
+            list_blueprints(&config);
             std::process::exit(0);
         }
         _ => {}
