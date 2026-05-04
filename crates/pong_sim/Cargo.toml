@@ -1,0 +1,19 @@
+[package]
+name = "pong-sim"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+libre-engine.workspace = true
+libre-replay.workspace = true
+
+[[bin]]
+name = "pong-sim"
+path = "src/bin/main.rs"
+
+[[bin]]
+name = "pong-build"
+path = "src/bin/build.rs"
+
+[lints]
+workspace = true
