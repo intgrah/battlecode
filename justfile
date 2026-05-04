@@ -20,6 +20,13 @@ gen:
     ruff check --fix pkg/bench_nav/src/bench_nav/spsp/astar_jps.py pkg/bench_nav/src/bench_nav/spsp/astar_jps_dial.py
     ruff format pkg/bench_nav/src/bench_nav/spsp/astar_jps.py pkg/bench_nav/src/bench_nav/spsp/astar_jps_dial.py
 
+gen-blueprint-py:
+    cargo run -q -p titan-blueprint --bin gen-blueprint-py -- bots/intgrah/v54.4.0/blueprint.py
+    cargo run -q -p titan-blueprint --bin gen-blueprint-py -- bots/intgrah/v54.5.0/blueprint.py
+    cargo run -q -p titan-blueprint --bin gen-blueprint-py -- bots/intgrah/v54.6.0/blueprint.py
+    cargo run -q -p titan-blueprint --bin gen-blueprint-py -- bots/intgrah/blueprint/blueprint.py
+    cargo run -q -p titan-blueprint --bin gen-blueprint-py -- bots/adgato/blueprint/blueprint.py
+
 proto:
     protoc \
       --python_out=pkg/proto/src/proto \
