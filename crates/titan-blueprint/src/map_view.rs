@@ -492,6 +492,10 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
         }
     }
 
+    if app.show_flow {
+        draw_flow_overlay(&painter, app, &ordered, ts, origin, zoom);
+    }
+
     // Hover: ghost preview (Place) or full-opacity retag preview (PhaseView)
     // or red cursor (Erase) or plain outline (View).
     if let Some(hover) = app.hover_tile {
@@ -769,4 +773,109 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
     }
 
     app.pan = titan_core::tile::clamp_pan(app.pan, rect, app.map.w, app.map.h, ts, app.zoom, 64.0);
+}
+
+fn draw_flow_overlay(
+    painter: &egui::Painter,
+    app: &App,
+    entries: &[BlueprintEntry],
+    ts: f32,
+    origin: Pos2,
+    zoom: f32,
+) {
+    use crate::flow::{self, CarriedType, NodeKind};
+
+    let result = flow::analyze(entries, &app.map);
+
+    // Per tile, sum the flow rates by resource type. For a harvester,
+    // use its production rate; for everything else (conveyors, splitters,
+    // bridges, foundries) sum incoming edges by type.
+    for (pos, node) in &result.topology.nodes {
+        if matches!(node.kind, NodeKind::Core | NodeKind::Other) {
+            continue;
+        }
+        let mut ti = 0.0_f64;
+        let mut raw = 0.0_f64;
+        let mut refn = 0.0_f64;
+        if let NodeKind::Harvester(rt) = node.kind {
+            match rt {
+                flow::ResourceType::Titanium => ti = 0.25,
+                flow::ResourceType::RawAxionite => raw = 0.25,
+                flow::ResourceType::RefinedAxionite => refn = 0.25,
+            }
+        } else {
+            for src in result
+                .topology
+                .in_edges
+                .get(pos)
+                .cloned()
+                .unwrap_or_default()
+            {
+                if let Some(m) = result.edge_flow.get(&(src, *pos)) {
+                    ti += m.get(&CarriedType::Titanium).copied().unwrap_or(0.0);
+                    raw += m.get(&CarriedType::RawAxionite).copied().unwrap_or(0.0);
+                    refn += m.get(&CarriedType::RefinedAxionite).copied().unwrap_or(0.0);
+                }
+            }
+        }
+        if ti < 1e-3 && raw < 1e-3 && refn < 1e-3 {
+            continue;
+        }
+        let r = tile_rect(pos.0, pos.1, ts, origin, zoom);
+        let font = egui::FontId::proportional((6.0 * zoom).max(8.0));
+        let mut lines: Vec<(Color32, String)> = Vec::new();
+        if ti > 1e-3 {
+            lines.push((
+                Color32::from_rgb(0x60, 0x90, 0xff),
+                format!("T{:.1}", ti * 10.0),
+            ));
+        }
+        if raw > 1e-3 {
+            lines.push((
+                Color32::from_rgb(0xff, 0x90, 0x40),
+                format!("A{:.1}", raw * 10.0),
+            ));
+        }
+        if refn > 1e-3 {
+            lines.push((
+                Color32::from_rgb(0x60, 0xff, 0x80),
+                format!("R{:.1}", refn * 10.0),
+            ));
+        }
+        let n = lines.len() as f32;
+        let spacing = (font.size + 1.0).max(8.0);
+        let start_y = r.center().y - spacing * (n - 1.0) * 0.5;
+        for (i, (color, text)) in lines.into_iter().enumerate() {
+            painter.text(
+                Pos2::new(r.center().x, start_y + spacing * i as f32),
+                egui::Align2::CENTER_CENTER,
+                text,
+                font.clone(),
+                color,
+            );
+        }
+    }
+
+    // Contaminated tiles: red border.
+    for &p in &result.contaminated {
+        let r = tile_rect(p.0, p.1, ts, origin, zoom);
+        painter.rect_stroke(
+            r,
+            0.0,
+            Stroke::new(2.0, Color32::from_rgb(0xff, 0x40, 0x40)),
+            StrokeKind::Inside,
+        );
+    }
+
+    // Total predicted RAx/turn at top-left of map.
+    let total_rate: f64 = result.foundry_rate.values().sum();
+    if !result.foundry_rate.is_empty() {
+        painter.text(
+            Pos2::new(origin.x + 4.0, origin.y + 4.0),
+            egui::Align2::LEFT_TOP,
+            format!("predicted: {:.2} RAx/turn", total_rate * 10.0),
+            egui::FontId::proportional(14.0),
+            Color32::from_rgb(0x80, 0xff, 0x80),
+        );
+    }
 }

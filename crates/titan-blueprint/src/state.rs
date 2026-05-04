@@ -25,6 +25,9 @@ pub struct EditorState {
     batch_depth: u32,
     open_batch: Vec<Op>,
     pub dirty: bool,
+    /// Monotonically increasing on every mutation. Cache invalidator for
+    /// derived data (e.g., flow analysis).
+    version: u64,
 }
 
 impl EditorState {
@@ -36,7 +39,12 @@ impl EditorState {
             batch_depth: 0,
             open_batch: Vec::new(),
             dirty: false,
+            version: 0,
         }
+    }
+
+    pub fn version(&self) -> u64 {
+        self.version
     }
 
     pub fn can_undo(&self) -> bool {
@@ -57,6 +65,7 @@ impl EditorState {
             self.entries.insert(e.pos, e);
         }
         self.dirty = false;
+        self.version = self.version.wrapping_add(1);
     }
 
     pub fn begin_batch(&mut self) {
@@ -83,6 +92,7 @@ impl EditorState {
             self.redo_stack.clear();
         }
         self.dirty = true;
+        self.version = self.version.wrapping_add(1);
     }
 
     pub fn place(&mut self, entry: BlueprintEntry) {

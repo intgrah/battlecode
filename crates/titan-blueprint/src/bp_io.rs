@@ -4,37 +4,55 @@ use std::path::{Path, PathBuf};
 use crate::blueprint::{BlueprintEntry, Direction, Entity};
 
 pub fn blueprints_dir() -> PathBuf {
-    // Crate is at crates/titan-blueprint/; the persisted .bp files live
-    // alongside the Python solver in pkg/blueprint/blueprints/ (kept
-    // there because the Python side reads them too).
     let manifest = env!("CARGO_MANIFEST_DIR");
     let p = Path::new(manifest)
         .join("..")
         .join("..")
-        .join("pkg")
-        .join("blueprint")
+        .join("maps")
         .join("blueprints");
     p.canonicalize().unwrap_or(p)
 }
 
+pub struct LoadedBp {
+    pub map_name: String,
+    pub entries: Vec<BlueprintEntry>,
+}
+
 pub fn load_bp(map_name: &str) -> Option<Vec<BlueprintEntry>> {
     let path = blueprints_dir().join(format!("{map_name}.bp"));
-    let text = fs::read_to_string(&path).ok()?;
-    let mut out = Vec::new();
+    load_bp_path(&path).map(|b| b.entries)
+}
+
+pub fn load_bp_path(path: &Path) -> Option<LoadedBp> {
+    let text = fs::read_to_string(path).ok()?;
+    let mut entries = Vec::new();
+    let mut header_map: Option<String> = None;
     for (lineno, raw) in text.lines().enumerate() {
         let line = raw.trim();
-        if line.is_empty() || line.starts_with('#') {
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("map:") {
+            header_map = Some(rest.trim().to_string());
+            continue;
+        }
+        if line.starts_with('#') {
             continue;
         }
         match parse_line(line) {
-            Ok(e) => out.push(e),
+            Ok(e) => entries.push(e),
             Err(msg) => {
                 eprintln!("{}:{}: {msg}", path.display(), lineno + 1);
                 return None;
             }
         }
     }
-    Some(out)
+    let map_name = header_map.or_else(|| {
+        path.file_stem()
+            .and_then(|s| s.to_str())
+            .map(std::string::ToString::to_string)
+    })?;
+    Some(LoadedBp { map_name, entries })
 }
 
 fn parse_line(line: &str) -> Result<BlueprintEntry, String> {
@@ -84,7 +102,7 @@ pub fn write_bp(map_name: &str, entries: &[BlueprintEntry]) -> Result<PathBuf, S
     let path = dir.join(format!("{map_name}.bp"));
     let mut ordered: Vec<BlueprintEntry> = entries.to_vec();
     ordered.sort_by_key(|e| (e.phase, e.pos.1, e.pos.0));
-    let mut s = format!("# blueprint: {map_name}\n");
+    let mut s = format!("map: {map_name}\n");
     for e in &ordered {
         s.push_str(&format!("{} {} {}", e.pos.0, e.pos.1, e.kind.name()));
         if e.kind.is_directional()

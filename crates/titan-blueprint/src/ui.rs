@@ -30,6 +30,7 @@ pub fn render_sidebar(ui: &mut egui::Ui, app: &mut App) {
         app.map.h,
         app.editor.sym.as_str()
     ));
+    ui.checkbox(&mut app.show_flow, "flow overlay");
     ui.separator();
 
     egui::Frame::group(ui.style()).show(ui, |ui| {
