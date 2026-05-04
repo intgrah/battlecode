@@ -42,7 +42,12 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
             }
         }
     ));
-    if !claims_by_proximity(self_.my_pos, my_id, target, pyrust::copied!(pyrust::iter!(friends))) {
+    if !claims_by_proximity(
+        self_.my_pos,
+        my_id,
+        target,
+        pyrust::copied!(pyrust::iter!(friends)),
+    ) {
         return Some(TaskRejected::new(
             "a closer friendly is approaching this target",
         ));

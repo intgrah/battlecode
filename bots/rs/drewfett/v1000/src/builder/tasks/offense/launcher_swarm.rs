@@ -145,7 +145,14 @@ pub fn launcher_swarm(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResul
         make_move(self_, ct, spot);
         return None;
     }
-    if try_place(self_, ct, EntityType::Launcher, spot, BuildExtra::None, true) {
+    if try_place(
+        self_,
+        ct,
+        EntityType::Launcher,
+        spot,
+        BuildExtra::None,
+        true,
+    ) {
         return None;
     }
     Some(TaskRejected::new("launcher placement failed"))

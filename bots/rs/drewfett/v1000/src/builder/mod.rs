@@ -47,11 +47,9 @@ use crate::config::DEBUG_DUMP;
 use crate::config::DEBUG_LOG;
 use crate::core::opening::{OpeningTemplate, classify as classify_opening};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
-use crate::util::constants::{
-    BOUND_RANGE, FLOW_HISTORY_LEN, INF, MAX_WIDTH, POSINT_VALID_LEN, ROAD_COST, STRIDE,
-};
+use crate::util::constants::{BOUND_RANGE, INF, MAX_WIDTH, POSINT_VALID_LEN, ROAD_COST, STRIDE};
 use crate::util::debug::{Scope, debug as log};
-use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
+use crate::util::directions::{DIR4, DIR8};
 use crate::util::posint::{PosInt, idx_of};
 use crate::util::symmetry::Symmetry;
 use crate::util::trace;
@@ -1106,10 +1104,6 @@ impl Builder {
         }
     }
 
-    /// DEAD: pnb field removed; no-op stub kept for caller convenience.
-    fn pnb_fix_boundary(&mut self, _cx: i32, _cy: i32, _w: i32, _h: i32) {
-    }
-
     /// Mirror `my_core` under `symmetry_guess`.
     fn refresh_symmetry_cache(&mut self) {
         let count = pyrust::len!(self.state.symmetry_candidates);
@@ -1179,16 +1173,10 @@ impl Unit for Builder {
             pyrust::bytearray::fill_range!(self.posint_valid, row_base, row_base + w_us, 1);
         }
 
-        // (drewfett v1000: hardcoded openings dropped — `known_map` removed.)
-
         // Core perimeter — 8 tiles in DIR8 order.
         for (i, d) in pyrust::enumerate!(pyrust::iter!(DIR8)) {
             self.core_edges[i] = self.my_core.add(*d);
         }
-
-        // pnb_fix_boundary loops dropped — pnb is dead state, the function
-        // is a no-op stub; the ~99 Python calls per builder were sunk
-        // overhead.
 
         self.refresh_symmetry_cache();
 

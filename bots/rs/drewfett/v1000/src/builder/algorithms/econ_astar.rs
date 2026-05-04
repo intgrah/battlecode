@@ -45,14 +45,8 @@ const DIAG_WEIGHT: i32 = 9;
 /// and `RefinedAxionite` are treated as the same resource for the A*
 /// resumption guard since they share the `ax_routable` mask.
 fn resource_eq(a: ResourceType, b: ResourceType) -> bool {
-    let a_is_ax = matches!(
-        a,
-        ResourceType::RawAxionite | ResourceType::RefinedAxionite
-    );
-    let b_is_ax = matches!(
-        b,
-        ResourceType::RawAxionite | ResourceType::RefinedAxionite
-    );
+    let a_is_ax = matches!(a, ResourceType::RawAxionite | ResourceType::RefinedAxionite);
+    let b_is_ax = matches!(b, ResourceType::RawAxionite | ResourceType::RefinedAxionite);
     a_is_ax == b_is_ax
 }
 
