@@ -93,6 +93,7 @@ members = [
     "bot-sprint4ax",
     "bot-starter",
     "bot-test-bytecode-victim",
+    "bot-test-cmdline-probe",
     "bot-test-controller",
     "bot-test-core-spawn",
     "bot-test-entity",
@@ -1193,6 +1194,17 @@ requires-dist = [{ name = "cambc" }]
 name = "bot-test-bytecode-victim"
 version = "0.0.0"
 source = { virtual = "bots/test/bytecode_victim" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc" }]
+
+[[package]]
+name = "bot-test-cmdline-probe"
+version = "0.0.0"
+source = { virtual = "bots/test/cmdline_probe" }
 dependencies = [
     { name = "cambc" },
 ]
