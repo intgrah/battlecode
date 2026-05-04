@@ -1,8 +1,8 @@
 import astar
 import exploit
-import game
 import map26
-from cambc import Controller, Position
+from cambc import Controller, Environment, Position
+from game import Game, RawMem
 
 
 class Player:
@@ -55,13 +55,16 @@ class Player:
         self._done = True
 
         mem, anchor = exploit.acquire()
-        g = game.open_game(mem, anchor, c)
+        g = Game.open(RawMem(mem, anchor), c)
         _write_pattern(g, self._cores)
 
-        self._log = f"[env] {g.w}x{g.h}, ti={self._ti_ore}, ax={self._ax_ore}"
+        gm = g.game_map
+        self._log = (
+            f"[env] {gm.width}x{gm.height}, ti={self._ti_ore}, ax={self._ax_ore}"
+        )
 
 
-def _write_pattern(g: game.Game, cores: list[tuple[int, int, int, int]]) -> None:
+def _write_pattern(g: Game, cores: list[tuple[int, int, int, int]]) -> None:
     pattern: tuple[str, ...] = (
         "###.###",
         "#...#..",
@@ -71,11 +74,15 @@ def _write_pattern(g: game.Game, cores: list[tuple[int, int, int, int]]) -> None
     pat_h = len(pattern)
     pat_w = len(pattern[0])
 
+    gm = g.game_map
+    w = gm.width
+    h = gm.height
+
     corners: tuple[tuple[int, int], ...] = (
         (0, 0),
-        (g.w - 1, 0),
-        (0, g.h - 1),
-        (g.w - 1, g.h - 1),
+        (w - 1, 0),
+        (0, h - 1),
+        (w - 1, h - 1),
     )
     best_corner: tuple[int, int] = corners[0]
     best_score = -1
@@ -93,9 +100,11 @@ def _write_pattern(g: game.Game, cores: list[tuple[int, int, int, int]]) -> None
             best_corner = (corner_x, corner_y)
 
     bx, by = best_corner
-    x_off = (g.w - pat_w) if bx != 0 else 0
-    y_off = (g.h - pat_h) if by != 0 else 0
+    x_off = (w - pat_w) if bx != 0 else 0
+    y_off = (h - pat_h) if by != 0 else 0
 
     for row, line in enumerate(pattern):
         for col, ch in enumerate(line):
-            g.write_env(x_off + col, y_off + row, 1 if ch == "#" else 0)
+            gm.tile(x_off + col, y_off + row).environment = (
+                Environment.WALL if ch == "#" else Environment.EMPTY
+            )
