@@ -28,12 +28,7 @@ const fn _is_transport(kind: Option<EntityType>) -> bool {
 const fn _is_enemy_turret(kind: Option<EntityType>) -> bool {
     matches!(
         kind,
-        Some(
-            EntityType::Gunner
-                | EntityType::Sentinel
-                | EntityType::Launcher
-                | EntityType::Breach
-        )
+        Some(EntityType::Gunner | EntityType::Sentinel | EntityType::Launcher | EntityType::Breach)
     )
 }
 
@@ -72,8 +67,7 @@ pub fn kill_feeder(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
             // Defensive: never destroy our own Harvesters even if cardinal
             // to an enemy turret. (Harvester isn't in `_is_transport` so
             // this is belt-and-braces.)
-            if self_.kind_at(c) == Some(EntityType::Harvester)
-                && self_.team_at(c) == Some(my_team)
+            if self_.kind_at(c) == Some(EntityType::Harvester) && self_.team_at(c) == Some(my_team)
             {
                 continue;
             }

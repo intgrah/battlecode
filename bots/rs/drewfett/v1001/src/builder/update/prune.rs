@@ -1,7 +1,7 @@
-use cambc::{Controller, ControllerApi};
+use cambc::Controller;
 
 use crate::builder::Builder;
-use crate::util::posint::{idx_of, pos_of};
+use crate::util::posint::idx_of;
 
 pub fn prune_stale(builder: &mut Builder, ct: &mut Controller<'_>) {
     builder.nearby_buildings = pyrust::vec::new!();

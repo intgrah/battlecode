@@ -23,7 +23,7 @@ use pyrust::math;
 use crate::builder::Builder;
 use crate::builder::helpers::make_move;
 use crate::builder::role::Role;
-use crate::util::constants::{MAX_WIDTH, STRIDE};
+use crate::util::constants::STRIDE;
 
 /// Number of unobserved tiles to sample as candidate targets each replan.
 const _K_CANDIDATES: usize = 20;

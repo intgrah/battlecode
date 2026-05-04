@@ -19,7 +19,7 @@
 use cambc::{Controller, ControllerApi, EntityType, Position};
 
 use crate::builder::Builder;
-use crate::marker::{Marker, decode, encode};
+use crate::marker::{Marker, decode};
 use crate::util::posint::idx_of;
 
 /// Decode `RendezvousAttack` markers in vision into `saw_rendezvous_at`.

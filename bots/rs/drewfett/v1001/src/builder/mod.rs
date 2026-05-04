@@ -47,11 +47,9 @@ use crate::config::DEBUG_DUMP;
 use crate::config::DEBUG_LOG;
 use crate::core::opening::{OpeningTemplate, classify as classify_opening};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
-use crate::util::constants::{
-    BOUND_RANGE, FLOW_HISTORY_LEN, INF, MAX_WIDTH, POSINT_VALID_LEN, ROAD_COST, STRIDE,
-};
+use crate::util::constants::{BOUND_RANGE, INF, MAX_WIDTH, POSINT_VALID_LEN, ROAD_COST, STRIDE};
 use crate::util::debug::{Scope, debug as log};
-use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
+use crate::util::directions::{DIR4, DIR8};
 use crate::util::posint::{PosInt, idx_of};
 use crate::util::symmetry::Symmetry;
 use crate::util::trace;
