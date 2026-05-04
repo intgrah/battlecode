@@ -17,6 +17,7 @@ members = [
     "crates/libre-replay",
     "crates/libre",
     "crates/cambc",
+    "crates/pong_sim",
     "bots/rs/v55",
     "bots/rs/v56",
     "bots/rs/nothing/*",
