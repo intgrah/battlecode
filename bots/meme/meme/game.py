@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from typing import Final
 
@@ -235,7 +237,7 @@ class Game:
     _TURN_OFF: Final = 320
 
     @staticmethod
-    def open(raw: RawMem, ct: Controller) -> "Game":
+    def open(raw: RawMem, ct: Controller) -> Game:
         """
         Locate the Rust Game struct via the Controller's pyo3 object layout.
 

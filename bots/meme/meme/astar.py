@@ -1,29 +1,36 @@
+from __future__ import annotations
+
 import heapq
+from typing import TYPE_CHECKING
+
+from cambc import Environment
+
+if TYPE_CHECKING:
+    from map26 import Map26
 
 _CARDINALS: tuple[tuple[int, int], ...] = ((0, 1), (0, -1), (1, 0), (-1, 0))
 _DIAGONALS: tuple[tuple[int, int], ...] = ((2, 2), (2, -2), (-2, 2), (-2, -2))
 _DIAGONAL_BONUS: int = 20
+_WALL_COST: int = 100
 
 
 def run(
-    grid: list[list[int]],
+    m: Map26,
     start: tuple[int, int],
     goal: tuple[int, int],
 ) -> list[tuple[int, int]]:
     """Return the lowest-cost path from start to goal.
 
-    Grid is indexed grid[y][x]. Walls (env=1) cost 100; all other tiles cost 1.
+    Walls cost _WALL_COST; all other tiles cost 1.
     Returns an empty list if no path exists or start == goal.
     """
     if start == goal:
         return []
 
-    h = len(grid)
-    w = len(grid[0]) if h else 0
+    w, h = m.width, m.height
 
     def cost(x: int, y: int) -> int:
-        row = grid[y] if y < len(grid) else []
-        return 100 if (x < len(row) and row[x] == 1) else 1
+        return _WALL_COST if m.tile(x, y) == Environment.WALL else 1
 
     def heuristic(x: int, y: int) -> int:
         return abs(x - goal[0]) + abs(y - goal[1])

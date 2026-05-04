@@ -1,40 +1,45 @@
+from __future__ import annotations
+
 import astar
 import exploit
-import map26
 from cambc import Controller, Environment, Position
 from game import Game, RawMem
+from map26 import Core, Map26
 
 
 class Player:
     def __init__(self) -> None:
         self._done = False
         self._log = ""
-        self._cores: list[tuple[int, int, int, int]] = []
+        self._map: Map26 | None = None
         self._ti_ore: tuple[int, int] | None = None
         self._ax_ore: tuple[int, int] | None = None
         self._ti_path: list[tuple[int, int]] = []
         try:
-            _, _, grid, self._cores = map26.decode(
-                map26.read("/sandbox/out/game_map.map26")
-            )
-            if self._cores:
-                _, _, ref_x, ref_y = self._cores[0]
+            self._map = m = Map26.read()
+            if m.cores:
+                ref = m.cores[0]
                 best_ti = best_ax = -1
-                for y, row in enumerate(grid):
-                    for x, env in enumerate(row):
-                        if env in (2, 3):
-                            d = (x - ref_x) ** 2 + (y - ref_y) ** 2
-                            if env == 2 and (best_ti < 0 or d < best_ti):
+                for y in range(m.height):
+                    for x in range(m.width):
+                        env = m.tile(x, y)
+                        if env in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+                            d = (x - ref.x) ** 2 + (y - ref.y) ** 2
+                            if env == Environment.ORE_TITANIUM and (
+                                best_ti < 0 or d < best_ti
+                            ):
                                 best_ti = d
                                 self._ti_ore = (x, y)
-                            elif env == 3 and (best_ax < 0 or d < best_ax):
+                            elif env == Environment.ORE_AXIONITE and (
+                                best_ax < 0 or d < best_ax
+                            ):
                                 best_ax = d
                                 self._ax_ore = (x, y)
                 if self._ti_ore is not None:
                     self._ti_path = astar.run(
-                        grid,
+                        m,
                         start=self._ti_ore,
-                        goal=(ref_x, ref_y),
+                        goal=(ref.x, ref.y),
                     )
         except (OSError, LookupError, ValueError) as e:
             self._log = f"[map] {e}"
@@ -56,7 +61,8 @@ class Player:
 
         mem, anchor = exploit.acquire()
         g = Game.open(RawMem(mem, anchor), c)
-        _write_pattern(g, self._cores)
+        if self._map is not None:
+            _write_pattern(g, self._map.cores)
 
         gm = g.game_map
         self._log = (
@@ -64,7 +70,7 @@ class Player:
         )
 
 
-def _write_pattern(g: Game, cores: list[tuple[int, int, int, int]]) -> None:
+def _write_pattern(g: Game, cores: list[Core]) -> None:
     pattern: tuple[str, ...] = (
         "###.###",
         "#...#..",
@@ -88,10 +94,7 @@ def _write_pattern(g: Game, cores: list[tuple[int, int, int, int]]) -> None:
     best_score = -1
     for corner_x, corner_y in corners:
         score = (
-            min(
-                (corner_x - corecx) ** 2 + (corner_y - corecy) ** 2
-                for _cid, _team, corecx, corecy in cores
-            )
+            min((corner_x - c.x) ** 2 + (corner_y - c.y) ** 2 for c in cores)
             if cores
             else 0
         )
