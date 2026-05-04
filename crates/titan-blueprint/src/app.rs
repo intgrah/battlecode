@@ -30,6 +30,7 @@ pub struct App {
     pub show_connected_textures: bool,
     pub mode: Mode,
     pub focused: Option<(i32, i32)>,
+    pub show_flow: bool,
     should_quit: bool,
 }
 
@@ -59,6 +60,7 @@ impl App {
             show_connected_textures: true,
             mode: Mode::View,
             focused: None,
+            show_flow: true,
             should_quit: false,
         }
     }
@@ -91,13 +93,21 @@ impl titan_core::ModeApp for App {
         self.map_path.as_deref()
     }
     fn pick_extensions(&self) -> &'static [&'static str] {
-        &["map26"]
+        &["map26", "bp"]
     }
     fn pick_default_dir(&self, config: &titan_core::CambcConfig) -> PathBuf {
         config.maps_path()
     }
     fn open_path(&mut self, path: PathBuf) -> Result<(), String> {
-        self.load_map(path)
+        if path.extension().and_then(|s| s.to_str()) == Some("bp") {
+            let inputs = crate::parse_args(vec![
+                std::ffi::OsString::new(),
+                path.into_os_string(),
+            ])?;
+            self.load_map(inputs.map_path)
+        } else {
+            self.load_map(path)
+        }
     }
     fn can_save(&self) -> bool {
         true
