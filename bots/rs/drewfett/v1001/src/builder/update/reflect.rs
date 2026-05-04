@@ -1,7 +1,7 @@
 use cambc::{Environment, Position};
 
 use crate::builder::Builder;
-use crate::util::constants::{INF, MAX_WIDTH, ROAD_COST, STRIDE};
+use crate::util::constants::{INF, ROAD_COST, STRIDE};
 use crate::util::posint::idx_of;
 
 const _REFLECT_BUDGET: usize = 25;

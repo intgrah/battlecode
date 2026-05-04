@@ -8,8 +8,8 @@ use crate::builder::patrol::{
     remove_from_clusters,
 };
 use crate::building::{edge_targets, make_building};
-use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, ROAD_COST};
-use crate::util::directions::{DIR8, DIR8_DELTA};
+use crate::util::constants::{FLOW_HISTORY_LEN, INF, ROAD_COST};
+use crate::util::directions::DIR8;
 use crate::util::posint::{DIR8_INT, idx_of};
 use crate::util::symmetry::Symmetry;
 
@@ -366,14 +366,10 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
     // Hoist hot-loop refs: avoid LOAD_ATTR per tile in Python. The inner
     // engine calls (`ct.get_tile_env` etc.) dominate this scope's time
     // but the Python-side compares + array writes still run per tile.
-    let w = builder.state.width;
-    let h = builder.state.height;
     let my_team = builder.state.my_team;
     let nearby = pyrust::clone!(builder.state.nearby_tiles);
     for pos in &nearby {
         let pos = *pos;
-        let px = pos.x;
-        let py = pos.y;
         let i = idx_of(pos) as usize;
         let prev_env = builder.env[i];
         // env is immutable in the engine (Empty/Wall/OreTitanium/OreAxionite).

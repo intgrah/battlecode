@@ -10,11 +10,11 @@ use serde_json::Map;
 
 use crate::builder::Builder;
 use crate::config::DEBUG_LOG;
-use crate::util::constants::{MAX_WIDTH, STRIDE, base_cost};
-use crate::util::debug::{Scope, debug as log};
+use crate::util::constants::base_cost;
+use crate::util::debug::debug as log;
 use crate::util::directions::{DIR4, DIR8, delta_to_dir};
-use crate::util::metrics::{chebyshev, claims_by_proximity, claims_by_proximity_p, manhattan};
-use crate::util::posint::{DIR4_INT, DIR8_INT, PosInt, dist_sq, idx_of, manhat, pos_of};
+use crate::util::metrics::{chebyshev, claims_by_proximity_p, manhattan};
+use crate::util::posint::{DIR4_INT, PosInt, dist_sq, idx_of, manhat, pos_of};
 use crate::util::visualiser::auto_wrap_position;
 
 /// Return True iff this call actually issued a move. 'Already at target'

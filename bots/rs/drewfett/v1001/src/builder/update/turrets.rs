@@ -1,7 +1,7 @@
-use cambc::{EntityType, Environment, Position};
+use cambc::{EntityType, Position};
 
 use crate::builder::Builder;
-use crate::util::constants::{INF, MAX_WIDTH};
+use crate::util::constants::INF;
 use crate::util::directions::{DIR4_DELTA, DIR8_DELTA};
 use crate::util::posint::{dist_sq, idx_of, pos_of};
 

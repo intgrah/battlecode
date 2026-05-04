@@ -8,7 +8,6 @@ use crate::config::DEBUG_LOG;
 use serde_json::{Map, Value};
 
 use crate::builder::Builder;
-use crate::util::constants::MAX_WIDTH;
 use crate::util::debug::debug as log;
 use crate::util::posint::idx_of;
 use crate::util::visualiser::auto_wrap_position;

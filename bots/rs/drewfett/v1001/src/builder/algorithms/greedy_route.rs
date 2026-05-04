@@ -17,10 +17,30 @@ use crate::builder::helpers::is_inward_guard;
 /// four r²=9 extensions, minus the origin and the four r²=1 cardinals
 /// (where a conveyor suffices, not a bridge).
 const BRIDGE_OFFSETS: [(i32, i32); 24] = [
-    (-3, 0), (0, -3), (0, 3), (3, 0),
-    (-2, -2), (-2, 0), (-2, 2), (0, -2), (0, 2), (2, -2), (2, 0), (2, 2),
-    (-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1),
-    (-1, -1), (-1, 1), (1, -1), (1, 1),
+    (-3, 0),
+    (0, -3),
+    (0, 3),
+    (3, 0),
+    (-2, -2),
+    (-2, 0),
+    (-2, 2),
+    (0, -2),
+    (0, 2),
+    (2, -2),
+    (2, 0),
+    (2, 2),
+    (-2, -1),
+    (-2, 1),
+    (-1, -2),
+    (-1, 2),
+    (1, -2),
+    (1, 2),
+    (2, -1),
+    (2, 1),
+    (-1, -1),
+    (-1, 1),
+    (1, -1),
+    (1, 1),
 ];
 
 /// Try Bresenham-ish first, then the two L-shapes in randomly-chosen

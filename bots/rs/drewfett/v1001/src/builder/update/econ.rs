@@ -10,10 +10,9 @@ use crate::builder::helpers::{
     ax_feeds_target, can_afford_ore_claim, harvester_would_contaminate, is_inward_guard,
     ore_available, pick_ax_ore_target, pick_offensive_ti_ore_target, pick_ore_target,
 };
-use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, STRIDE, base_cost};
+use crate::util::constants::{FLOW_HISTORY_LEN, INF, STRIDE, base_cost};
 use crate::util::debug::Scope;
 use crate::util::debug::debug as log;
-use crate::util::directions::DIR4_DELTA;
 use crate::util::metrics::{chebyshev_p, claims_by_proximity_p};
 use crate::util::posint::{DIR4_INT, PosInt, dist_sq, idx_of, manhat, pos_of};
 use crate::util::visualiser::auto_wrap_position;
