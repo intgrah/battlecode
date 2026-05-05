@@ -20,12 +20,14 @@ fn main() -> ExitCode {
     let bp = PathBuf::from(&args[1]);
     let map = PathBuf::from(&args[2]);
     let mut turns: i32 = 200;
+    let mut warmup: i32 = 100;
     let mut seed: u64 = 1;
     let mut replay = PathBuf::from("replay.replay26");
     let mut it = args.iter().skip(3);
     while let Some(flag) = it.next() {
         match flag.as_str() {
             "--turns" => turns = it.next().and_then(|s| s.parse().ok()).unwrap_or(turns),
+            "--warmup" => warmup = it.next().and_then(|s| s.parse().ok()).unwrap_or(warmup),
             "--seed" => seed = it.next().and_then(|s| s.parse().ok()).unwrap_or(seed),
             "--replay" => {
                 if let Some(s) = it.next() {
@@ -46,15 +48,18 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
     };
+    sim.run(warmup);
+    let rax_warm = sim.refined_axionite();
+    let ti_warm = sim.titanium_collected();
     sim.run(turns);
     if let Err(e) = sim.write_replay(&replay) {
         eprintln!("write replay failed: {e}");
         return ExitCode::from(1);
     }
 
-    let rax = sim.refined_axionite();
-    let ti = sim.titanium_collected();
-    println!("turns: {turns}");
+    let rax = sim.refined_axionite() - rax_warm;
+    let ti = sim.titanium_collected() - ti_warm;
+    println!("warmup: {warmup}, measured: {turns}");
     println!(
         "refined axionite collected: {rax} ({:.2}/turn)",
         rax as f64 / turns as f64

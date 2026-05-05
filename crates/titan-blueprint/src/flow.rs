@@ -286,10 +286,18 @@ fn propagate_flow(
                     }
                 }
             }
-            let total: f64 = incoming.values().sum();
-            let scale = if total > 1.0 { 1.0 / total } else { 1.0 };
-            let capped: HashMap<CarriedType, f64> =
-                incoming.iter().map(|(t, v)| (*t, v * scale)).collect();
+            let capped: HashMap<CarriedType, f64> = match node.kind {
+                NodeKind::Conveyor(_) | NodeKind::ArmouredConveyor(_) | NodeKind::Bridge(_)
+                | NodeKind::Splitter(_) => {
+                    let total: f64 = incoming.values().sum();
+                    let scale = if total > 1.0 { 1.0 / total } else { 1.0 };
+                    incoming.iter().map(|(t, v)| (*t, v * scale)).collect()
+                }
+                NodeKind::Foundry | NodeKind::Core => {
+                    incoming.iter().map(|(t, v)| (*t, v.min(1.0))).collect()
+                }
+                NodeKind::Harvester(_) | NodeKind::Other => incoming.clone(),
+            };
             tile_carries.insert(*pos, dominant_type(&capped));
 
             match node.kind {
