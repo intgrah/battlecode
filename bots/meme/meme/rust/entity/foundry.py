@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from cambc import ResourceType
 
-from rust.base import i32, option
+from rust.base import I32, OptionU8
 from rust.entity.variant import EntityVariant
 
 
@@ -19,8 +19,8 @@ class EntityFoundry(EntityVariant):
 
     _BASE_OFF = 24
 
-    stored_resource_id = i32(16)
-    stored = option(20, tuple(ResourceType), niche=3)
+    stored_resource_id = I32(16)
+    stored = OptionU8(20, tuple(ResourceType), niche=3)
 
     def __repr__(self) -> str:
         s = self.stored

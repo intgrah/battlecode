@@ -4,7 +4,7 @@ from typing import ClassVar, Final
 
 from cambc import Team
 
-from rust.base import RustStruct, enum_u8, i32, position, u32
+from rust.base import I32, U32, EnumU8, Pos, RustStruct
 
 
 class EntityBase(RustStruct):
@@ -24,11 +24,11 @@ class EntityBase(RustStruct):
     _MAX_HP_OFF: Final = 16
     _TEAM_OFF: Final = 20
 
-    id = u32(_ID_OFF)
-    position = position(_POSITION_OFF)
-    hp = i32(_HP_OFF)
-    max_hp = i32(_MAX_HP_OFF)
-    team = enum_u8(_TEAM_OFF, tuple(Team))
+    id = U32(_ID_OFF)
+    position = Pos(_POSITION_OFF)
+    hp = I32(_HP_OFF)
+    max_hp = I32(_MAX_HP_OFF)
+    team = EnumU8(_TEAM_OFF, tuple(Team))
 
 
 class EntityVariant(RustStruct):

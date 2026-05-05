@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from rust.base import i32
+from rust.base import I32, Inner
 from rust.entity.variant import EntityVariant
 from rust.vec import Vec
 
@@ -22,11 +22,8 @@ class EntityCore(EntityVariant):
     _BASE_OFF = 40
     _RECEIVED_OFF: Final = 8
 
-    action_cooldown = i32(32)
-
-    @property
-    def received(self) -> Vec:
-        return Vec(self._raw, self._addr + EntityCore._RECEIVED_OFF)
+    action_cooldown = I32(32)
+    received = Inner(_RECEIVED_OFF, Vec)
 
     def __repr__(self) -> str:
         v = self.received

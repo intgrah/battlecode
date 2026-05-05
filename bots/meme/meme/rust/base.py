@@ -1,9 +1,7 @@
-# ruff: noqa: N801
-# Lowercase class names are intentional.
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, overload
 
 from cambc import Position
 
@@ -16,12 +14,12 @@ def _read_i32(raw: RawMem, addr: int) -> int:
     return v - 0x1_0000_0000 if v & 0x8000_0000 else v
 
 
-def read_position(raw: RawMem, addr: int) -> Position:
+def read_pos(raw: RawMem, addr: int) -> Position:
     """Decode 8 bytes (i32 x, i32 y) starting at `addr` into a `Position`."""
     return Position(_read_i32(raw, addr), _read_i32(raw, addr + 4))
 
 
-def write_position(raw: RawMem, addr: int, val: Position) -> None:
+def write_pos(raw: RawMem, addr: int, val: Position) -> None:
     """Encode `Position` as 8 bytes (i32 x, i32 y) starting at `addr`."""
     raw.write_u32(addr, val.x & 0xFFFF_FFFF)
     raw.write_u32(addr + 4, val.y & 0xFFFF_FFFF)
@@ -35,7 +33,7 @@ class RustStruct:
         self._addr: Final = addr
 
 
-class u8:
+class U8:
     __slots__ = ("_off",)
 
     def __init__(self, off: int) -> None:
@@ -48,7 +46,7 @@ class u8:
         obj._raw.write_u8(obj._addr + self._off, val & 0xFF)
 
 
-class u32:
+class U32:
     __slots__ = ("_off",)
 
     def __init__(self, off: int) -> None:
@@ -61,7 +59,7 @@ class u32:
         obj._raw.write_u32(obj._addr + self._off, val & 0xFFFF_FFFF)
 
 
-class i32:
+class I32:
     __slots__ = ("_off",)
 
     def __init__(self, off: int) -> None:
@@ -75,7 +73,7 @@ class i32:
         obj._raw.write_u32(obj._addr + self._off, val & 0xFFFF_FFFF)
 
 
-class u64:
+class U64:
     __slots__ = ("_off",)
 
     def __init__(self, off: int) -> None:
@@ -85,7 +83,7 @@ class u64:
         return obj._raw.read_u64(obj._addr + self._off)
 
 
-class enum_u8[E: Enum]:
+class EnumU8[E: Enum]:
     """1-byte field decoded as a Python enum via a tag→variant table."""
 
     __slots__ = ("_off", "_table", "_to_int")
@@ -102,7 +100,7 @@ class enum_u8[E: Enum]:
         obj._raw.write_u8(obj._addr + self._off, self._to_int[val])
 
 
-class option[E: Enum]:
+class OptionU8[E: Enum]:
     """1-byte niche-encoded Option<E>. None ↔ raw byte == `niche`."""
 
     __slots__ = ("_niche", "_off", "_table", "_to_int")
@@ -122,7 +120,7 @@ class option[E: Enum]:
         obj._raw.write_u8(obj._addr + self._off, b)
 
 
-class position:
+class Pos:
     """8-byte (i32 x, i32 y) field decoded as a `cambc.Position`."""
 
     __slots__ = ("_off",)
@@ -131,7 +129,28 @@ class position:
         self._off: Final = off
 
     def __get__(self, obj: RustStruct, _: type[RustStruct] | None = None) -> Position:
-        return read_position(obj._raw, obj._addr + self._off)
+        return read_pos(obj._raw, obj._addr + self._off)
 
     def __set__(self, obj: RustStruct, val: Position) -> None:
-        write_position(obj._raw, obj._addr + self._off, val)
+        write_pos(obj._raw, obj._addr + self._off, val)
+
+
+class Inner[T: RustStruct]:
+    """Construct a sub-`RustStruct` view at a fixed offset within `obj`."""
+
+    __slots__ = ("_cls", "_off")
+
+    def __init__(self, off: int, cls: type[T]) -> None:
+        self._off: Final = off
+        self._cls: Final = cls
+
+    @overload
+    def __get__(self, obj: None, _: type[RustStruct] | None = None) -> Inner[T]: ...
+    @overload
+    def __get__(self, obj: RustStruct, _: type[RustStruct] | None = None) -> T: ...
+    def __get__(
+        self, obj: RustStruct | None, _: type[RustStruct] | None = None
+    ) -> T | Inner[T]:
+        if obj is None:
+            return self
+        return self._cls(obj._raw, obj._addr + self._off)

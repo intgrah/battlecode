@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from rust.base import RustStruct, i32
+from rust.base import I32, RustStruct
 
 
 class PlayerState(RustStruct):
@@ -22,8 +22,8 @@ class PlayerState(RustStruct):
     _AXIONITE_COLLECTED_OFF: Final = 12
     _SCALE_MILLI_OFF: Final = 16
 
-    titanium = i32(_TITANIUM_OFF)
-    axionite = i32(_AXIONITE_OFF)
-    titanium_collected = i32(_TITANIUM_COLLECTED_OFF)
-    axionite_collected = i32(_AXIONITE_COLLECTED_OFF)
-    scale_milli = i32(_SCALE_MILLI_OFF)
+    titanium = I32(_TITANIUM_OFF)
+    axionite = I32(_AXIONITE_OFF)
+    titanium_collected = I32(_TITANIUM_COLLECTED_OFF)
+    axionite_collected = I32(_AXIONITE_COLLECTED_OFF)
+    scale_milli = I32(_SCALE_MILLI_OFF)

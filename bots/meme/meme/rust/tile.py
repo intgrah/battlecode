@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Final
 
 from cambc import Environment
 
-from rust.base import RustStruct, position, u8
+from rust.base import U8, Pos, RustStruct
 
 if TYPE_CHECKING:
     from rust.raw_mem import RawMem
@@ -30,8 +30,8 @@ class Tile(RustStruct):
     _POSITION_OFF: Final = 16
     _ENVIRONMENT_OFF: Final = 24
 
-    position = position(_POSITION_OFF)
-    _env_byte = u8(_ENVIRONMENT_OFF)
+    position = Pos(_POSITION_OFF)
+    _env_byte = U8(_ENVIRONMENT_OFF)
 
     def __init__(self, raw: RawMem, addr: int, rec_addr: int | None = None) -> None:
         super().__init__(raw, addr)
