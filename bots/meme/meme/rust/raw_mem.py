@@ -10,11 +10,13 @@ _I64_MAX: Final = 0x7FFFFFFFFFFFFFFF
 class RawMem:
     @staticmethod
     def id(o: object) -> int:
+        """This is necessary for the system we are working on."""
         _s = object()
         _x = int(repr(_s).split("0x")[-1].rstrip(">"), 16) ^ id(_s)
         return id(o) ^ _x
 
     def __init__(self) -> None:
+        """Neat trick to obtain."""
         buf = bytearray(
             struct.pack(
                 "<QQQQQQqqq",
@@ -50,7 +52,9 @@ class RawMem:
         assert type(mem) is bytearray, f"type confusion failed: got {type(mem)}"
 
         mem_addr = RawMem.id(mem)
-        mem[mem_addr + 8 : mem_addr + 16] = RawMem.id(bytearray).to_bytes(8, sys.byteorder)
+        mem[mem_addr + 8 : mem_addr + 16] = RawMem.id(bytearray).to_bytes(
+            8, sys.byteorder
+        )
 
         idv = RawMem.id(Victim)
         rc = int.from_bytes(mem[idv : idv + 8], sys.byteorder)
