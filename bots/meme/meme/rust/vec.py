@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final
 
-from rust.base import RustStruct, u64
+from rust.base import U64, RustStruct
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -22,9 +22,9 @@ class Vec(RustStruct):
     _LEN_OFF: Final = 16
     _ELEM_SIZE: Final = 4
 
-    cap = u64(_CAP_OFF)
-    ptr = u64(_PTR_OFF)
-    len = u64(_LEN_OFF)
+    cap = U64(_CAP_OFF)
+    ptr = U64(_PTR_OFF)
+    len = U64(_LEN_OFF)
 
     def __len__(self) -> int:
         return self.len

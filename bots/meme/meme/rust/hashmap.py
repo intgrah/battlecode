@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final
 
-from rust.base import RustStruct, u64
+from rust.base import U64, RustStruct
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -41,10 +41,10 @@ class HashMap[K, V](RustStruct):
     _GROWTH_LEFT_OFF: Final = 16
     _ITEMS_OFF: Final = 24
 
-    _ctrl = u64(_CTRL_OFF)
-    _bucket_mask = u64(_BUCKET_MASK_OFF)
-    _growth_left = u64(_GROWTH_LEFT_OFF)
-    _items = u64(_ITEMS_OFF)
+    _ctrl = U64(_CTRL_OFF)
+    _bucket_mask = U64(_BUCKET_MASK_OFF)
+    _growth_left = U64(_GROWTH_LEFT_OFF)
+    _items = U64(_ITEMS_OFF)
 
     def __init__(
         self,

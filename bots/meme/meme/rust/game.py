@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from functools import cached_property
 from typing import Final
 
 from cambc import Controller, Position, Team
 
-from rust.base import RustStruct, i32, read_position, u64
+from rust.base import I32, U64, Inner, RustStruct, read_pos
 from rust.entity import Entity
 from rust.game_map import GameMap
 from rust.hashmap import HashMap
 from rust.player_state import PlayerState
 from rust.raw_mem import RawMem
+from rust.replay_recorder import ReplayRecorder
 from rust.vec import Vec
 
 _TEAM_TO_INT: dict[Team, int] = {t: i for i, t in enumerate(Team)}
@@ -24,7 +24,7 @@ def _read_i32(raw: RawMem, addr: int) -> int:
 
 
 def _read_position_pair(raw: RawMem, addr: int) -> tuple[Position, Position]:
-    return read_position(raw, addr), read_position(raw, addr + _POSITION_SIZE)
+    return read_pos(raw, addr), read_pos(raw, addr + _POSITION_SIZE)
 
 
 # (Position, Position) is 16 B, value i32 is 4 B + 4 B pad = 20 B per bucket.
@@ -53,6 +53,7 @@ class Game(RustStruct):
     _GAME_MAP_OFF: Final = 0
     _UNIT_ORDER_OFF: Final = 32
     _HARVESTERS_OFF: Final = 56
+    _REPLAY_RECORDER_OFF: Final = 80
     _RESIGN_MESSAGE_OFF: Final = 160
     _RESIGN_CAP_OFF: Final = _RESIGN_MESSAGE_OFF
     _RESIGN_PTR_OFF: Final = _RESIGN_MESSAGE_OFF + 8
@@ -67,20 +68,21 @@ class Game(RustStruct):
     _CTRL_PTR_OFFSET_IN_CT: Final = 16
     _GAME_OFFSET_IN_CT: Final = 24
 
-    turn = i32(_TURN_OFF)
-    next_id = i32(_NEXT_ID_OFF)
-    _resign_cap = u64(_RESIGN_CAP_OFF)
-    _resign_ptr = u64(_RESIGN_PTR_OFF)
-    _resign_len = u64(_RESIGN_LEN_OFF)
+    turn = I32(_TURN_OFF)
+    next_id = I32(_NEXT_ID_OFF)
+    _resign_cap = U64(_RESIGN_CAP_OFF)
+    _resign_ptr = U64(_RESIGN_PTR_OFF)
+    _resign_len = U64(_RESIGN_LEN_OFF)
+
+    game_map = Inner(_GAME_MAP_OFF, GameMap)
+    replay_recorder = Inner(_REPLAY_RECORDER_OFF, ReplayRecorder)
+    unit_order = Inner(_UNIT_ORDER_OFF, Vec)
+    harvesters = Inner(_HARVESTERS_OFF, Vec)
 
     @staticmethod
     def open(raw: RawMem, ct: Controller) -> Game:
         ct_ptr = raw.read_u64(RawMem.id(ct) + Game._CTRL_PTR_OFFSET_IN_CT)
         return Game(raw, ct_ptr + Game._GAME_OFFSET_IN_CT)
-
-    @cached_property
-    def game_map(self) -> GameMap:
-        return GameMap(self._raw, self._addr + Game._GAME_MAP_OFF)
 
     def player(self, team: Team) -> PlayerState:
         return PlayerState(
@@ -96,15 +98,7 @@ class Game(RustStruct):
             "utf-8", errors="replace"
         )
 
-    @cached_property
-    def unit_order(self) -> Vec:
-        return Vec(self._raw, self._addr + Game._UNIT_ORDER_OFF)
-
-    @cached_property
-    def harvesters(self) -> Vec:
-        return Vec(self._raw, self._addr + Game._HARVESTERS_OFF)
-
-    @cached_property
+    @property
     def entities(self) -> HashMap[int, Entity]:
         return HashMap(
             self._raw,
@@ -114,7 +108,7 @@ class Game(RustStruct):
             value=Entity,
         )
 
-    @cached_property
+    @property
     def edge_last_used(self) -> HashMap[tuple[Position, Position], int]:
         return HashMap(
             self._raw,

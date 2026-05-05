@@ -1,4 +1,4 @@
-from rust.base import RustStruct, i32, u8, u32, u64
+from rust.base import I32, U8, U32, U64, RustStruct
 from rust.entity import Entity, EntityBase
 from rust.entity.armoured_conveyor import EntityArmouredConveyor
 from rust.entity.barrier import EntityBarrier
@@ -17,14 +17,23 @@ from rust.entity.sentinel import EntitySentinel
 from rust.entity.splitter import EntitySplitter
 from rust.entity.variant import EntityVariant
 from rust.game import Game
+from rust.game_diff import GameDiff
+from rust.game_diff.fire_turret import GameDiffFireTurret
+from rust.game_diff.variant import GameDiffVariant
 from rust.game_map import GameMap
 from rust.hashmap import HashMap
 from rust.player_state import PlayerState
 from rust.raw_mem import RawMem
+from rust.replay_recorder import Diffs, ReplayRecorder, TurnDiffs
 from rust.tile import Tile
 from rust.vec import Vec
 
 __all__ = [
+    "I32",
+    "U8",
+    "U32",
+    "U64",
+    "Diffs",
     "Entity",
     "EntityArmouredConveyor",
     "EntityBarrier",
@@ -44,15 +53,16 @@ __all__ = [
     "EntitySplitter",
     "EntityVariant",
     "Game",
+    "GameDiff",
+    "GameDiffFireTurret",
+    "GameDiffVariant",
     "GameMap",
     "HashMap",
     "PlayerState",
     "RawMem",
+    "ReplayRecorder",
     "RustStruct",
     "Tile",
+    "TurnDiffs",
     "Vec",
-    "i32",
-    "u8",
-    "u32",
-    "u64",
 ]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from rust.base import u32
+from rust.base import U32
 from rust.entity.variant import EntityVariant
 
 
@@ -16,7 +16,7 @@ class EntityMarker(EntityVariant):
 
     _BASE_OFF = 20
 
-    value = u32(16)
+    value = U32(16)
 
     def __repr__(self) -> str:
         return f"EntityMarker({self._base_repr()} value=0x{self.value:08x})"

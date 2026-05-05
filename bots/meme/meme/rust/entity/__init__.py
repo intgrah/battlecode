@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Final
 
 from cambc import EntityType
 
-from rust.base import RustStruct, u32, u64
+from rust.base import U32, U64, RustStruct
 from rust.entity.armoured_conveyor import EntityArmouredConveyor
 from rust.entity.barrier import EntityBarrier
 from rust.entity.breach import EntityBreach
@@ -87,8 +87,8 @@ class Entity(RustStruct):
     _KEY_OFF: Final = 0
     _ENTITY_OFF: Final = 8
 
-    key = u32(_KEY_OFF)
-    _word0 = u64(_ENTITY_OFF)
+    key = U32(_KEY_OFF)
+    _word0 = U64(_ENTITY_OFF)
 
     def __init__(self, raw: RawMem, slot: int) -> None:
         super().__init__(raw, slot)

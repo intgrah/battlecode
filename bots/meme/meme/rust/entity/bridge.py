@@ -4,7 +4,7 @@ from typing import Final
 
 from cambc import ResourceType
 
-from rust.base import i32, option, position
+from rust.base import I32, OptionU8, Pos
 from rust.entity.variant import EntityVariant
 
 
@@ -23,9 +23,9 @@ class EntityBridge(EntityVariant):
     _BASE_OFF = 32
     _TARGET_OFF: Final = 16
 
-    target = position(_TARGET_OFF)
-    stored_resource_id = i32(24)
-    stored = option(28, tuple(ResourceType), niche=3)
+    target = Pos(_TARGET_OFF)
+    stored_resource_id = I32(24)
+    stored = OptionU8(28, tuple(ResourceType), niche=3)
 
     def __repr__(self) -> str:
         s = self.stored

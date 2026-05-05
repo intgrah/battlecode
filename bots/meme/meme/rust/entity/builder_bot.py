@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from rust.base import i32
+from rust.base import I32
 from rust.entity.variant import EntityVariant
 
 
@@ -17,8 +17,8 @@ class EntityBuilderBot(EntityVariant):
 
     _BASE_OFF = 24
 
-    action_cooldown = i32(16)
-    move_cooldown = i32(20)
+    action_cooldown = I32(16)
+    move_cooldown = I32(20)
 
     def __repr__(self) -> str:
         return (

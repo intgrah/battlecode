@@ -4,7 +4,7 @@ from typing import Final
 
 from cambc import ResourceType
 
-from rust.base import enum_u8, i32, position
+from rust.base import I32, EnumU8, Pos
 from rust.entity.variant import EntityVariant
 
 
@@ -23,9 +23,9 @@ class EntityHarvester(EntityVariant):
     _BASE_OFF = 20
     _TARGET_POS_OFF: Final = 48
 
-    cooldown = i32(16)
-    resource_type = enum_u8(44, tuple(ResourceType))
-    target_pos = position(_TARGET_POS_OFF)
+    cooldown = I32(16)
+    resource_type = EnumU8(44, tuple(ResourceType))
+    target_pos = Pos(_TARGET_POS_OFF)
 
     def __repr__(self) -> str:
         return (

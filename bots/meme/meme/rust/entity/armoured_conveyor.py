@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from cambc import Direction, ResourceType
 
-from rust.base import enum_u8, i32, option
+from rust.base import I32, EnumU8, OptionU8
 from rust.entity.variant import EntityVariant
 
 
@@ -20,9 +20,9 @@ class EntityArmouredConveyor(EntityVariant):
 
     _BASE_OFF = 24
 
-    stored_resource_id = i32(16)
-    stored = option(20, tuple(ResourceType), niche=3)
-    direction = enum_u8(48, tuple(Direction))
+    stored_resource_id = I32(16)
+    stored = OptionU8(20, tuple(ResourceType), niche=3)
+    direction = EnumU8(48, tuple(Direction))
 
     def __repr__(self) -> str:
         s = self.stored

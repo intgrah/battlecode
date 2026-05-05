@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final
 
-from rust.base import RustStruct, i32, u64
+from rust.base import I32, U64, RustStruct
 from rust.tile import Tile
 
 if TYPE_CHECKING:
@@ -27,9 +27,9 @@ class GameMap(RustStruct):
     _VEC_PTR_OFF_INNER: Final = 8
     _TILE_SIZE: Final = 28
 
-    _tiles_ptr = u64(_TILES_PTR_OFF)
-    width = i32(_WIDTH_OFF)
-    height = i32(_HEIGHT_OFF)
+    _tiles_ptr = U64(_TILES_PTR_OFF)
+    width = I32(_WIDTH_OFF)
+    height = I32(_HEIGHT_OFF)
 
     def __init__(
         self, raw: RawMem, addr: int, rec_outer_ptr: int | None = None

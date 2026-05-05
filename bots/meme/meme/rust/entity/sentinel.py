@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from cambc import Direction, ResourceType
 
-from rust.base import enum_u8, i32, option
+from rust.base import I32, EnumU8, OptionU8
 from rust.entity.variant import EntityVariant
 
 
@@ -21,10 +21,10 @@ class EntitySentinel(EntityVariant):
 
     _BASE_OFF = 28
 
-    ammo_amount = i32(16)
-    action_cooldown = i32(20)
-    ammo_type = option(56, tuple(ResourceType), niche=3)
-    direction = enum_u8(60, tuple(Direction))
+    ammo_amount = I32(16)
+    action_cooldown = I32(20)
+    ammo_type = OptionU8(56, tuple(ResourceType), niche=3)
+    direction = EnumU8(60, tuple(Direction))
 
     def __repr__(self) -> str:
         a = self.ammo_type
