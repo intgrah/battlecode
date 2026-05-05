@@ -827,19 +827,19 @@ fn draw_flow_overlay(
         if ti > 1e-3 {
             lines.push((
                 Color32::from_rgb(0x60, 0x90, 0xff),
-                format!("T{:.1}", ti * 10.0),
+                format!("T{:.2}", ti),
             ));
         }
         if raw > 1e-3 {
             lines.push((
                 Color32::from_rgb(0xff, 0x90, 0x40),
-                format!("A{:.1}", raw * 10.0),
+                format!("A{:.2}", raw),
             ));
         }
         if refn > 1e-3 {
             lines.push((
                 Color32::from_rgb(0x60, 0xff, 0x80),
-                format!("R{:.1}", refn * 10.0),
+                format!("R{:.2}", refn),
             ));
         }
         let n = lines.len() as f32;
@@ -873,7 +873,7 @@ fn draw_flow_overlay(
         painter.text(
             Pos2::new(origin.x + 4.0, origin.y + 4.0),
             egui::Align2::LEFT_TOP,
-            format!("predicted: {:.2} RAx/turn", total_rate * 10.0),
+            format!("predicted: {:.2} stacks/turn", total_rate),
             egui::FontId::proportional(14.0),
             Color32::from_rgb(0x80, 0xff, 0x80),
         );

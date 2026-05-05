@@ -31,10 +31,10 @@ class Map26:
         self.width: Final = width
         self.height: Final = height
         self.cores: Final = cores
-        self._grid: Final = grid
+        self.grid: Final = grid
 
     def tile(self, x: int, y: int) -> Environment:
-        return self._grid[y * self.width + x]
+        return self.grid[y * self.width + x]
 
     @staticmethod
     def read(path: str = PATH) -> Map26:
