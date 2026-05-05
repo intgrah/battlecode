@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/cambc-proto",
+    "crates/engine",
     "crates/titan-core",
     "crates/titan-blueprint",
     "crates/titan-bugnav",
