@@ -1,72 +1,35 @@
 from __future__ import annotations
 
-import astar
-from cambc import (
-    Controller,
-    Direction,
-    EntityType,
-    Environment,
-)
+from typing import TYPE_CHECKING
+
+from apsp import apsp, pnb
+from builder import Builder
+from cambc import EntityType
+from core import Core
 from map26 import Map26
-from rust import BuilderBot, Core, Game, RawMem
+
+if TYPE_CHECKING:
+    from cambc import Controller
+    from unit import Unit
 
 
 class Player:
     def __init__(self) -> None:
-        self._ti_ore: tuple[int, int] | None = None
-        self._ax_ore: tuple[int, int] | None = None
-        self._ti_path: list[tuple[int, int]] = []
         self.map = m = Map26.read()
-
-        if m.cores:
-            ref_x, ref_y = m.cores[0].x, m.cores[0].y
-            best_ti = best_ax = 1_000_000
-            for y in range(m.height):
-                for x in range(m.width):
-                    env = m.tile(x, y)
-                    match env:
-                        case Environment.ORE_TITANIUM:
-                            d = (x - ref_x) ** 2 + (y - ref_y) ** 2
-                            if d < best_ti:
-                                best_ti = d
-                                self._ti_ore = (x, y)
-                        case Environment.ORE_AXIONITE:
-                            d = (x - ref_x) ** 2 + (y - ref_y) ** 2
-                            if d < best_ax:
-                                best_ax = d
-                                self._ax_ore = (x, y)
-            if self._ti_ore is not None:
-                self._ti_path = astar.run(m, start=self._ti_ore, goal=(ref_x, ref_y))
+        self.pnb = pnb(m)
+        self.apsp = apsp(m, self.pnb)
+        self.builder = Builder()
+        self.core = Core(m, self.pnb, self.apsp)
+        self.unit: Unit | None = None
 
     def run(self, ct: Controller) -> None:
-        self.g = Game.open(RawMem(), ct)
-        match ct.get_entity_type():
-            case EntityType.CORE:
-                self.run_core(ct)
-            case EntityType.BUILDER_BOT:
-                self.run_builder(ct)
-
-    def run_builder(self, ct: Controller) -> None:
-        my_pos = ct.get_position()
-        my_id = ct.get_id()
-        match ct.get_current_round():
-            case 2:
-                for _ in range(39):
-                    my_pos = my_pos.add(Direction.NORTH)
-                    ct.build_road(my_pos)
-                    ct.move(Direction.NORTH)
-                    me = self.g.entities[my_id].as_variant
-                    assert isinstance(me, BuilderBot)
-                    me.action_cooldown = 0
-                    me.move_cooldown = 0
-
-    def run_core(self, ct: Controller) -> None:
-        my_pos = ct.get_position()
-        my_id = ct.get_id()
-        match ct.get_current_round():
-            case 1:
-                for d in (Direction.NORTHWEST, Direction.NORTH, Direction.NORTHEAST):
-                    ct.spawn_builder(my_pos.add(d))
-                    me = self.g.entities[my_id].as_variant
-                    assert isinstance(me, Core)
-                    me.action_cooldown = 0
+        if self.unit is None:
+            match ct.get_entity_type():
+                case EntityType.BUILDER_BOT:
+                    self.unit = self.builder
+                case EntityType.CORE:
+                    self.unit = self.core
+                case _:
+                    return
+            self.unit.post_init(ct)
+        self.unit.run(ct)

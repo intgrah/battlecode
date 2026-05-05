@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from rust.entity.variant import Variant
+from rust.entity.variant import EntityVariant
 
 
-class Barrier(Variant):
+class EntityBarrier(EntityVariant):
     """
     Bucket (72 B):
 

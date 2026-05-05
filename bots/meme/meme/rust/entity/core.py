@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Final
 
 from rust.base import i32
-from rust.entity.variant import Variant
+from rust.entity.variant import EntityVariant
 from rust.vec import Vec
 
 
-class Core(Variant):
+class EntityCore(EntityVariant):
     """
     Bucket (72 B):
 
@@ -26,12 +26,12 @@ class Core(Variant):
 
     @property
     def received(self) -> Vec:
-        return Vec(self._raw, self._addr + Core._RECEIVED_OFF)
+        return Vec(self._raw, self._addr + EntityCore._RECEIVED_OFF)
 
     def __repr__(self) -> str:
         v = self.received
         return (
-            f"Core({self._base_repr()} "
+            f"EntityCore({self._base_repr()} "
             f"action_cd={self.action_cooldown} "
             f"received(cap={v.cap}, len={v.len}))"
         )

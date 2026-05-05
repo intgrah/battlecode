@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from rust.base import i32
-from rust.entity.variant import Variant
+from rust.entity.variant import EntityVariant
 
 
-class BuilderBot(Variant):
+class EntityBuilderBot(EntityVariant):
     """
     Bucket (72 B):
 
@@ -22,6 +22,6 @@ class BuilderBot(Variant):
 
     def __repr__(self) -> str:
         return (
-            f"BuilderBot({self._base_repr()} "
+            f"EntityBuilderBot({self._base_repr()} "
             f"action_cd={self.action_cooldown} move_cd={self.move_cooldown})"
         )

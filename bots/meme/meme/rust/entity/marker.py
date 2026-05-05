@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from rust.base import u32
-from rust.entity.variant import Variant
+from rust.entity.variant import EntityVariant
 
 
-class Marker(Variant):
+class EntityMarker(EntityVariant):
     """
     Bucket (72 B):
 
@@ -19,4 +19,4 @@ class Marker(Variant):
     value = u32(16)
 
     def __repr__(self) -> str:
-        return f"Marker({self._base_repr()} value=0x{self.value:08x})"
+        return f"EntityMarker({self._base_repr()} value=0x{self.value:08x})"

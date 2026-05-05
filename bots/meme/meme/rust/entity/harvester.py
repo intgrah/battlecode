@@ -5,10 +5,10 @@ from typing import Final
 from cambc import ResourceType
 
 from rust.base import enum_u8, i32, position
-from rust.entity.variant import Variant
+from rust.entity.variant import EntityVariant
 
 
-class Harvester(Variant):
+class EntityHarvester(EntityVariant):
     """
     Bucket (72 B):
 
@@ -29,7 +29,7 @@ class Harvester(Variant):
 
     def __repr__(self) -> str:
         return (
-            f"Harvester({self._base_repr()} "
+            f"EntityHarvester({self._base_repr()} "
             f"cooldown={self.cooldown} resource_type={self.resource_type.name} "
             f"target_pos={self.target_pos})"
         )
