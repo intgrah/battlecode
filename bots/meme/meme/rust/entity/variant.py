@@ -31,7 +31,7 @@ class EntityBase(RustStruct):
     team = enum_u8(_TEAM_OFF, tuple(Team))
 
 
-class Variant(RustStruct):
+class EntityVariant(RustStruct):
     """
     Common base for all 15 Entity variants.
 

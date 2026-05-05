@@ -3,10 +3,10 @@ from __future__ import annotations
 from cambc import ResourceType
 
 from rust.base import i32, option
-from rust.entity.variant import Variant
+from rust.entity.variant import EntityVariant
 
 
-class Foundry(Variant):
+class EntityFoundry(EntityVariant):
     """
     Bucket (72 B):
 
@@ -25,6 +25,6 @@ class Foundry(Variant):
     def __repr__(self) -> str:
         s = self.stored
         return (
-            f"Foundry({self._base_repr()} "
+            f"EntityFoundry({self._base_repr()} "
             f"stored={s.name if s else None} stored_resource_id={self.stored_resource_id})"
         )

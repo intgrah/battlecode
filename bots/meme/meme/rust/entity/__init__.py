@@ -5,33 +5,33 @@ from typing import TYPE_CHECKING, Final
 from cambc import EntityType
 
 from rust.base import RustStruct, u32, u64
-from rust.entity.armoured_conveyor import ArmouredConveyor
-from rust.entity.barrier import Barrier
-from rust.entity.breach import Breach
-from rust.entity.bridge import Bridge
-from rust.entity.builder_bot import BuilderBot
-from rust.entity.conveyor import Conveyor
-from rust.entity.core import Core
-from rust.entity.foundry import Foundry
-from rust.entity.gunner import Gunner
-from rust.entity.harvester import Harvester
-from rust.entity.launcher import Launcher
-from rust.entity.marker import Marker
-from rust.entity.road import Road
-from rust.entity.sentinel import Sentinel
-from rust.entity.splitter import Splitter
-from rust.entity.variant import EntityBase, Variant  # noqa: TC001
+from rust.entity.armoured_conveyor import EntityArmouredConveyor
+from rust.entity.barrier import EntityBarrier
+from rust.entity.breach import EntityBreach
+from rust.entity.bridge import EntityBridge
+from rust.entity.builder_bot import EntityBuilderBot
+from rust.entity.conveyor import EntityConveyor
+from rust.entity.core import EntityCore
+from rust.entity.foundry import EntityFoundry
+from rust.entity.gunner import EntityGunner
+from rust.entity.harvester import EntityHarvester
+from rust.entity.launcher import EntityLauncher
+from rust.entity.marker import EntityMarker
+from rust.entity.road import EntityRoad
+from rust.entity.sentinel import EntitySentinel
+from rust.entity.splitter import EntitySplitter
+from rust.entity.variant import EntityBase, EntityVariant  # noqa: TC001
 
 if TYPE_CHECKING:
     from rust.raw_mem import RawMem
 
 _CORE_TAG: Final = 10
 
-# Variants in source-declaration order. Tag 10 = Core; for non-Core variants
+# Variants in source-declaration order. Tag 10 = EntityCore; for non-EntityCore variants
 # the niche value at Entity[0..8] is `(1 << 63) | tag` (high bit set), and
-# for Core the same bytes hold a valid `Vec.cap` value with the high bit
+# for EntityCore the same bytes hold a valid `Vec.cap` value with the high bit
 # CLEAR. Decoding is uniform: if the sign bit is clear, the tag defaults
-# to 10 (Core); otherwise the tag is the low bits of the niche.
+# to 10 (EntityCore); otherwise the tag is the low bits of the niche.
 _TAG_TO_ENTITY_TYPE: tuple[EntityType, ...] = (
     EntityType.BUILDER_BOT,  # 0
     EntityType.CONVEYOR,  # 1
@@ -50,22 +50,22 @@ _TAG_TO_ENTITY_TYPE: tuple[EntityType, ...] = (
     EntityType.LAUNCHER,  # 14
 )
 
-_VARIANT_CLASS_BY_TYPE: dict[EntityType, type[Variant]] = {
-    EntityType.CORE: Core,
-    EntityType.BUILDER_BOT: BuilderBot,
-    EntityType.ROAD: Road,
-    EntityType.BARRIER: Barrier,
-    EntityType.MARKER: Marker,
-    EntityType.HARVESTER: Harvester,
-    EntityType.CONVEYOR: Conveyor,
-    EntityType.SPLITTER: Splitter,
-    EntityType.ARMOURED_CONVEYOR: ArmouredConveyor,
-    EntityType.BRIDGE: Bridge,
-    EntityType.FOUNDRY: Foundry,
-    EntityType.GUNNER: Gunner,
-    EntityType.SENTINEL: Sentinel,
-    EntityType.BREACH: Breach,
-    EntityType.LAUNCHER: Launcher,
+_VARIANT_CLASS_BY_TYPE: dict[EntityType, type[EntityVariant]] = {
+    EntityType.CORE: EntityCore,
+    EntityType.BUILDER_BOT: EntityBuilderBot,
+    EntityType.ROAD: EntityRoad,
+    EntityType.BARRIER: EntityBarrier,
+    EntityType.MARKER: EntityMarker,
+    EntityType.HARVESTER: EntityHarvester,
+    EntityType.CONVEYOR: EntityConveyor,
+    EntityType.SPLITTER: EntitySplitter,
+    EntityType.ARMOURED_CONVEYOR: EntityArmouredConveyor,
+    EntityType.BRIDGE: EntityBridge,
+    EntityType.FOUNDRY: EntityFoundry,
+    EntityType.GUNNER: EntityGunner,
+    EntityType.SENTINEL: EntitySentinel,
+    EntityType.BREACH: EntityBreach,
+    EntityType.LAUNCHER: EntityLauncher,
 }
 
 
@@ -77,9 +77,9 @@ class Entity(RustStruct):
       +4   4   pad
       +8   64  entity        Entity (enum, 64 B)
 
-    Entity discriminant uses a niche on `Core.received: Vec<ResourceType>.cap`
+    Entity discriminant uses a niche on `EntityCore.received: Vec<ResourceType>.cap`
     at Entity[0..8]:
-      word0 high bit clear → Core   (cap is a valid Vec capacity)
+      word0 high bit clear → EntityCore   (cap is a valid Vec capacity)
       word0 high bit set   → tag = word0 & 0x7FFF_FFFF_FFFF_FFFF
     """
 
@@ -100,7 +100,7 @@ class Entity(RustStruct):
         return _TAG_TO_ENTITY_TYPE[tag]
 
     @property
-    def as_variant(self) -> Variant:
+    def as_variant(self) -> EntityVariant:
         """Construct the typed variant subclass for this entity."""
         return _VARIANT_CLASS_BY_TYPE[self.entity_type](self._raw, self._addr)
 

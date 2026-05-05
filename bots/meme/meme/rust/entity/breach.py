@@ -3,10 +3,10 @@ from __future__ import annotations
 from cambc import Direction, ResourceType
 
 from rust.base import enum_u8, i32, option
-from rust.entity.variant import Variant
+from rust.entity.variant import EntityVariant
 
 
-class Breach(Variant):
+class EntityBreach(EntityVariant):
     """
     Bucket (72 B):
 
@@ -29,7 +29,7 @@ class Breach(Variant):
     def __repr__(self) -> str:
         a = self.ammo_type
         return (
-            f"Breach({self._base_repr()} "
+            f"EntityBreach({self._base_repr()} "
             f"action_cd={self.action_cooldown} direction={self.direction.name} "
             f"ammo={self.ammo_amount}x{a.name if a else None})"
         )

@@ -5,10 +5,10 @@ from typing import Final
 from cambc import ResourceType
 
 from rust.base import i32, option, position
-from rust.entity.variant import Variant
+from rust.entity.variant import EntityVariant
 
 
-class Bridge(Variant):
+class EntityBridge(EntityVariant):
     """
     Bucket (72 B):
 
@@ -30,7 +30,7 @@ class Bridge(Variant):
     def __repr__(self) -> str:
         s = self.stored
         return (
-            f"Bridge({self._base_repr()} "
+            f"EntityBridge({self._base_repr()} "
             f"target={self.target} "
             f"stored={s.name if s else None} stored_resource_id={self.stored_resource_id})"
         )

@@ -3,10 +3,10 @@ from __future__ import annotations
 from cambc import Direction, ResourceType
 
 from rust.base import enum_u8, i32, option
-from rust.entity.variant import Variant
+from rust.entity.variant import EntityVariant
 
 
-class Splitter(Variant):
+class EntitySplitter(EntityVariant):
     """
     Bucket (72 B):
 
@@ -27,7 +27,7 @@ class Splitter(Variant):
     def __repr__(self) -> str:
         s = self.stored
         return (
-            f"Splitter({self._base_repr()} "
+            f"EntitySplitter({self._base_repr()} "
             f"direction={self.direction.name} "
             f"stored={s.name if s else None} stored_resource_id={self.stored_resource_id})"
         )

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from rust.base import i32
-from rust.entity.variant import Variant
+from rust.entity.variant import EntityVariant
 
 
-class Launcher(Variant):
+class EntityLauncher(EntityVariant):
     """
     Bucket (72 B):
 
@@ -23,4 +23,4 @@ class Launcher(Variant):
     action_cooldown = i32(20)
 
     def __repr__(self) -> str:
-        return f"Launcher({self._base_repr()} action_cd={self.action_cooldown})"
+        return f"EntityLauncher({self._base_repr()} action_cd={self.action_cooldown})"
