@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Final
 
 from rust.base import i32
-from rust.entity import Variant
+from rust.entity.variant import Variant
 from rust.vec import Vec
 
 
@@ -19,7 +19,7 @@ class Core(Variant):
       +64  8   ???              ???  (variant-shared trailing slot)
     """
 
-    _BASE_OFF: Final = 40
+    _BASE_OFF = 40
     _RECEIVED_OFF: Final = 8
 
     action_cooldown = i32(32)
@@ -27,3 +27,11 @@ class Core(Variant):
     @property
     def received(self) -> Vec:
         return Vec(self._raw, self._addr + Core._RECEIVED_OFF)
+
+    def __repr__(self) -> str:
+        v = self.received
+        return (
+            f"Core({self._base_repr()} "
+            f"action_cd={self.action_cooldown} "
+            f"received(cap={v.cap}, len={v.len}))"
+        )

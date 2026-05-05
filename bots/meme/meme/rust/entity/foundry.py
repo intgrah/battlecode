@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from typing import Final
-
 from cambc import ResourceType
 
 from rust.base import i32, option
-from rust.entity import Variant
+from rust.entity.variant import Variant
 
 
 class Foundry(Variant):
@@ -19,7 +17,14 @@ class Foundry(Variant):
       +24  24  entity              EntityBase
     """
 
-    _BASE_OFF: Final = 24
+    _BASE_OFF = 24
 
     stored_resource_id = i32(16)
     stored = option(20, tuple(ResourceType), niche=3)
+
+    def __repr__(self) -> str:
+        s = self.stored
+        return (
+            f"Foundry({self._base_repr()} "
+            f"stored={s.name if s else None} stored_resource_id={self.stored_resource_id})"
+        )

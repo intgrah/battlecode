@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from typing import Final
-
 from cambc import Direction, ResourceType
 
 from rust.base import enum_u8, i32, option
-from rust.entity import Variant
+from rust.entity.variant import Variant
 
 
 class Gunner(Variant):
@@ -21,9 +19,17 @@ class Gunner(Variant):
       +60  1   direction        Direction
     """
 
-    _BASE_OFF: Final = 28
+    _BASE_OFF = 28
 
     ammo_amount = i32(16)
     action_cooldown = i32(20)
     ammo_type = option(56, tuple(ResourceType), niche=3)
     direction = enum_u8(60, tuple(Direction))
+
+    def __repr__(self) -> str:
+        a = self.ammo_type
+        return (
+            f"Gunner({self._base_repr()} "
+            f"action_cd={self.action_cooldown} direction={self.direction.name} "
+            f"ammo={self.ammo_amount}x{a.name if a else None})"
+        )

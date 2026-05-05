@@ -130,9 +130,7 @@ class position:
     def __init__(self, off: int) -> None:
         self._off: Final = off
 
-    def __get__(
-        self, obj: RustStruct, _: type[RustStruct] | None = None
-    ) -> Position:
+    def __get__(self, obj: RustStruct, _: type[RustStruct] | None = None) -> Position:
         return read_position(obj._raw, obj._addr + self._off)
 
     def __set__(self, obj: RustStruct, val: Position) -> None:

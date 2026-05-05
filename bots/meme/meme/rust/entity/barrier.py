@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Final
-
-from rust.entity import Variant
+from rust.entity.variant import Variant
 
 
 class Barrier(Variant):
@@ -14,4 +12,4 @@ class Barrier(Variant):
       +16  24  entity        EntityBase
     """
 
-    _BASE_OFF: Final = 16
+    _BASE_OFF = 16

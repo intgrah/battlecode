@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from typing import Final
-
 from rust.base import i32
-from rust.entity import Variant
+from rust.entity.variant import Variant
 
 
 class Launcher(Variant):
@@ -20,6 +18,9 @@ class Launcher(Variant):
     the bucket but are never used.
     """
 
-    _BASE_OFF: Final = 28
+    _BASE_OFF = 28
 
     action_cooldown = i32(20)
+
+    def __repr__(self) -> str:
+        return f"Launcher({self._base_repr()} action_cd={self.action_cooldown})"
