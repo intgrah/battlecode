@@ -5,6 +5,7 @@ from cambc import Controller, Environment, Position, Team
 from game import Game
 from map26 import Core, Map26
 from raw_mem import RawMem
+from rust_types import Entity
 
 
 class Player:
@@ -62,9 +63,23 @@ class Player:
             return
 
         self._done = True
-        print(g.scan())
 
         gm = g.game_map
+        print(f"game_map: {gm.width}x{gm.height}")
+        print(f"turn={g.turn} next_id={g.next_id} resign_message={g.resign_message!r}")
+        print(f"unit_order: {list(g.unit_order)}")
+        print(f"harvesters: {list(g.harvesters)}")
+        for team in Team:
+            p = g.player(team)
+            print(
+                f"player_{team.name.lower()}: ti={p.titanium} ax={p.axionite}"
+                f" ti_coll={p.titanium_collected} ax_coll={p.axionite_collected}"
+                f" scale_milli={p.scale_milli}"
+            )
+        print(f"entities ({g.entities.items}):")
+        for slot in g.entities._occupied_slots():
+            print(f"  {Entity(g._raw, slot)!r}")
+
         self._log = (
             f"[env] {gm.width}x{gm.height}, ti={self._ti_ore}, ax={self._ax_ore}"
         )
