@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Final
 
 from cambc import Controller, Position, Team
@@ -77,7 +78,7 @@ class Game(RustStruct):
         ct_ptr = raw.read_u64(RawMem.id(ct) + Game._CTRL_PTR_OFFSET_IN_CT)
         return Game(raw, ct_ptr + Game._GAME_OFFSET_IN_CT)
 
-    @property
+    @cached_property
     def game_map(self) -> GameMap:
         return GameMap(self._raw, self._addr + Game._GAME_MAP_OFF)
 
@@ -95,15 +96,15 @@ class Game(RustStruct):
             "utf-8", errors="replace"
         )
 
-    @property
+    @cached_property
     def unit_order(self) -> Vec:
         return Vec(self._raw, self._addr + Game._UNIT_ORDER_OFF)
 
-    @property
+    @cached_property
     def harvesters(self) -> Vec:
         return Vec(self._raw, self._addr + Game._HARVESTERS_OFF)
 
-    @property
+    @cached_property
     def entities(self) -> HashMap[int, Entity]:
         return HashMap(
             self._raw,
@@ -113,7 +114,7 @@ class Game(RustStruct):
             value=Entity,
         )
 
-    @property
+    @cached_property
     def edge_last_used(self) -> HashMap[tuple[Position, Position], int]:
         return HashMap(
             self._raw,

@@ -45,7 +45,9 @@ class GameMap(RustStruct):
         rec_addr: int | None = None
         if self._rec_outer_ptr is not None:
             rec_row_ptr = self._raw.read_u64(
-                self._rec_outer_ptr + y * GameMap._VEC_STRIDE + GameMap._VEC_PTR_OFF_INNER
+                self._rec_outer_ptr
+                + y * GameMap._VEC_STRIDE
+                + GameMap._VEC_PTR_OFF_INNER
             )
             rec_addr = rec_row_ptr + x
         return Tile(self._raw, row_ptr + x * GameMap._TILE_SIZE, rec_addr)

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from typing import Final
-
 from rust.base import i32
-from rust.entity import Variant
+from rust.entity.variant import Variant
 
 
 class BuilderBot(Variant):
@@ -17,7 +15,13 @@ class BuilderBot(Variant):
       +24  24  entity           EntityBase
     """
 
-    _BASE_OFF: Final = 24
+    _BASE_OFF = 24
 
     action_cooldown = i32(16)
     move_cooldown = i32(20)
+
+    def __repr__(self) -> str:
+        return (
+            f"BuilderBot({self._base_repr()} "
+            f"action_cd={self.action_cooldown} move_cd={self.move_cooldown})"
+        )
