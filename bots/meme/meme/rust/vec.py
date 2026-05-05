@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from rust.base import RustStruct, u64
 
@@ -9,11 +9,22 @@ if TYPE_CHECKING:
 
 
 class Vec(RustStruct):
-    """Vec<i32> layout: cap@0, ptr@8, len@16."""
+    """
+    Vec<i32> (24 B, align 8):
 
-    cap = u64(0)
-    ptr = u64(8)
-    len = u64(16)
+      +0   8  cap  usize
+      +8   8  ptr  *T
+      +16  8  len  usize
+    """
+
+    _CAP_OFF: Final = 0
+    _PTR_OFF: Final = 8
+    _LEN_OFF: Final = 16
+    _ELEM_SIZE: Final = 4
+
+    cap = u64(_CAP_OFF)
+    ptr = u64(_PTR_OFF)
+    len = u64(_LEN_OFF)
 
     def __len__(self) -> int:
         return self.len
@@ -25,9 +36,9 @@ class Vec(RustStruct):
     def __getitem__(self, i: int) -> int:
         if i < 0 or i >= self.len:
             raise IndexError(i)
-        return self._read(self.ptr + i * 4)
+        return self._read(self.ptr + i * Vec._ELEM_SIZE)
 
     def __iter__(self) -> Iterator[int]:
         ptr = self.ptr
         for i in range(self.len):
-            yield self._read(ptr + i * 4)
+            yield self._read(ptr + i * Vec._ELEM_SIZE)
