@@ -51,22 +51,26 @@ class Player:
                 self.run_builder(ct)
 
     def run_builder(self, ct: Controller) -> None:
+        my_pos = ct.get_position()
+        my_id = ct.get_id()
         match ct.get_current_round():
             case 2:
-                for i in range(39):
-                    print(f"move: {i}")
-                    ct.build_road(ct.get_position().add(Direction.NORTH))
+                for _ in range(39):
+                    my_pos = my_pos.add(Direction.NORTH)
+                    ct.build_road(my_pos)
                     ct.move(Direction.NORTH)
-                    me = self.g.entities[ct.get_id()].as_variant
+                    me = self.g.entities[my_id].as_variant
                     assert isinstance(me, BuilderBot)
                     me.action_cooldown = 0
                     me.move_cooldown = 0
 
     def run_core(self, ct: Controller) -> None:
+        my_pos = ct.get_position()
+        my_id = ct.get_id()
         match ct.get_current_round():
             case 1:
                 for d in (Direction.NORTHWEST, Direction.NORTH, Direction.NORTHEAST):
-                    ct.spawn_builder(ct.get_position().add(d))
-                    me = self.g.entities[ct.get_id()].as_variant
+                    ct.spawn_builder(my_pos.add(d))
+                    me = self.g.entities[my_id].as_variant
                     assert isinstance(me, Core)
                     me.action_cooldown = 0
