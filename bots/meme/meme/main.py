@@ -2,23 +2,17 @@ from __future__ import annotations
 
 import astar
 from cambc import Controller, Environment, Position, Team
-from game import Game
-from map26 import Core, Map26
-from raw_mem import RawMem
-from rust_types import Entity
+from map26 import Map26
+from rust import Entity, Game, RawMem
 
 
 class Player:
     def __init__(self) -> None:
-        self._done = False
-        self._log = ""
-        self._cores: list[Core] = []
         self._ti_ore: tuple[int, int] | None = None
         self._ax_ore: tuple[int, int] | None = None
         self._ti_path: list[tuple[int, int]] = []
         try:
             m = Map26.read()
-            self._cores = m.cores
             if m.cores:
                 ref_x, ref_y = m.cores[0].x, m.cores[0].y
                 best_ti = best_ax = -1
@@ -41,15 +35,9 @@ class Player:
                         m, start=self._ti_ore, goal=(ref_x, ref_y)
                     )
         except Exception as e:
-            self._log = f"[map] {e}"
+            print(f"[map] {e}")
 
     def run(self, ct: Controller) -> None:
-        if self._done:
-            if self._log:
-                print(self._log)
-                self._log = ""
-            return
-
         for i in range(len(self._ti_path) - 1):
             ax, ay = self._ti_path[i]
             bx, by = self._ti_path[i + 1]
@@ -58,28 +46,36 @@ class Player:
         try:
             g = Game.open(RawMem(), ct)
         except Exception as e:
-            print(f"[exploit] {type(e).__name__}: {e}")
-            self._done = True
+            print(f"[failed] {type(e).__name__}: {e}")
             return
 
-        self._done = True
-
-        gm = g.game_map
-        print(f"game_map: {gm.width}x{gm.height}")
-        print(f"turn={g.turn} next_id={g.next_id} resign_message={g.resign_message!r}")
-        print(f"unit_order: {list(g.unit_order)}")
-        print(f"harvesters: {list(g.harvesters)}")
-        for team in Team:
-            p = g.player(team)
-            print(
-                f"player_{team.name.lower()}: ti={p.titanium} ax={p.axionite}"
-                f" ti_coll={p.titanium_collected} ax_coll={p.axionite_collected}"
-                f" scale_milli={p.scale_milli}"
-            )
-        print(f"entities ({g.entities.items}):")
-        for slot in g.entities._occupied_slots():
-            print(f"  {Entity(g._raw, slot)!r}")
-
-        self._log = (
-            f"[env] {gm.width}x{gm.height}, ti={self._ti_ore}, ax={self._ax_ore}"
-        )
+        step = ct.get_current_round()
+        steps = [
+            lambda: print(f"game_map: {g.game_map.width}x{g.game_map.height}"),
+            lambda: print(f"turn={g.turn}"),
+            lambda: print(f"next_id={g.next_id}"),
+            lambda: print(f"resign_message={g.resign_message!r}"),
+            lambda: print(f"unit_order={list(g.unit_order)}"),
+            lambda: print(f"harvesters={list(g.harvesters)}"),
+            lambda: print(
+                f"player_a: ti={g.player(Team.A).titanium} ax={g.player(Team.A).axionite} scale_milli={g.player(Team.A).scale_milli}"
+            ),
+            lambda: print(
+                f"player_b: ti={g.player(Team.B).titanium} ax={g.player(Team.B).axionite} scale_milli={g.player(Team.B).scale_milli}"
+            ),
+            lambda: print(f"entities.items={g.entities.items}"),
+            lambda: print(f"entities.bucket_mask={g.entities.bucket_mask}"),
+            lambda: print(f"entities.ctrl=0x{g.entities.ctrl:x}"),
+            lambda: print(f"slots={[hex(s) for s in g.entities.occupied_slots()]}"),
+            lambda: print(
+                f"slot0_bytes={g._raw.read_bytes(next(iter(g.entities.occupied_slots())), 64).hex()}"
+            ),
+            lambda: print(
+                f"entities={[(hex(g._raw.read_u64(s+8)), hex(g._raw.read_u8(s+60))) for s in g.entities.occupied_slots()]}"
+            ),
+        ]
+        if step < len(steps):
+            try:
+                steps[step]()
+            except Exception as e:
+                print(f"[step{step}] {type(e).__name__}: {e}")
