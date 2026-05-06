@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
 
-from cambc import Position, Direction
+from cambc import Direction, Position
 from rust import EntityBuilderBot, EntitySentinel, Game, GameDiffPlaceEntity, RawMem
 from unit import Unit
 
@@ -11,7 +11,6 @@ if TYPE_CHECKING:
 
 
 class Builder(Unit):
-
     def road_line(self, ct: Controller, g: Game) -> None:
         if ct.get_current_round() == 2:
             pos = self.my_pos
@@ -23,11 +22,10 @@ class Builder(Unit):
                 assert isinstance(me, EntityBuilderBot)
                 me.action_cooldown = 0
                 me.move_cooldown = 0
-    
+
     def overlay_sentinel(self, ct: Controller, g: Game) -> None:
         if ct.get_current_round() == 2:
             try:
-
                 me = g.entities[self.my_id].as_variant
                 assert isinstance(me, EntityBuilderBot)
                 original_pos = me.base.position
