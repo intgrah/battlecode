@@ -20,6 +20,7 @@ from rust.game import Game
 from rust.game_diff import GameDiff
 from rust.game_diff.fire_turret import GameDiffFireTurret
 from rust.game_diff.place_entity import GameDiffPlaceEntity
+from rust.game_diff.remove_entity import GameDiffRemoveEntity
 from rust.game_diff.variant import GameDiffVariant
 from rust.game_map import GameMap
 from rust.hashmap import HashMap
@@ -57,6 +58,7 @@ __all__ = [
     "GameDiff",
     "GameDiffFireTurret",
     "GameDiffPlaceEntity",
+    "GameDiffRemoveEntity",
     "GameDiffVariant",
     "GameMap",
     "HashMap",

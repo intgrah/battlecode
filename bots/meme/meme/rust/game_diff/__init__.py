@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Final
 from rust.base import U64, RustStruct
 from rust.game_diff.fire_turret import GameDiffFireTurret
 from rust.game_diff.place_entity import GameDiffPlaceEntity
+from rust.game_diff.remove_entity import GameDiffRemoveEntity
 from rust.game_diff.variant import GameDiffVariant  # noqa: TC001
 
 if TYPE_CHECKING:
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
 # declaration order (1 = MoveBuilderBot, …, 11 = FireTurret, 12 = the
 # gunner-fire variant added in the rotate balance change).
 _NICHE_BASE: Final = 0x800000000000000E
+_TAG_REMOVE_ENTITY: Final = 2
 _TAG_FIRE_TURRET: Final = 11
 
 
@@ -61,6 +63,8 @@ class GameDiff(RustStruct):
         match self.tag:
             case None:
                 return GameDiffPlaceEntity(self._raw, self._addr)
+            case t if t == _TAG_REMOVE_ENTITY:
+                return GameDiffRemoveEntity(self._raw, self._addr)
             case t if t == _TAG_FIRE_TURRET:
                 return GameDiffFireTurret(self._raw, self._addr)
             case other:
