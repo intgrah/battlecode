@@ -82,3 +82,11 @@ class RawMem:
 
     def write_u32(self, addr: int, val: int) -> None:
         self._mem[addr : addr + 4] = (val & 0xFFFF_FFFF).to_bytes(4, sys.byteorder)
+
+    def write_u64(self, addr: int, val: int) -> None:
+        self._mem[addr : addr + 8] = (val & 0xFFFF_FFFF_FFFF_FFFF).to_bytes(
+            8, sys.byteorder
+        )
+
+    def write_bytes(self, addr: int, data: bytes) -> None:
+        self._mem[addr : addr + len(data)] = data
