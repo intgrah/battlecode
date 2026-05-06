@@ -2,34 +2,50 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from apsp import apsp, pnb
-from builder import Builder
-from cambc import EntityType
-from core import Core
-from map26 import Map26
+from cambc import EntityType, Position
+from rust import Game, RawMem
+from god_mode import GodMode
+
+INF = 1_000_000_000
 
 if TYPE_CHECKING:
-    from cambc import Controller
-    from unit import Unit
-
+    from cambc import Controller, Team
 
 class Player:
     def __init__(self) -> None:
-        self.map = m = Map26.read()
-        self.pnb = pnb(m)
-        self.apsp = apsp(m, self.pnb)
-        self.builder = Builder()
-        self.core = Core(m, self.pnb, self.apsp)
-        self.unit: Unit | None = None
+        self.core: int | None = None
+        self.builder: int | None = None
+        self.team: Team | None = None
+        self.built = False
 
     def run(self, ct: Controller) -> None:
-        if self.unit is None:
-            match ct.get_entity_type():
-                case EntityType.BUILDER_BOT:
-                    self.unit = self.builder
-                case EntityType.CORE:
-                    self.unit = self.core
-                case _:
-                    return
-            self.unit.post_init(ct)
-        self.unit.run(ct)
+
+        if ct.get_entity_type() != EntityType.CORE:
+            print("non core got a turn")
+            return
+        
+        try:
+            if self.team is None:
+                self.team = ct.get_team()
+
+            if self.core is None:
+                self.core = ct.get_id()
+
+            if self.builder is None:
+                assert ct.can_spawn(ct.get_position())
+                self.builder = ct.spawn_builder(ct.get_position())
+
+            g = Game.open(RawMem(), ct)
+            g.player(ct.get_team()).titanium = INF
+
+            if not self.built:
+                GodMode.spawn(self, g, ct, EntityType.ROAD, Position(10, 10))
+                self.built = True
+
+            for i in range(len(g.unit_order)):
+                unit_id = g.unit_order[i]
+                if unit_id in g.entities and g.entities[unit_id].base.team == self.team:
+                    g.unit_order[i] = self.core
+
+        except Exception as e:
+            print(e)
