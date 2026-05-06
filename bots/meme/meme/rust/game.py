@@ -18,6 +18,7 @@ _TEAM_TO_INT: dict[Team, int] = {t: i for i, t in enumerate(Team)}
 _POSITION_SIZE: Final = 8
 
 
+
 def _read_i32(raw: RawMem, addr: int) -> int:
     v = raw.read_u32(addr)
     return v - 0x1_0000_0000 if v & 0x8000_0000 else v
@@ -34,6 +35,7 @@ _EDGE_SLOT_SIZE: Final = 20
 
 
 class Game(RustStruct):
+    __slots__ = ("_ct_addr",)
     """
     Game (640 B, align 8):
 
@@ -81,8 +83,17 @@ class Game(RustStruct):
 
     @staticmethod
     def open(raw: RawMem, ct: Controller) -> Game:
-        ct_ptr = raw.read_u64(RawMem.id(ct) + Game._CTRL_PTR_OFFSET_IN_CT)
-        return Game(raw, ct_ptr + Game._GAME_OFFSET_IN_CT)
+        ct_addr = RawMem.id(ct) + Game._CTRL_PTR_OFFSET_IN_CT
+        ct_ptr = raw.read_u64(ct_addr)
+        g = Game(raw, ct_ptr + Game._GAME_OFFSET_IN_CT)
+        g._ct_addr = ct_addr
+        return g
+
+    def possess(self, unit_id: int) -> None:
+        """Overwrite the `Controller`'s `unit: i32` (offset +8) with
+        `unit_id`, returning the previous value. Only valid for `Game`
+        instances created via `open()`."""
+        self._raw.write_u32(self._ct_addr + 8, unit_id & 0xFFFF_FFFF)
 
     def player(self, team: Team) -> PlayerState:
         return PlayerState(

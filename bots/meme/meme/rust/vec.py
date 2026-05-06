@@ -38,6 +38,11 @@ class Vec(RustStruct):
             raise IndexError(i)
         return self._read(self.ptr + i * Vec._ELEM_SIZE)
 
+    def __setitem__(self, i: int, v: int) -> None:
+        if i < 0 or i >= self.len:
+            raise IndexError(i)
+        self._raw.write_u32(self.ptr + i * Vec._ELEM_SIZE, v)
+
     def __iter__(self) -> Iterator[int]:
         ptr = self.ptr
         for i in range(self.len):
