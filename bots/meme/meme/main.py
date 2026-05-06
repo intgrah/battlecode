@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import random
 from typing import TYPE_CHECKING
 
 from cambc import EntityType, Position
-from rust import Game, RawMem, EntityBuilderBot
-from god_mode import GodMode
+from rust import EntityBuilderBot, Game, RawMem
+from trolls import teleport
 
 INF = 1_000_000_000
 
 if TYPE_CHECKING:
     from cambc import Controller, Team
+
 
 class Player:
     def __init__(self) -> None:
@@ -24,12 +26,20 @@ class Player:
         assert isinstance(me, EntityBuilderBot)
         return me
 
+    def run_troll0(self, ct: Controller) -> None:
+        pass
+
     def run(self, ct: Controller) -> None:
+        match random.randint(0, 17):
+            case 0:
+                self.run_troll0(ct)
+            case 1:
+                self.run_troll0(ct)
 
         if ct.get_entity_type() != EntityType.CORE:
             print("non core got a turn")
             return
-        
+
         try:
             if self.team is None:
                 self.team = ct.get_team()
@@ -45,7 +55,7 @@ class Player:
             g.player(ct.get_team()).titanium = INF
 
             if not self.built:
-                GodMode.move(self, g, ct, ct.get_position(), Position(1, 1))
+                teleport(g, ct, self.builder_id, ct.get_position(), Position(1, 1))
                 self.built = True
 
             for i in range(len(g.unit_order)):
