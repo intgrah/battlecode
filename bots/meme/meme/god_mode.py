@@ -141,7 +141,28 @@ class GodMode:
         assert isinstance(place_diff, GameDiffPlaceEntity)
         p.g._raw.write_bytes(place_diff._addr, entity_bytes)
         place_diff.entity.base.position = to_pos
+        
+    @staticmethod
+    def clone_in_replay(p: Player, bid: int, new_pos: Position) -> int | None:
 
+        if bid not in p.g.entities:
+            return None
+        
+        entity = p.g.entities[bid]
+        from_pos = entity.base.position
+        entity_bytes = p.g._raw.read_bytes(entity._addr + 8, 64)
+
+        new_id = GodMode.build(p, EntityType.ROAD, from_pos, silent=True)
+        if new_id is None:
+            return None
+
+        place_diff = p.g.replay_recorder.last_place_entity.as_variant
+        assert isinstance(place_diff, GameDiffPlaceEntity)
+        p.g._raw.write_bytes(place_diff._addr, entity_bytes)
+        place_diff.entity.base.position = new_pos
+        place_diff.entity.base.id = new_id
+        return new_id
+    
     @staticmethod
     def move_last_in_replay(p: Player, to_pos: Position) -> None:
 

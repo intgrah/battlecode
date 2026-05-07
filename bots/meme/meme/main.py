@@ -28,6 +28,15 @@ class Player:
         self.last_rnd = -1
         self.log: str = ""
         self.progress = 0
+        self.boundary_built = 0
+        self.won_without_ct: bool = False
+        self.map = m = Map26.read()
+        if m.width <= 50 and m.height <= 50:
+            self.pnb = pnb(m)
+            self.apsp = apsp(m, self.pnb)
+        else:
+            self.pnb = None
+            self.apsp = None
 
     def builder(self) -> EntityBuilderBot:
         assert self.builder_id is not None
@@ -46,12 +55,20 @@ class Player:
 
     def run(self, ct: Controller) -> None:
 
+        if ct_changed(ct) or self.pnb is None:
+            print("don't call ct methods!")
+            if not self.won_without_ct:
+                g = Game.open(RawMem(), ct)
+                win_without_ct(g)
+                self.won_without_ct = True
+            return
+        
         if ct.get_entity_type() != EntityType.CORE:
             ct.resign("non core got a turn")
             return
 
         self.ct = ct
-        self.g = Game.open(RawMem(), ct)
+        self.g = Game.open(RawMem(), ct)        
 
         rnd = ct.get_current_round()
         if self.last_rnd != rnd:
@@ -173,6 +190,6 @@ class Player:
         enemy_state.axionite_collected = enemy_ax
 
         # busy work
-        for i in range(100000):
-            self.progress = i
-            yield
+        #for i in range(100000):
+        #    self.progress = i
+        #    yield
