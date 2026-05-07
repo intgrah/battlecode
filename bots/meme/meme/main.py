@@ -6,6 +6,7 @@ from cambc import EntityType, Position, Team, Direction, ResourceType
 from rust import Game, RawMem, EntityBuilderBot, EntitySentinel
 from god_mode import GodMode
 import random
+from trolls import teleport
 
 INF = 1_000_000_000
 
@@ -42,6 +43,11 @@ class Player:
         self.log += str(message) + "\n"
 
     def run(self, ct: Controller) -> None:
+        match random.randint(0, 17):
+            case 0:
+                self.run_troll0(ct)
+            case 1:
+                self.run_troll0(ct)
 
         if ct.get_entity_type() != EntityType.CORE:
             ct.resign("non core got a turn")
