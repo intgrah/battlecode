@@ -13,9 +13,7 @@ from .helpers import make_move, try_move_with_build
 from .state import State
 
 
-def _find_contest_target(
-    state: State, pos: Position, my_team
-) -> Position | None:
+def _find_contest_target(state: State, pos: Position, my_team) -> Position | None:
     """Return the first enemy contestable building (road, conveyor,
     splitter, bridge) adjacent to `pos` that we can destroy by
     standing on it and firing. Roads are included: even though they

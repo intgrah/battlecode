@@ -7,11 +7,13 @@ ephemeral sets. Submodules implement the algorithms (`algorithms/`),
 per-turn updates (`update/`), end-of-turn hooks (`hooks/`), and the
 task-policy tree (`tasks/`); this file wires them together.
 """
+
 from __future__ import annotations
 
 from unit import in_bounds
 from cambc import EntityType, Environment, GameConstants, Position
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, ResourceType
 from builder.algorithms.econ_astar import AStarSearch
@@ -22,6 +24,7 @@ from builder.algorithms.reachability import find_ro, update_reachability
 from builder.hooks.heal import end_of_turn_heal
 from builder.hooks.indicators import indicators
 from builder.hooks.propagate_symmetry import end_of_turn_propagate_symmetry
+
 if TYPE_CHECKING:
     from builder.role import Role
 from builder.tasks._policy import run_policy
@@ -31,6 +34,7 @@ from builder.update import update
 from builder.update.vision import apply_local_destroy as vision_apply_local_destroy
 from config import DEBUG_DUMP, HARDCODE
 from hardcode.identify import identify_map
+
 if TYPE_CHECKING:
     from hardcode.identify import KnownMap
 from unit import UnitState
@@ -39,8 +43,10 @@ from util.debug import Scope, debug as log
 from util.directions import DIR4, DIR8, DIR8_DELTA
 from util.symmetry import Symmetry
 from util.visualiser import auto_wrap_position
+
 if TYPE_CHECKING:
     from cambc import Team
+
 
 class Builder:
     """
@@ -48,6 +54,7 @@ class Builder:
     resolves transparently) plus per-builder map belief, navigation state,
     economy bookkeeping, role state, and offense/heal trackers.
     """
+
     state: UnitState
     my_core: Position
     en_core_guess: Position
@@ -137,7 +144,9 @@ class Builder:
     def __init__(self):
         """ct-independent allocation. Mirrors Python `Builder.__init__`."""
         pnb = Builder.build_initial_pnb()
-        flow_history: list[list[tuple[ResourceType | None, int | None]]] = [[] for _ in range(MAX_N)]
+        flow_history: list[list[tuple[ResourceType | None, int | None]]] = [
+            [] for _ in range(MAX_N)
+        ]
         in_edges: list[list[Position]] = [[] for _ in range(MAX_N)]
         out_edges: list[list[Position]] = [[] for _ in range(MAX_N)]
         vision_offsets: list[tuple[int, int, int]] = []
@@ -308,12 +317,17 @@ class Builder:
 
     def in_bounds(self, pos):
         """In-bounds check (inherent shadow of `Unit::in_bounds`)."""
-        return pos.x >= 0 and pos.x < self.state.width and pos.y >= 0 and pos.y < self.state.height
+        return (
+            pos.x >= 0
+            and pos.x < self.state.width
+            and pos.y >= 0
+            and pos.y < self.state.height
+        )
 
     def symmetry_guess(self):
         """Inherent shadow of `Unit::symmetry_guess`."""
         for sym in [Symmetry.Rot, Symmetry.Ver, Symmetry.Hor]:
-            if (sym in self.state.symmetry_candidates):
+            if sym in self.state.symmetry_candidates:
                 return sym
         return Symmetry.Rot
 
@@ -349,7 +363,13 @@ class Builder:
     def is_walkable(self, pos):
         if not self.cost_grid[self.idx(pos)] != 1000000:
             return False
-        return ((self.building_kind[self.idx(pos)] is not None) and (self.building_kind[self.idx(pos)] == EntityType.CONVEYOR or self.building_kind[self.idx(pos)] == EntityType.ROAD or self.building_kind[self.idx(pos)] == EntityType.SPLITTER or self.building_kind[self.idx(pos)] == EntityType.ARMOURED_CONVEYOR or self.building_kind[self.idx(pos)] == EntityType.BRIDGE))
+        return (self.building_kind[self.idx(pos)] is not None) and (
+            self.building_kind[self.idx(pos)] == EntityType.CONVEYOR
+            or self.building_kind[self.idx(pos)] == EntityType.ROAD
+            or self.building_kind[self.idx(pos)] == EntityType.SPLITTER
+            or self.building_kind[self.idx(pos)] == EntityType.ARMOURED_CONVEYOR
+            or self.building_kind[self.idx(pos)] == EntityType.BRIDGE
+        )
 
     def get_in_edges(self, pos):
         return list(self.in_edges[self.idx(pos)])
@@ -359,14 +379,23 @@ class Builder:
 
     def is_buildable(self, pos):
         i = self.idx(pos)
-        return self.env[i] != Environment.WALL and ((self.building_team[i] is None) or self.building_team[i] == self.state.my_team)
+        return self.env[i] != Environment.WALL and (
+            (self.building_team[i] is None)
+            or self.building_team[i] == self.state.my_team
+        )
 
     def is_friendly_turret(self, pos):
         i = self.idx(pos)
         kind = self.building_kind[i]
         if kind is None:
             return False
-        if (kind == EntityType.CONVEYOR or kind == EntityType.ROAD or kind == EntityType.SPLITTER or kind == EntityType.ARMOURED_CONVEYOR or kind == EntityType.BRIDGE):
+        if (
+            kind == EntityType.CONVEYOR
+            or kind == EntityType.ROAD
+            or kind == EntityType.SPLITTER
+            or kind == EntityType.ARMOURED_CONVEYOR
+            or kind == EntityType.BRIDGE
+        ):
             return False
         return self.building_team[i] == self.state.my_team
 
@@ -383,9 +412,16 @@ class Builder:
         if self.building_team[i] != self.state.my_team:
             return False
         kind = self.building_kind[i]
-        if not ((kind is not None) and (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR or kind == EntityType.BRIDGE)):
+        if not (
+            (kind is not None)
+            and (
+                kind == EntityType.CONVEYOR
+                or kind == EntityType.ARMOURED_CONVEYOR
+                or kind == EntityType.BRIDGE
+            )
+        ):
             return False
-        if (not self.out_edges[i]):
+        if not self.out_edges[i]:
             return False
         output_location = self.out_edges[i][0]
         if not self.in_bounds(output_location):
@@ -397,7 +433,13 @@ class Builder:
         Drain the reachability frontier, expanding admitted tiles into their
         8-connected non-WALL neighbours up to `K_PER_TURN` pops.
         """
-        update_reachability(self.reach_parent, self.reach_frontier, self.env, self.state.width, self.state.height)
+        update_reachability(
+            self.reach_parent,
+            self.reach_frontier,
+            self.env,
+            self.state.width,
+            self.state.height,
+        )
 
     def apply_local_destroy(self, pos):
         """Mid-turn invariant fix-up after `ct.destroy(pos)`."""
@@ -424,7 +466,15 @@ class Builder:
         return path
 
     def make_econ_ctx(self):
-        return EconAstarCtx(ax_routable=list(self.ax_routable), ti_routable=list(self.ti_routable), routing_extra=list(self.routing_extra), reach_parent=list(self.reach_parent), my_pos=self.state.my_pos, nearby_tiles=list(self.state.nearby_tiles), all_bots=list(self.state.all_bots))
+        return EconAstarCtx(
+            ax_routable=list(self.ax_routable),
+            ti_routable=list(self.ti_routable),
+            routing_extra=list(self.routing_extra),
+            reach_parent=list(self.reach_parent),
+            my_pos=self.state.my_pos,
+            nearby_tiles=list(self.state.nearby_tiles),
+            all_bots=list(self.state.all_bots),
+        )
 
     def absorb_econ_ctx(self, ctx):
         self.reach_parent = ctx.reach_parent
@@ -439,7 +489,14 @@ class Builder:
         bugnav = self.bugnav
         cost_grid = self.cost_grid
         state = self.state
-        ctx = NavCtx(my_pos=state.my_pos, cost_grid=cost_grid, w=state.width, h=state.height, nearby_tiles=state.nearby_tiles, all_bots=state.all_bots)
+        ctx = NavCtx(
+            my_pos=state.my_pos,
+            cost_grid=cost_grid,
+            w=state.width,
+            h=state.height,
+            nearby_tiles=state.nearby_tiles,
+            all_bots=state.all_bots,
+        )
         return bugnav.step(ctx, target)
 
     def _refresh_ti_leakage(self, i):
@@ -501,7 +558,7 @@ class Builder:
         self._set_ax_upstream(t, target)
 
     def _set_ti_upstream(self, t, want):
-        is_in = (t in self.ti_upstream)
+        is_in = t in self.ti_upstream
         if want == is_in:
             return
         i = self.idx(t)
@@ -520,7 +577,7 @@ class Builder:
             self._check_dangling(out, "ti_upstream_change")
 
     def _set_ax_upstream(self, t, want):
-        is_in = (t in self.ax_upstream)
+        is_in = t in self.ax_upstream
         if want == is_in:
             return
         i = self.idx(t)
@@ -540,19 +597,19 @@ class Builder:
 
     def _on_in_edge_added(self, t, f):
         i = self.idx(t)
-        if (f in self.ti_upstream):
+        if f in self.ti_upstream:
             self._ti_in_count[i] += 1
             self._reeval_ti_upstream(t)
-        if (f in self.ax_upstream):
+        if f in self.ax_upstream:
             self._ax_in_count[i] += 1
             self._reeval_ax_upstream(t)
 
     def _on_in_edge_removed(self, t, f):
         i = self.idx(t)
-        if (f in self.ti_upstream):
+        if f in self.ti_upstream:
             self._ti_in_count[i] -= 1
             self._reeval_ti_upstream(t)
-        if (f in self.ax_upstream):
+        if f in self.ax_upstream:
             self._ax_in_count[i] -= 1
             self._reeval_ax_upstream(t)
 
@@ -582,7 +639,18 @@ class Builder:
             return False
         if self.building_team[i] != self.state.my_team:
             return False
-        return (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR or kind == EntityType.BRIDGE or kind == EntityType.SPLITTER or kind == EntityType.FOUNDRY or kind == EntityType.CORE or kind == EntityType.GUNNER or kind == EntityType.SENTINEL or kind == EntityType.BREACH or kind == EntityType.LAUNCHER)
+        return (
+            kind == EntityType.CONVEYOR
+            or kind == EntityType.ARMOURED_CONVEYOR
+            or kind == EntityType.BRIDGE
+            or kind == EntityType.SPLITTER
+            or kind == EntityType.FOUNDRY
+            or kind == EntityType.CORE
+            or kind == EntityType.GUNNER
+            or kind == EntityType.SENTINEL
+            or kind == EntityType.BREACH
+            or kind == EntityType.LAUNCHER
+        )
 
     def _splitter_satisfied(self, splitter_pos):
         count = 0
@@ -612,16 +680,18 @@ class Builder:
             self.dangling_set.discard(t)
             self.unreachable_dangling.discard(t)
             return
-        unconn_adj = (t in self.adjacent_to_unconnected_harvester)
+        unconn_adj = t in self.adjacent_to_unconnected_harvester
         feeders_unsatisfied = False
         in_edges_t: list[Position] = list(self.in_edges[i])
         for f in in_edges_t:
-            in_ti = (f in self.ti_upstream)
-            in_ax = (f in self.ax_upstream)
+            in_ti = f in self.ti_upstream
+            in_ax = f in self.ax_upstream
             if not in_ti and not in_ax:
                 continue
             fi = self.idx(f)
-            is_satisfied_splitter = self.building_kind[fi] == EntityType.SPLITTER and self._splitter_satisfied(f)
+            is_satisfied_splitter = self.building_kind[
+                fi
+            ] == EntityType.SPLITTER and self._splitter_satisfied(f)
             if not is_satisfied_splitter:
                 feeders_unsatisfied = True
                 break
@@ -651,9 +721,13 @@ class Builder:
     def refresh_symmetry_cache(self):
         """Mirror `my_core` under `symmetry_guess`."""
         count = len(self.state.symmetry_candidates)
-        self.symmetry = next(iter(self.state.symmetry_candidates), None) if count == 1 else None
+        self.symmetry = (
+            next(iter(self.state.symmetry_candidates), None) if count == 1 else None
+        )
         guess = self.symmetry_guess()
-        self.en_core_guess = guess.action(self.my_core, self.state.width, self.state.height)
+        self.en_core_guess = guess.action(
+            self.my_core, self.state.width, self.state.height
+        )
 
     def unit_state(self):
         return self.state
@@ -676,7 +750,11 @@ class Builder:
             for x in range(0, int(50)):
                 if x >= w or y >= h:
                     self.cost_grid[base + int(x)] = 1000000
-        self.known_map = identify_map(self.state.width, self.state.height, self.my_core) if False else None
+        self.known_map = (
+            identify_map(self.state.width, self.state.height, self.my_core)
+            if False
+            else None
+        )
         for i, d in enumerate(DIR8):
             self.core_edges[i] = self.my_core.add(d)
         with Scope.new_timed("pnb") as _scope:
@@ -722,7 +800,10 @@ class Builder:
     def resolve_my_core(self, ct):
         my_team = self.state.my_team
         for bid in ct.get_nearby_buildings(None):
-            if ct.get_team(bid) == my_team and ct.get_entity_type(bid) == EntityType.CORE:
+            if (
+                ct.get_team(bid) == my_team
+                and ct.get_entity_type(bid) == EntityType.CORE
+            ):
                 return ct.get_position(bid)
         return ct.get_position(None)
 

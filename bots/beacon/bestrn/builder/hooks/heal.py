@@ -1,14 +1,17 @@
 """Translation of `bots/intgrah/v54.7.9/builder/hooks/heal.py`."""
+
 from __future__ import annotations
 
 from cambc import EntityType
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi
 if TYPE_CHECKING:
     from builder import Builder
 from util.debug import debug as log
 from util.directions import DIR8
+
 
 def end_of_turn_heal(builder, ct):
     """

@@ -1,12 +1,15 @@
 """Translation of `bots/intgrah/v54.7.9/builder/hooks/indicators.py`."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller
 if TYPE_CHECKING:
     from builder import Builder
 from util.debug import dot
+
 
 def indicators(builder, ct):
     """

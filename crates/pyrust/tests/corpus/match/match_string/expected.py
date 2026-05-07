@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 def cardinal(s):
     match s:
         case "north":
@@ -12,6 +13,7 @@ def cardinal(s):
             return 3
         case _:
             return -1
+
 
 print(cardinal("north"))
 print(cardinal("east"))

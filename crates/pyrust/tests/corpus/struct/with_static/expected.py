@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 class Point:
     x: int
     y: int
@@ -11,6 +12,7 @@ class Point:
     @staticmethod
     def origin():
         return Point(x=0, y=0)
+
 
 o = Point.origin()
 print(o.x)

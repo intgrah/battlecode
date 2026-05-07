@@ -2,6 +2,7 @@
 
 Output: /tmp/sweep_v56_v1000.csv
 """
+
 from __future__ import annotations
 
 import csv
@@ -39,7 +40,15 @@ class Job:
 def run_match(job: Job) -> dict:
     t0 = time.perf_counter()
     proc = subprocess.run(
-        [LIBRE, "run", job.bot_a_path, job.bot_b_path, job.map_path, "--seed", str(job.seed)],
+        [
+            LIBRE,
+            "run",
+            job.bot_a_path,
+            job.bot_b_path,
+            job.map_path,
+            "--seed",
+            str(job.seed),
+        ],
         capture_output=True,
         text=True,
         timeout=300,
@@ -88,10 +97,27 @@ def main() -> None:
 
     out_path = Path("/tmp/sweep_v56_v1000.csv")
     fields = [
-        "map", "seed", "side", "bot_a", "bot_b", "winner", "condition", "turns",
-        "ti_a", "ti_a_mined", "ti_b", "ti_b_mined",
-        "ax_a", "ax_a_mined", "ax_b", "ax_b_mined",
-        "units_a", "units_b", "buildings_a", "buildings_b", "wall_time_s",
+        "map",
+        "seed",
+        "side",
+        "bot_a",
+        "bot_b",
+        "winner",
+        "condition",
+        "turns",
+        "ti_a",
+        "ti_a_mined",
+        "ti_b",
+        "ti_b_mined",
+        "ax_a",
+        "ax_a_mined",
+        "ax_b",
+        "ax_b_mined",
+        "units_a",
+        "units_b",
+        "buildings_a",
+        "buildings_b",
+        "wall_time_s",
     ]
     completed = 0
     t_start = time.perf_counter()
@@ -108,7 +134,10 @@ def main() -> None:
                 if completed % 50 == 0 or completed == len(jobs):
                     elapsed = time.perf_counter() - t_start
                     eta = elapsed / completed * (len(jobs) - completed)
-                    print(f"[{completed}/{len(jobs)}] {elapsed:.0f}s elapsed, ETA {eta:.0f}s", flush=True)
+                    print(
+                        f"[{completed}/{len(jobs)}] {elapsed:.0f}s elapsed, ETA {eta:.0f}s",
+                        flush=True,
+                    )
     print(f"\nDone in {time.perf_counter() - t_start:.0f}s. Rows: {completed}")
 
 

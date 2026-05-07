@@ -113,7 +113,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((2, 20), Entity.BARRIER, phase=0),
         BlueprintEntry((3, 20), Entity.HARVESTER, phase=0),
         BlueprintEntry((4, 20), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
-        BlueprintEntry((3, 21), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (3, 21), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((4, 21), Entity.HARVESTER, phase=0),
         BlueprintEntry((5, 21), Entity.BARRIER, phase=0),
         BlueprintEntry((4, 22), Entity.BARRIER, phase=0),
@@ -143,10 +145,14 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((8, 11), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
         BlueprintEntry((9, 11), Entity.HARVESTER, phase=0),
         BlueprintEntry((7, 12), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
-        BlueprintEntry((9, 12), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (9, 12), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((7, 13), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
         BlueprintEntry((7, 14), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
-        BlueprintEntry((9, 14), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (9, 14), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((7, 15), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
         BlueprintEntry((8, 15), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
         BlueprintEntry((9, 15), Entity.HARVESTER, phase=0),
@@ -278,7 +284,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((6, 16), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((6, 17), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((6, 18), Entity.BRIDGE, bridge_target=(6, 21), phase=0),
-        BlueprintEntry((9, 19), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0),
+        BlueprintEntry(
+            (9, 19), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0
+        ),
         BlueprintEntry((7, 20), Entity.HARVESTER, phase=0),
         BlueprintEntry((8, 20), Entity.HARVESTER, phase=0),
         BlueprintEntry((9, 20), Entity.HARVESTER, phase=0),
@@ -388,12 +396,16 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((7, 40), Entity.BARRIER, phase=0),
     ),
     KnownMap.CHEMISTRY_CLASS: (
-        BlueprintEntry((9, 16), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0),
+        BlueprintEntry(
+            (9, 16), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0
+        ),
         BlueprintEntry((10, 16), Entity.HARVESTER, phase=0),
         BlueprintEntry((9, 17), Entity.HARVESTER, phase=0),
         BlueprintEntry((10, 17), Entity.BRIDGE, bridge_target=(12, 19), phase=0),
         BlueprintEntry((11, 17), Entity.HARVESTER, phase=0),
-        BlueprintEntry((9, 18), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (9, 18), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((10, 18), Entity.HARVESTER, phase=0),
         BlueprintEntry((11, 18), Entity.CONVEYOR, direction=Direction.EAST, phase=0),
         BlueprintEntry((12, 18), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
@@ -557,7 +569,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((8, 39), Entity.BARRIER, phase=0),
         BlueprintEntry((1, 40), Entity.HARVESTER, phase=0),
         BlueprintEntry((2, 40), Entity.HARVESTER, phase=0),
-        BlueprintEntry((4, 40), Entity.SENTINEL, direction=Direction.NORTHWEST, phase=0),
+        BlueprintEntry(
+            (4, 40), Entity.SENTINEL, direction=Direction.NORTHWEST, phase=0
+        ),
         BlueprintEntry((1, 41), Entity.CONVEYOR, direction=Direction.EAST, phase=0),
         BlueprintEntry((2, 41), Entity.CONVEYOR, direction=Direction.EAST, phase=0),
         BlueprintEntry((3, 41), Entity.FOUNDRY, phase=0),
@@ -805,7 +819,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((7, 29), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((8, 29), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
         BlueprintEntry((9, 29), Entity.SPLITTER, direction=Direction.NORTH, phase=0),
-        BlueprintEntry((10, 29), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0),
+        BlueprintEntry(
+            (10, 29), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0
+        ),
         BlueprintEntry((11, 29), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
         BlueprintEntry((6, 30), Entity.BARRIER, phase=0),
         BlueprintEntry((7, 30), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
@@ -816,7 +832,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((15, 30), Entity.HARVESTER, phase=0),
         BlueprintEntry((6, 31), Entity.BARRIER, phase=0),
         BlueprintEntry((7, 31), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
-        BlueprintEntry((8, 31), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (8, 31), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((9, 31), Entity.HARVESTER, phase=0),
         BlueprintEntry((10, 31), Entity.BARRIER, phase=0),
         BlueprintEntry((11, 31), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
@@ -884,7 +902,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((8, 25), Entity.SPLITTER, direction=Direction.WEST, phase=0),
         BlueprintEntry((9, 25), Entity.FOUNDRY, phase=0),
         BlueprintEntry((10, 25), Entity.BARRIER, phase=0),
-        BlueprintEntry((8, 26), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0),
+        BlueprintEntry(
+            (8, 26), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0
+        ),
         BlueprintEntry((9, 26), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
         BlueprintEntry((10, 26), Entity.BARRIER, phase=0),
         BlueprintEntry((20, 26), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
@@ -1097,7 +1117,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((2, 4), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
         BlueprintEntry((9, 4), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
         BlueprintEntry((10, 4), Entity.HARVESTER, phase=0),
-        BlueprintEntry((11, 4), Entity.SENTINEL, direction=Direction.SOUTHWEST, phase=0),
+        BlueprintEntry(
+            (11, 4), Entity.SENTINEL, direction=Direction.SOUTHWEST, phase=0
+        ),
         BlueprintEntry((18, 4), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
         BlueprintEntry((2, 5), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
         BlueprintEntry((18, 5), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
@@ -1182,11 +1204,15 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((15, 7), Entity.BARRIER, phase=0),
         BlueprintEntry((12, 8), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((13, 8), Entity.HARVESTER, phase=0),
-        BlueprintEntry((14, 8), Entity.SENTINEL, direction=Direction.SOUTHWEST, phase=0),
+        BlueprintEntry(
+            (14, 8), Entity.SENTINEL, direction=Direction.SOUTHWEST, phase=0
+        ),
         BlueprintEntry((8, 9), Entity.HARVESTER, phase=0),
         BlueprintEntry((12, 9), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((13, 9), Entity.BARRIER, phase=0),
-        BlueprintEntry((7, 10), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0),
+        BlueprintEntry(
+            (7, 10), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0
+        ),
         BlueprintEntry((8, 10), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((11, 10), Entity.BARRIER, phase=0),
         BlueprintEntry((12, 10), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
@@ -1503,7 +1529,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((12, 6), Entity.HARVESTER, phase=0),
         BlueprintEntry((12, 7), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((12, 8), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
-        BlueprintEntry((11, 9), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0),
+        BlueprintEntry(
+            (11, 9), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0
+        ),
         BlueprintEntry((12, 9), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((10, 10), Entity.BARRIER, phase=0),
         BlueprintEntry((11, 10), Entity.HARVESTER, phase=0),
@@ -1618,7 +1646,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((17, 18), Entity.BARRIER, phase=0),
         BlueprintEntry((14, 19), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((17, 19), Entity.BARRIER, phase=0),
-        BlueprintEntry((13, 20), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (13, 20), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((14, 20), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((5, 21), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
         BlueprintEntry((6, 21), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
@@ -1637,7 +1667,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((11, 23), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
         BlueprintEntry((12, 23), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
         BlueprintEntry((13, 23), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
-        BlueprintEntry((14, 23), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (14, 23), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((15, 23), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((13, 24), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
         BlueprintEntry((14, 24), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
@@ -1676,7 +1708,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((11, 16), Entity.HARVESTER, phase=0),
         BlueprintEntry((12, 16), Entity.CONVEYOR, direction=Direction.EAST, phase=0),
         BlueprintEntry((13, 16), Entity.CONVEYOR, direction=Direction.NORTH, phase=0),
-        BlueprintEntry((11, 17), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (11, 17), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((0, 18), Entity.BARRIER, phase=0),
         BlueprintEntry((1, 18), Entity.BARRIER, phase=0),
         BlueprintEntry((5, 18), Entity.BARRIER, phase=0),
@@ -1911,7 +1945,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((10, 35), Entity.HARVESTER, phase=0),
         BlueprintEntry((9, 36), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((10, 36), Entity.HARVESTER, phase=0),
-        BlueprintEntry((11, 36), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (11, 36), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((9, 37), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((10, 37), Entity.HARVESTER, phase=0),
         BlueprintEntry((11, 37), Entity.BARRIER, phase=0),
@@ -1962,7 +1998,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((11, 39), Entity.CONVEYOR, direction=Direction.WEST, phase=1),
         BlueprintEntry((12, 39), Entity.CONVEYOR, direction=Direction.WEST, phase=1),
         BlueprintEntry((13, 30), Entity.HARVESTER, phase=2),
-        BlueprintEntry((14, 30), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=2),
+        BlueprintEntry(
+            (14, 30), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=2
+        ),
     ),
     KnownMap.METROPOLITAN_DYSTOPIA: (
         BlueprintEntry((10, 36), Entity.ROAD, phase=0),
@@ -2119,7 +2157,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((34, 7), Entity.BARRIER, phase=0),
         BlueprintEntry((39, 7), Entity.ROAD, phase=0),
         BlueprintEntry((26, 8), Entity.ROAD, phase=0),
-        BlueprintEntry((32, 8), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0),
+        BlueprintEntry(
+            (32, 8), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0
+        ),
         BlueprintEntry((33, 8), Entity.HARVESTER, phase=0),
         BlueprintEntry((34, 8), Entity.HARVESTER, phase=0),
         BlueprintEntry((35, 8), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
@@ -3135,7 +3175,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
     KnownMap.SETTLEMENT: (
         BlueprintEntry((10, 18), Entity.BARRIER, phase=0),
         BlueprintEntry((11, 18), Entity.BARRIER, phase=0),
-        BlueprintEntry((9, 19), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0),
+        BlueprintEntry(
+            (9, 19), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0
+        ),
         BlueprintEntry((10, 19), Entity.HARVESTER, phase=0),
         BlueprintEntry((11, 19), Entity.HARVESTER, phase=0),
         BlueprintEntry((12, 19), Entity.CONVEYOR, direction=Direction.EAST, phase=0),
@@ -3343,7 +3385,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((12, 29), Entity.ROAD, phase=0),
     ),
     KnownMap.SOCKET: (
-        BlueprintEntry((0, 11), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (0, 11), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((1, 11), Entity.HARVESTER, phase=0),
         BlueprintEntry((2, 11), Entity.HARVESTER, phase=0),
         BlueprintEntry((3, 11), Entity.HARVESTER, phase=0),
@@ -3474,7 +3518,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((18, 35), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
         BlueprintEntry((19, 35), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
         BlueprintEntry((20, 35), Entity.CONVEYOR, direction=Direction.WEST, phase=0),
-        BlueprintEntry((21, 35), Entity.SENTINEL, direction=Direction.NORTHWEST, phase=0),
+        BlueprintEntry(
+            (21, 35), Entity.SENTINEL, direction=Direction.NORTHWEST, phase=0
+        ),
     ),
     KnownMap.STRINGS: (
         BlueprintEntry((13, 23), Entity.BARRIER, phase=0),
@@ -3677,7 +3723,9 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((4, 16), Entity.HARVESTER, phase=0),
         BlueprintEntry((5, 16), Entity.BARRIER, phase=0),
         BlueprintEntry((6, 16), Entity.HARVESTER, phase=0),
-        BlueprintEntry((7, 16), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0),
+        BlueprintEntry(
+            (7, 16), Entity.SENTINEL, direction=Direction.SOUTHEAST, phase=0
+        ),
         BlueprintEntry((8, 16), Entity.BARRIER, phase=0),
         BlueprintEntry((9, 16), Entity.BARRIER, phase=0),
         BlueprintEntry((2, 17), Entity.CONVEYOR, direction=Direction.EAST, phase=0),
@@ -3761,18 +3809,24 @@ BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {
         BlueprintEntry((2, 10), Entity.CONVEYOR, direction=Direction.EAST, phase=0),
         BlueprintEntry((3, 10), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((4, 10), Entity.HARVESTER, phase=0),
-        BlueprintEntry((5, 10), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (5, 10), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((0, 11), Entity.BRIDGE, bridge_target=(0, 14), phase=0),
         BlueprintEntry((1, 11), Entity.CONVEYOR, direction=Direction.EAST, phase=0),
         BlueprintEntry((2, 11), Entity.BRIDGE, bridge_target=(2, 14), phase=0),
         BlueprintEntry((3, 11), Entity.CONVEYOR, direction=Direction.EAST, phase=0),
         BlueprintEntry((4, 11), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((5, 11), Entity.HARVESTER, phase=0),
-        BlueprintEntry((6, 11), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (6, 11), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((4, 12), Entity.BRIDGE, bridge_target=(4, 15), phase=0),
         BlueprintEntry((5, 12), Entity.ROAD, phase=0),
         BlueprintEntry((6, 12), Entity.HARVESTER, phase=0),
-        BlueprintEntry((7, 12), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0),
+        BlueprintEntry(
+            (7, 12), Entity.SENTINEL, direction=Direction.NORTHEAST, phase=0
+        ),
         BlueprintEntry((5, 13), Entity.LAUNCHER, phase=0),
         BlueprintEntry((6, 13), Entity.CONVEYOR, direction=Direction.SOUTH, phase=0),
         BlueprintEntry((7, 13), Entity.HARVESTER, phase=0),

@@ -1,4 +1,5 @@
 """Translation of `bots/intgrah/v54.7.9/launcher/__init__.py`."""
+
 from __future__ import annotations
 
 from typing import Final
@@ -6,11 +7,20 @@ from typing import Final
 from unit import in_bounds
 from cambc import EntityType, Environment, GameConstants
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position
 from unit import UnitState
 from util.directions import DIR4
-PASSABLE_BUILDINGS: Final[list[EntityType]] = [EntityType.CONVEYOR, EntityType.ROAD, EntityType.SPLITTER, EntityType.ARMOURED_CONVEYOR, EntityType.BRIDGE]
+
+PASSABLE_BUILDINGS: Final[list[EntityType]] = [
+    EntityType.CONVEYOR,
+    EntityType.ROAD,
+    EntityType.SPLITTER,
+    EntityType.ARMOURED_CONVEYOR,
+    EntityType.BRIDGE,
+]
+
 
 class Launcher:
     state: UnitState
@@ -30,7 +40,7 @@ class Launcher:
         if bid is None:
             return False
         et = ct.get_entity_type(bid)
-        return (et in PASSABLE_BUILDINGS)
+        return et in PASSABLE_BUILDINGS
 
     def find_harvester_attack_tiles(self, ct):
         targets: list[Position] = []
@@ -86,7 +96,9 @@ class Launcher:
         self.state.check_symmetry_marker(ct)
         enemy_throw_tile, enemy_throw_dist = self.find_enemy_throw_tile(ct)
         harvester_targets = self.find_harvester_attack_tiles(ct)
-        harvest_dest: Position | None = (harvester_targets[0] if harvester_targets else None)
+        harvest_dest: Position | None = (
+            harvester_targets[0] if harvester_targets else None
+        )
         best_bot: Position | None = None
         best_dest: Position | None = None
         best_score: int = 0

@@ -7,17 +7,21 @@ when the dangling end is within builder vision. The cached
 stickiness), and the proximity gate inside the picker ensures only the
 rightful claimant builder considers a given end.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi
 if TYPE_CHECKING:
     from builder import Builder
 from builder.chain_routing import extend_chain
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
+
 
 def extend_chain_in_range(self_, ct):
     dangling = self_.dangling_output

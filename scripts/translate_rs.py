@@ -52,7 +52,14 @@ def translate(src_dir: Path, out_dir: Path) -> Path:
         _build_translator()
     out_dir.mkdir(parents=True, exist_ok=True)
     subprocess.run(
-        [str(_TRANSLATOR), "--release", "--dir", str(src_dir / "src"), "-o", str(out_dir)],
+        [
+            str(_TRANSLATOR),
+            "--release",
+            "--dir",
+            str(src_dir / "src"),
+            "-o",
+            str(out_dir),
+        ],
         check=True,
     )
     py_name = f"bot-{out_dir.name.replace('.', '-')}"

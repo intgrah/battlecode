@@ -104,8 +104,10 @@ def discover_sites(
         for cx, cy in ((x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)):
             exposed = False
             for tx, ty in (
-                (cx - 1, cy - 1), (cx, cy - 1),
-                (cx - 1, cy), (cx, cy),
+                (cx - 1, cy - 1),
+                (cx, cy - 1),
+                (cx - 1, cy),
+                (cx, cy),
             ):
                 if not (0 <= tx < w and 0 <= ty < h):
                     exposed = True
@@ -666,9 +668,7 @@ def place_chokes(
         cu_x, cu_y, cu = valid[u]
         ux = int(cu_x) if cu_x >= 0 else int(cu_x) - 1
         uy = int(cu_y) if cu_y >= 0 else int(cu_y) - 1
-        u_pass = (
-            0 <= ux < w and 0 <= uy < h and tiles[uy][ux] != ENV_WALL
-        )
+        u_pass = 0 <= ux < w and 0 <= uy < h and tiles[uy][ux] != ENV_WALL
         for v in ns:
             if u >= v:
                 continue
@@ -681,9 +681,7 @@ def place_chokes(
             cv_x, cv_y, cv = valid[v]
             vx = int(cv_x) if cv_x >= 0 else int(cv_x) - 1
             vy = int(cv_y) if cv_y >= 0 else int(cv_y) - 1
-            v_pass = (
-                0 <= vx < w and 0 <= vy < h and tiles[vy][vx] != ENV_WALL
-            )
+            v_pass = 0 <= vx < w and 0 <= vy < h and tiles[vy][vx] != ENV_WALL
             if not u_pass and not v_pass:
                 continue
             if u_pass and (not v_pass or cu <= cv):
@@ -1080,10 +1078,18 @@ def simulate(
 
         ta = time.perf_counter_ns()
         choke_tiles = detect_passage_chokes_tile(
-            discovered_walls, discovered_passable, w, h,
+            discovered_walls,
+            discovered_passable,
+            w,
+            h,
         )
         region_centers, _ = simplify_for_game(
-            valid_p, groups, [], tiles, w, h,
+            valid_p,
+            groups,
+            [],
+            tiles,
+            w,
+            h,
         )
         tb = time.perf_counter_ns()
         parts_us["simplify"].append((tb - ta) / 1000)

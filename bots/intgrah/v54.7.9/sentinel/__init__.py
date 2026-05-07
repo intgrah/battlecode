@@ -33,7 +33,9 @@ def _feeds_enemy_combat(ct: Controller, my_team: Team, outputs: list[Position]) 
     return False
 
 
-def _transport_outputs(ct: Controller, bid: int, pos: Position, etype: EntityType) -> list[Position]:
+def _transport_outputs(
+    ct: Controller, bid: int, pos: Position, etype: EntityType
+) -> list[Position]:
     if etype == EntityType.BRIDGE:
         return [ct.get_bridge_target(bid)]
     d = ct.get_direction(bid)

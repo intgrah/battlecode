@@ -11,6 +11,7 @@ Usage:
 
 Prints WR + condition breakdown + Ti-decided / Ax-decided loss split.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,10 +29,14 @@ TI_RE = re.compile(r"Titanium\s+(\d+)\s+\((\d+)\)\s+(\d+)\s+\((\d+)\)")
 AX_RE = re.compile(r"Axionite\s+(\d+)\s+\((\d+)\)\s+(\d+)\s+\((\d+)\)")
 
 
-def run_one(bot_a_so: str, bot_b_so: str, name_a: str, name_b: str, map_path: str, seed: int) -> dict:
+def run_one(
+    bot_a_so: str, bot_b_so: str, name_a: str, name_b: str, map_path: str, seed: int
+) -> dict:
     proc = subprocess.run(
         [LIBRE, "run", bot_a_so, bot_b_so, map_path, "--seed", str(seed)],
-        capture_output=True, text=True, timeout=300,
+        capture_output=True,
+        text=True,
+        timeout=300,
     )
     out = proc.stdout + proc.stderr
     w = WINNER_RE.search(out)
@@ -41,7 +46,9 @@ def run_one(bot_a_so: str, bot_b_so: str, name_a: str, name_b: str, map_path: st
     winner = w.group(1) if w else ""
     return {
         "map": Path(map_path).name,
-        "name_a": name_a, "name_b": name_b, "winner": winner,
+        "name_a": name_a,
+        "name_b": name_b,
+        "winner": winner,
         "condition": cond.group(1) if cond else "",
         # Bracketed value is delivered (used in resources tiebreak).
         "ti_a_delivered": int(ti.group(2)) if ti else 0,
@@ -67,7 +74,10 @@ def main() -> None:
             raise SystemExit(f"missing: {so}  (run cargo build --release -p ...)")
 
     if args.maps:
-        maps = [f"maps/{m}" if not m.startswith("maps/") else m for m in args.maps.split(",")]
+        maps = [
+            f"maps/{m}" if not m.startswith("maps/") else m
+            for m in args.maps.split(",")
+        ]
     else:
         maps = sorted(str(p) for p in Path("maps").glob("*.map26"))
 
@@ -98,7 +108,9 @@ def main() -> None:
     for r in rows:
         cond_count[r["condition"]] = cond_count.get(r["condition"], 0) + 1
     print()
-    print(f"== {a_name} vs {args.bot_b}: {a_wins}-{b_wins} (n={total}, WR={100*a_wins/total:.1f}%) ==")
+    print(
+        f"== {a_name} vs {args.bot_b}: {a_wins}-{b_wins} (n={total}, WR={100 * a_wins / total:.1f}%) =="
+    )
     print("Conditions:")
     for k, v in sorted(cond_count.items(), key=lambda kv: -kv[1]):
         print(f"  {k:<20} {v}")
@@ -109,7 +121,7 @@ def main() -> None:
         if r["condition"] != "resources" or r["winner"] != args.bot_b:
             continue
         # Was a_name on side A or B in this row?
-        a_on_left = (r["name_a"] == a_name)
+        a_on_left = r["name_a"] == a_name
         if a_on_left:
             our_ax, their_ax = r["ax_a_delivered"], r["ax_b_delivered"]
             our_ti, their_ti = r["ti_a_delivered"], r["ti_b_delivered"]
@@ -124,7 +136,9 @@ def main() -> None:
             tied += 1
     res_loss = ax_loss + ti_loss + tied
     if res_loss:
-        print(f"Resources losses ({res_loss}): Ax-decided {ax_loss}, Ti-decided {ti_loss}, deeper-tiebreak {tied}")
+        print(
+            f"Resources losses ({res_loss}): Ax-decided {ax_loss}, Ti-decided {ti_loss}, deeper-tiebreak {tied}"
+        )
 
 
 if __name__ == "__main__":

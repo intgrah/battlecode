@@ -26,7 +26,9 @@ import boto3
 
 SERVER_NAME = "bc"
 DEFAULT_REGION = "us-east-1"
-DEFAULT_INSTANCE_TYPE = "m7g.8xlarge"  # Graviton ARM64 (matches ladder); 4GB/vCPU for sweep workers
+DEFAULT_INSTANCE_TYPE = (
+    "m7g.8xlarge"  # Graviton ARM64 (matches ladder); 4GB/vCPU for sweep workers
+)
 DEFAULT_AMI = "ami-0e9865ca8e02dc0ab"  # Debian 12 arm64 us-east-1
 REMOTE_DIR = "/home/admin/battlecode"
 
@@ -341,7 +343,6 @@ _SYNC_DIRS = [
 ]
 
 
-
 def _cmd_sync(args: argparse.Namespace) -> None:
     ip = _require_ip(args)
     rsync = _rsync_cmd()
@@ -362,7 +363,8 @@ def _cmd_sync(args: argparse.Namespace) -> None:
                 "--exclude=.venv",
                 "--exclude=*.replay26",
                 "--exclude=uv.lock",
-                "-e", rsh,
+                "-e",
+                rsh,
                 f"{_PROJECT_ROOT}/{local}",
                 f"{user}@{ip}:{REMOTE_DIR}/{remote}",
             ]
@@ -412,7 +414,7 @@ def _cmd_sync(args: argparse.Namespace) -> None:
         rc = _ssh_run(
             ip,
             "python3 -c 'import socket,sys; s=socket.socket(); s.settimeout(2); "
-            "sys.exit(0 if s.connect_ex((\"127.0.0.1\",9876))==0 else 1)'",
+            'sys.exit(0 if s.connect_ex(("127.0.0.1",9876))==0 else 1)\'',
             user=user,
         )
         if rc == 0:
@@ -434,7 +436,9 @@ def _make_tarball(bot_path: str) -> bytes:
     return buf.getvalue()
 
 
-def _connect_daemon(ip: str, user: str = "admin") -> tuple[subprocess.Popen[bytes], socket.socket]:
+def _connect_daemon(
+    ip: str, user: str = "admin"
+) -> tuple[subprocess.Popen[bytes], socket.socket]:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("127.0.0.1", 0))
     local_port = s.getsockname()[1]
@@ -472,7 +476,9 @@ def _connect_daemon(ip: str, user: str = "admin") -> tuple[subprocess.Popen[byte
     sys.exit(1)
 
 
-def _ping_daemon(sock: socket.socket, reader: io.BufferedReader, timeout: float = 45.0) -> bool:
+def _ping_daemon(
+    sock: socket.socket, reader: io.BufferedReader, timeout: float = 45.0
+) -> bool:
     """Verify daemon is actually serving by round-tripping a ping. Tolerates slow startup."""
     deadline = time.time() + timeout
     attempt = 0
@@ -542,7 +548,9 @@ def _format_result_line(result: dict, replay_dir: Path) -> str:
     )
 
 
-def _open_tunnel_with_retry(ip: str, max_attempts: int = 6) -> tuple[subprocess.Popen[bytes], socket.socket, io.BufferedReader]:
+def _open_tunnel_with_retry(
+    ip: str, max_attempts: int = 6
+) -> tuple[subprocess.Popen[bytes], socket.socket, io.BufferedReader]:
     """Open SSH tunnel + ping daemon; retry both on failure with backoff."""
     last_err = "unknown"
     for attempt in range(1, max_attempts + 1):
@@ -550,8 +558,11 @@ def _open_tunnel_with_retry(ip: str, max_attempts: int = 6) -> tuple[subprocess.
             tunnel, sock = _connect_daemon(ip)
         except SystemExit:
             last_err = "ssh tunnel"
-            wait = min(30, 2 ** attempt)
-            print(f"  reconnect attempt {attempt}/{max_attempts}: ssh tunnel failed; sleeping {wait}s", file=sys.stderr)
+            wait = min(30, 2**attempt)
+            print(
+                f"  reconnect attempt {attempt}/{max_attempts}: ssh tunnel failed; sleeping {wait}s",
+                file=sys.stderr,
+            )
             time.sleep(wait)
             continue
         reader = sock.makefile("rb")
@@ -567,10 +578,16 @@ def _open_tunnel_with_retry(ip: str, max_attempts: int = 6) -> tuple[subprocess.
             tunnel.wait(timeout=5)
         except subprocess.TimeoutExpired:
             tunnel.kill()
-        wait = min(30, 2 ** attempt)
-        print(f"  reconnect attempt {attempt}/{max_attempts}: {last_err} failed; sleeping {wait}s", file=sys.stderr)
+        wait = min(30, 2**attempt)
+        print(
+            f"  reconnect attempt {attempt}/{max_attempts}: {last_err} failed; sleeping {wait}s",
+            file=sys.stderr,
+        )
         time.sleep(wait)
-    print(f"Could not (re)connect after {max_attempts} attempts (last: {last_err}).", file=sys.stderr)
+    print(
+        f"Could not (re)connect after {max_attempts} attempts (last: {last_err}).",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
@@ -609,31 +626,54 @@ def _cmd_ci(args: argparse.Namespace) -> None:
         if resume_id is None:
             print(f"Uploading {bot_a}...")
             tar_a = _make_tarball(bot_a)
-            _send(sock, {"cmd": "upload", "name": bot_a, "data": base64.b64encode(tar_a).decode()})
+            _send(
+                sock,
+                {
+                    "cmd": "upload",
+                    "name": bot_a,
+                    "data": base64.b64encode(tar_a).decode(),
+                },
+            )
             resp = _recv_line(reader)
             if resp is None or "error" in resp:
-                print(f"Upload failed: {resp.get('error') if resp else 'connection closed'}", file=sys.stderr)
+                print(
+                    f"Upload failed: {resp.get('error') if resp else 'connection closed'}",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
             uuid_a = resp["uuid"]
 
             print(f"Uploading {bot_b}...")
             tar_b = _make_tarball(bot_b)
-            _send(sock, {"cmd": "upload", "name": bot_b, "data": base64.b64encode(tar_b).decode()})
+            _send(
+                sock,
+                {
+                    "cmd": "upload",
+                    "name": bot_b,
+                    "data": base64.b64encode(tar_b).decode(),
+                },
+            )
             resp = _recv_line(reader)
             if resp is None or "error" in resp:
-                print(f"Upload failed: {resp.get('error') if resp else 'connection closed'}", file=sys.stderr)
+                print(
+                    f"Upload failed: {resp.get('error') if resp else 'connection closed'}",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
             uuid_b = resp["uuid"]
 
             print(f"Running {n} games: {bot_a} vs {bot_b}...")
-            _send(sock, {
-                "cmd": "run",
-                "bot_a": uuid_a,
-                "bot_b": uuid_b,
-                "bot_a_name": bot_a,
-                "bot_b_name": bot_b,
-                "n": n,
-            })
+            _send(
+                sock,
+                {
+                    "cmd": "run",
+                    "bot_a": uuid_a,
+                    "bot_b": uuid_b,
+                    "bot_a_name": bot_a,
+                    "bot_b_name": bot_b,
+                    "n": n,
+                },
+            )
         else:
             print(f"Resume not supported by current daemon; starting fresh.")
 
@@ -663,12 +703,18 @@ def _cmd_ci(args: argparse.Namespace) -> None:
                 if errors > 0:
                     pct = 100.0 * errors / max(1, n)
                     level = "WARNING" if pct < 25 else "CRITICAL"
-                    print(f"{level}: {errors}/{n} games crashed ({pct:.0f}%).", file=sys.stderr)
+                    print(
+                        f"{level}: {errors}/{n} games crashed ({pct:.0f}%).",
+                        file=sys.stderr,
+                    )
                 break
 
             received += 1
             if "error" in result:
-                print(f"  [error] game {result.get('game', '?')}: {result['error']}", file=sys.stderr)
+                print(
+                    f"  [error] game {result.get('game', '?')}: {result['error']}",
+                    file=sys.stderr,
+                )
             else:
                 # Daemon doesn't currently embed replay bytes in the
                 # streamed result; replays live on the server's disk
@@ -691,7 +737,10 @@ def _cmd_ci(args: argparse.Namespace) -> None:
             if completed:
                 print(f"--keep set; leaving {args.server} ({ip}) running.")
             else:
-                print(f"--keep set; leaving {args.server} ({ip}) running despite incomplete run.", file=sys.stderr)
+                print(
+                    f"--keep set; leaving {args.server} ({ip}) running despite incomplete run.",
+                    file=sys.stderr,
+                )
         else:
             try:
                 ec2 = _get_ec2(args.region)
@@ -706,19 +755,37 @@ def _cmd_ci(args: argparse.Namespace) -> None:
         if not completed:
             sys.exit(2)
         if errors and errors >= n // 2:
-            print(f"Majority of games ({errors}/{n}) errored. Treating as failure.", file=sys.stderr)
+            print(
+                f"Majority of games ({errors}/{n}) errored. Treating as failure.",
+                file=sys.stderr,
+            )
             sys.exit(3)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="AWS EC2 CI server management")
-    parser.add_argument("--server", default=SERVER_NAME, help=f"Server name tag (default: {SERVER_NAME})")
-    parser.add_argument("--region", default=DEFAULT_REGION, help=f"AWS region (default: {DEFAULT_REGION})")
+    parser.add_argument(
+        "--server",
+        default=SERVER_NAME,
+        help=f"Server name tag (default: {SERVER_NAME})",
+    )
+    parser.add_argument(
+        "--region",
+        default=DEFAULT_REGION,
+        help=f"AWS region (default: {DEFAULT_REGION})",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     up = sub.add_parser("up", help="Launch instance")
-    up.add_argument("type", nargs="?", default=DEFAULT_INSTANCE_TYPE, help=f"Instance type (default: {DEFAULT_INSTANCE_TYPE})")
-    up.add_argument("--ami", default=DEFAULT_AMI, help=f"AMI ID (default: {DEFAULT_AMI})")
+    up.add_argument(
+        "type",
+        nargs="?",
+        default=DEFAULT_INSTANCE_TYPE,
+        help=f"Instance type (default: {DEFAULT_INSTANCE_TYPE})",
+    )
+    up.add_argument(
+        "--ami", default=DEFAULT_AMI, help=f"AMI ID (default: {DEFAULT_AMI})"
+    )
     up.set_defaults(func=_cmd_up)
 
     down = sub.add_parser("down", help="Terminate instance")
@@ -739,9 +806,18 @@ def main() -> None:
     ci = sub.add_parser("ci", help="Run parallel games via CI daemon")
     ci.add_argument("bot_a", help="First bot (e.g. drewfett/v55)")
     ci.add_argument("bot_b", help="Second bot (e.g. intgrah/v54.3.0)")
-    ci.add_argument("-n", type=int, default=30, help="Number of games (default: 30 — keep small; iterate fast on changes that should be ≥10pp")
-    ci.add_argument("--keep", action="store_true", help="Do not terminate instance after sweep")
-    ci.add_argument("--resume", help="Resume an existing job_id (skip uploads, re-subscribe)")
+    ci.add_argument(
+        "-n",
+        type=int,
+        default=30,
+        help="Number of games (default: 30 — keep small; iterate fast on changes that should be ≥10pp",
+    )
+    ci.add_argument(
+        "--keep", action="store_true", help="Do not terminate instance after sweep"
+    )
+    ci.add_argument(
+        "--resume", help="Resume an existing job_id (skip uploads, re-subscribe)"
+    )
     ci.set_defaults(func=_cmd_ci)
 
     args = parser.parse_args()

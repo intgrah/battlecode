@@ -7,16 +7,20 @@ fire (p=0.2) on the enemy building under their feet, but only after round
 100. Distinct from OFFENSE's structured attack cascade — this is just
 "if standing on an enemy thing, occasionally hit it".
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi
 if TYPE_CHECKING:
     from builder import Builder
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
+
 
 def opportunistic_attack(self_, ct):
     if not self_.opportunistic:

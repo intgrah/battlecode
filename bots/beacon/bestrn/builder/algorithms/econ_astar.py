@@ -4,6 +4,7 @@ Translation of `bots/intgrah/v54.7.9/builder/algorithms/econ_astar.py`.
 A*-on-Dial conveyor router. The `AStarSearch` instance keeps long-lived
 buckets / bookkeeping so a paused search can resume next turn.
 """
+
 from __future__ import annotations
 
 from typing import Final
@@ -11,6 +12,7 @@ from typing import Final
 from cambc import Position, ResourceType
 from builder.algorithms.reachability import find as uf_find
 from util.constants import INF, MAX_N, MAX_WIDTH
+
 TARGET_DRIFT_SQ: Final[int] = 25
 BUCKET_COUNT: Final[int] = 32
 BIDIRECTIONAL: Final[bool] = False
@@ -23,19 +25,31 @@ same as a bridge so A* doesn't prefer a diagonal over a bridge unless
 the two cardinal alternatives are genuinely blocked.
 """
 
+
 def bridge_deltas():
     out: list[tuple[int, int, int]] = []
     for dx in range(-3, (3) + 1):
         for dy in range(-3, (3) + 1):
             d2 = dx * dx + dy * dy
-            if (d2 in range(3, (9) + 1)):
+            if d2 in range(3, (9) + 1):
                 out.append((dx, dy, 9))
     return out
 
+
 def conv_neighbors():
-    out: list[tuple[int, int, int]] = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (1, 1, 9), (1, -1, 9), (-1, 1, 9), (-1, -1, 9)]
+    out: list[tuple[int, int, int]] = [
+        (1, 0, 0),
+        (-1, 0, 0),
+        (0, 1, 0),
+        (0, -1, 0),
+        (1, 1, 9),
+        (1, -1, 9),
+        (-1, 1, 9),
+        (-1, -1, 9),
+    ]
     out.extend(bridge_deltas())
     return out
+
 
 def x_of_table():
     out = [0] * MAX_N
@@ -43,11 +57,13 @@ def x_of_table():
         out[i] = int(i % 50)
     return out
 
+
 def y_of_table():
     out = [0] * MAX_N
     for i in range(0, MAX_N):
         out[i] = int(i // 50)
     return out
+
 
 class EconAstarCtx:
     """
@@ -55,6 +71,7 @@ class EconAstarCtx:
     struct (Phase G6) embeds an instance of this and passes it to each
     `search` call; the algorithm code never touches the rest of the Builder.
     """
+
     ax_routable: list[bool]
     ti_routable: list[bool]
     routing_extra: list[int]
@@ -63,7 +80,16 @@ class EconAstarCtx:
     nearby_tiles: list[Position]
     all_bots: dict[Position, int]
 
-    def __init__(self, ax_routable: list[bool], ti_routable: list[bool], routing_extra: list[int], reach_parent: list[int], my_pos: Position, nearby_tiles: list[Position], all_bots: dict[Position, int]):
+    def __init__(
+        self,
+        ax_routable: list[bool],
+        ti_routable: list[bool],
+        routing_extra: list[int],
+        reach_parent: list[int],
+        my_pos: Position,
+        nearby_tiles: list[Position],
+        all_bots: dict[Position, int],
+    ):
         self.ax_routable = ax_routable
         self.ti_routable = ti_routable
         self.routing_extra = routing_extra
@@ -71,6 +97,7 @@ class EconAstarCtx:
         self.my_pos = my_pos
         self.nearby_tiles = nearby_tiles
         self.all_bots = all_bots
+
 
 class AStarSearch:
     last_fail_reason: str
@@ -173,7 +200,14 @@ class AStarSearch:
             self.last_fail_reason = ""
             self.last_nodes_expanded = 0
             return [start, target]
-        routable: list[bool] = ctx.ax_routable if (resource == ResourceType.RAW_AXIONITE or resource == ResourceType.REFINED_AXIONITE) else ctx.ti_routable
+        routable: list[bool] = (
+            ctx.ax_routable
+            if (
+                resource == ResourceType.RAW_AXIONITE
+                or resource == ResourceType.REFINED_AXIONITE
+            )
+            else ctx.ti_routable
+        )
         routing_extra = ctx.routing_extra
         for i in range(0, 50):
             self.x_heur_fwd[i] = abs(int(i) - gx)
@@ -219,10 +253,14 @@ class AStarSearch:
         best_cost = 1000000
         best_meet: int = -1
         while emp_fwd < nb_count and emp_bwd < nb_count:
-            while emp_fwd < nb_count and (not self.buckets_fwd[int(cur_fwd & bucket_mask)]):
+            while emp_fwd < nb_count and (
+                not self.buckets_fwd[int(cur_fwd & bucket_mask)]
+            ):
                 cur_fwd += 1
                 emp_fwd += 1
-            while emp_bwd < nb_count and (not self.buckets_bwd[int(cur_bwd & bucket_mask)]):
+            while emp_bwd < nb_count and (
+                not self.buckets_bwd[int(cur_bwd & bucket_mask)]
+            ):
                 cur_bwd += 1
                 emp_bwd += 1
             if emp_fwd >= nb_count or emp_bwd >= nb_count:
@@ -237,7 +275,13 @@ class AStarSearch:
                     node_i = self.buckets_fwd[slot_fwd][idx]
                     idx += 1
                     gn = self._dist[int(node_i)]
-                    if self.closed_fwd[int(node_i)] or gn + self.x_heur_fwd[int(self.x_of[int(node_i)])] + self.y_heur_fwd[int(self.y_of[int(node_i)])] != cur_fwd:
+                    if (
+                        self.closed_fwd[int(node_i)]
+                        or gn
+                        + self.x_heur_fwd[int(self.x_of[int(node_i)])]
+                        + self.y_heur_fwd[int(self.y_of[int(node_i)])]
+                        != cur_fwd
+                    ):
                         continue
                     self.closed_fwd[int(node_i)] = True
                     self.last_nodes_expanded += 1
@@ -270,7 +314,10 @@ class AStarSearch:
                             self.touched_fwd.append(ni)
                         self._dist[int(ni)] = nd
                         self.parent_fwd[int(ni)] = node_i
-                        h_val = self.x_heur_fwd[int(self.x_of[int(ni)])] + self.y_heur_fwd[int(self.y_of[int(ni)])]
+                        h_val = (
+                            self.x_heur_fwd[int(self.x_of[int(ni)])]
+                            + self.y_heur_fwd[int(self.y_of[int(ni)])]
+                        )
                         self.buckets_fwd[int(nd + h_val & bucket_mask)].append(ni)
                         other_dist = self.dist_bwd[int(ni)]
                         if other_dist != 1000000:
@@ -288,7 +335,13 @@ class AStarSearch:
                 node_i = self.buckets_bwd[slot_bwd][idx]
                 idx += 1
                 gn = self.dist_bwd[int(node_i)]
-                if self.closed_bwd[int(node_i)] or gn + self.x_heur_bwd[int(self.x_of[int(node_i)])] + self.y_heur_bwd[int(self.y_of[int(node_i)])] != cur_bwd:
+                if (
+                    self.closed_bwd[int(node_i)]
+                    or gn
+                    + self.x_heur_bwd[int(self.x_of[int(node_i)])]
+                    + self.y_heur_bwd[int(self.y_of[int(node_i)])]
+                    != cur_bwd
+                ):
                     continue
                 self.closed_bwd[int(node_i)] = True
                 self.last_nodes_expanded += 1
@@ -321,7 +374,10 @@ class AStarSearch:
                         self.touched_bwd.append(ni)
                     self.dist_bwd[int(ni)] = nd
                     self.parent_bwd[int(ni)] = node_i
-                    h_val = self.x_heur_bwd[int(self.x_of[int(ni)])] + self.y_heur_bwd[int(self.y_of[int(ni)])]
+                    h_val = (
+                        self.x_heur_bwd[int(self.x_of[int(ni)])]
+                        + self.y_heur_bwd[int(self.y_of[int(ni)])]
+                    )
                     self.buckets_bwd[int(nd + h_val & bucket_mask)].append(ni)
                     other_dist = self._dist[int(ni)]
                     if other_dist != 1000000:
@@ -352,7 +408,9 @@ class AStarSearch:
                 return None
             rev_path.append(node)
         self.last_fail_reason = ""
-        return list((Position(x=self.x_of[int(i)], y=self.y_of[int(i)]) for i in rev_path))
+        return list(
+            (Position(x=self.x_of[int(i)], y=self.y_of[int(i)]) for i in rev_path)
+        )
 
     def search_unidirectional(self, start, target, resource, ctx):
         stride = int(50)
@@ -360,14 +418,25 @@ class AStarSearch:
         gi = target.y * stride + target.x
         resumed_search = False
         target = target
-        if self.finished or (self.target is None) or target.distance_squared(self.target) > 25:
+        if (
+            self.finished
+            or (self.target is None)
+            or target.distance_squared(self.target) > 25
+        ):
             self._dist[:] = [1000000] * len(self._dist)
             self.target = target
         else:
             resumed_search = True
             target = self.target
             gi = target.y * stride + target.x
-        routable: list[bool] = ctx.ax_routable if (resource == ResourceType.RAW_AXIONITE or resource == ResourceType.REFINED_AXIONITE) else ctx.ti_routable
+        routable: list[bool] = (
+            ctx.ax_routable
+            if (
+                resource == ResourceType.RAW_AXIONITE
+                or resource == ResourceType.REFINED_AXIONITE
+            )
+            else ctx.ti_routable
+        )
         routing_extra = ctx.routing_extra
         sx = start.x
         sy = start.y
@@ -394,7 +463,7 @@ class AStarSearch:
         emp: int = 0
         found = False
         while emp < nb_count:
-            if (not self.buckets_fwd[int(cur_f & bucket_mask)]):
+            if not self.buckets_fwd[int(cur_f & bucket_mask)]:
                 cur_f += 1
                 emp += 1
                 continue
@@ -432,7 +501,11 @@ class AStarSearch:
                     if nd >= self._dist[int(ni)]:
                         continue
                     self._dist[int(ni)] = nd
-                    nf = nd + self.x_heur_fwd[int(self.x_of[int(ni)])] + self.y_heur_fwd[int(self.y_of[int(ni)])]
+                    nf = (
+                        nd
+                        + self.x_heur_fwd[int(self.x_of[int(ni)])]
+                        + self.y_heur_fwd[int(self.y_of[int(ni)])]
+                    )
                     self.f_at[int(ni)] = nf
                     self.buckets_fwd[int(nf & bucket_mask)].append(ni)
                 weighted = self.weighted_neighbors[int(node_i)]
@@ -454,7 +527,11 @@ class AStarSearch:
                     if nd >= self._dist[int(ni)]:
                         continue
                     self._dist[int(ni)] = nd
-                    nf = nd + self.x_heur_fwd[int(self.x_of[int(ni)])] + self.y_heur_fwd[int(self.y_of[int(ni)])]
+                    nf = (
+                        nd
+                        + self.x_heur_fwd[int(self.x_of[int(ni)])]
+                        + self.y_heur_fwd[int(self.y_of[int(ni)])]
+                    )
                     self.f_at[int(ni)] = nf
                     self.buckets_fwd[int(nf & bucket_mask)].append(ni)
             self.buckets_fwd[slot].clear()

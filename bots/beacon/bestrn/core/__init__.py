@@ -1,4 +1,5 @@
 """Translation of `bots/intgrah/v54.7.9/core/__init__.py`."""
+
 from __future__ import annotations
 
 from typing import Final
@@ -6,17 +7,26 @@ from typing import Final
 from unit import in_bounds
 from cambc import Direction, EntityType, Position, ResourceType
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi
 from config import HARDCODE
 from core.spawn_tempo import compute_spawn_tempo
 from hardcode.identify import identify_map
+
 if TYPE_CHECKING:
     from hardcode.identify import KnownMap
 from unit import UnitState
 from util.debug import Scope
 from util.directions import DIR4, DIR8
-CORNERS: Final[list[Direction]] = [Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST]
+
+CORNERS: Final[list[Direction]] = [
+    Direction.NORTHEAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTHWEST,
+    Direction.NORTHWEST,
+]
+
 
 def rotate_right(d):
     match d:
@@ -38,6 +48,7 @@ def rotate_right(d):
             return Direction.NORTH
         case Direction.CENTRE:
             return Direction.CENTRE
+
 
 class Core:
     state: UnitState
@@ -61,6 +72,7 @@ class Core:
         self.max_team_units = 0
         self.spawn_tempo = 1.0
         self.known_map = None
+
     INITIAL_SPAWNS: Final[int] = 4
     INCOME_SAMPLES: Final[int] = 16
     INCOME_PER_UNIT: Final[float] = 0.65
@@ -92,7 +104,10 @@ class Core:
                 if bid is None:
                     continue
                 etype = ct.get_entity_type(bid)
-                if not (etype == EntityType.CONVEYOR or etype == EntityType.ARMOURED_CONVEYOR):
+                if not (
+                    etype == EntityType.CONVEYOR
+                    or etype == EntityType.ARMOURED_CONVEYOR
+                ):
                     continue
                 if ct.get_direction(bid).opposite() != cd:
                     continue
@@ -111,13 +126,27 @@ class Core:
         if len(self.state.friendly_bots) > Core.CROWDING_LIMIT:
             return False
         live = float(live_units)
-        income_threshold = (Core.INCOME_PER_UNIT * live + Core.INCOME_QUADRATIC_TERM * live * live) / self.spawn_tempo
+        income_threshold = (
+            Core.INCOME_PER_UNIT * live + Core.INCOME_QUADRATIC_TERM * live * live
+        ) / self.spawn_tempo
         has_income = income_rate * 4.0 > income_threshold
-        surplus_threshold = (float(Core.SURPLUS_SCALE_FACTOR) * ct.get_scale_percent() / 100.0 + float(Core.SURPLUS_BASELINE)) * (2.0 - self.spawn_tempo)
+        surplus_threshold = (
+            float(Core.SURPLUS_SCALE_FACTOR) * ct.get_scale_percent() / 100.0
+            + float(Core.SURPLUS_BASELINE)
+        ) * (2.0 - self.spawn_tempo)
         has_surplus = float(self.state.ti) > surplus_threshold
         builder_ti_cost = ct.get_builder_bot_cost()[0]
-        has_trickle = float(self.state.ti) > float(builder_ti_cost) * Core.TRICKLE_COST_MULTIPLIER and self.state.round - self.last_spawn_round > Core.TRICKLE_MIN_INTERVAL
-        return self.state.round > 20 and has_income or self.state.round > 40 and has_surplus or has_trickle
+        has_trickle = (
+            float(self.state.ti) > float(builder_ti_cost) * Core.TRICKLE_COST_MULTIPLIER
+            and self.state.round - self.last_spawn_round > Core.TRICKLE_MIN_INTERVAL
+        )
+        return (
+            self.state.round > 20
+            and has_income
+            or self.state.round > 40
+            and has_surplus
+            or has_trickle
+        )
 
     def spawn_at(self, ct, pos):
         ct.spawn_builder(pos)
@@ -164,7 +193,11 @@ class Core:
         self.state.narrow_symmetry_from_vision(ct)
         core = self.resolve_my_core(ct)
         self.set_my_core(core)
-        known = identify_map(self.state.width, self.state.height, self.my_core) if False else None
+        known = (
+            identify_map(self.state.width, self.state.height, self.my_core)
+            if False
+            else None
+        )
         self.known_map = known
         area = self.state.width * self.state.height
         numerator = float((36 - 18) * (area - 20 * 20))
@@ -172,7 +205,9 @@ class Core:
         raw = 18.0 + numerator / denominator
         self.max_team_units = int(round(raw))
         with Scope.new_timed("spawn_tempo") as _scope:
-            self.spawn_tempo = compute_spawn_tempo(self.state.width, self.state.height, ct)
+            self.spawn_tempo = compute_spawn_tempo(
+                self.state.width, self.state.height, ct
+            )
 
     def run(self, ct):
         self.state.cache_per_turn_state(ct)

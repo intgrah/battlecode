@@ -15,11 +15,13 @@ every leaf rejected (or the group's gate denied the subtree). The
 caller's parent group treats a false return the same way it treats a
 leaf rejection — move on to the next sibling.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller
 if TYPE_CHECKING:
@@ -27,8 +29,10 @@ if TYPE_CHECKING:
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
 from util.debug import Scope, debug as log
+
 type LeafFn = Callable[[Builder, Controller], TaskResult]
 type Gate = Callable[[Builder, Controller], bool]
+
 
 class TaskGroup:
     """
@@ -36,6 +40,7 @@ class TaskGroup:
     can short-circuit the entire subtree when its precondition doesn't
     hold (cheaper than rejecting at every leaf separately).
     """
+
     name: str
     children: list[Policy]
     gate: Gate | None
@@ -45,16 +50,20 @@ class TaskGroup:
         self.children = children
         self.gate = gate
 
+
 @dataclass(frozen=True, slots=True)
 class PolicyGroup:
     _0: TaskGroup
+
 
 @dataclass(frozen=True, slots=True)
 class PolicyLeaf:
     name: str
     fn_: LeafFn
 
+
 type Policy = PolicyGroup | PolicyLeaf
+
 
 def run_policy(self_, ct, policy):
     match policy:

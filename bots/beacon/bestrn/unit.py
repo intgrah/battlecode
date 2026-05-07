@@ -12,10 +12,12 @@ Per-turn caching mirrors Python:
 - `run(ct)`: caches `my_pos`, neighbours, round, resources, visible bots,
   and checks for an allied symmetry marker in vision.
 """
+
 from __future__ import annotations
 
 from cambc import EntityType, Position, Team
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Direction, Environment
 from marker import find_symmetry_marker
@@ -24,11 +26,13 @@ from util.directions import DIR4, DIR8
 from util.symmetry import ALL, Symmetry
 from random import Random as Rng
 
+
 class UnitState:
     """
     Per-turn cached state shared by every unit. Concrete units embed this and
     access via `Unit::state` / `state_mut`.
     """
+
     width: int
     height: int
     my_id: int
@@ -152,7 +156,7 @@ class UnitState:
         One-shot narrowing of `symmetry_candidates` from current vision.
         Mirrors Python `narrow_symmetry_from_vision`.
         """
-        if (self.resolved_symmetry() is not None):
+        if self.resolved_symmetry() is not None:
             return
         width = self.width
         height = self.height
@@ -182,7 +186,7 @@ class UnitState:
         Mirrors Python `_check_symmetry_marker`: pin candidate set to whatever
         an allied symmetry marker in vision asserts.
         """
-        if (self.resolved_symmetry() is not None):
+        if self.resolved_symmetry() is not None:
             return
         nearby = list(self.nearby_tiles)
         my_team = self.my_team
@@ -197,7 +201,11 @@ class UnitState:
         `symmetry` to avoid clashing with concrete units' cached `symmetry`
         field (which Python would shadow).
         """
-        return next(iter(self.symmetry_candidates), None) if len(self.symmetry_candidates) == 1 else None
+        return (
+            next(iter(self.symmetry_candidates), None)
+            if len(self.symmetry_candidates) == 1
+            else None
+        )
 
     def symmetry_guess(self):
         """
@@ -205,9 +213,10 @@ class UnitState:
         priority; ROT fallback if all eliminated. Mirrors Python.
         """
         for sym in [Symmetry.Rot, Symmetry.Ver, Symmetry.Hor]:
-            if (sym in self.symmetry_candidates):
+            if sym in self.symmetry_candidates:
                 return sym
         return Symmetry.Rot
+
 
 def in_bounds(pos, width, height):
     """

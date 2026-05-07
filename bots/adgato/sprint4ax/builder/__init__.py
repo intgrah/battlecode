@@ -246,8 +246,12 @@ class Builder(Unit):
         self.pass_grid: PassableGrid = PassableGrid(50, 50)
         self.nav: NavBfs = NavBfs(self.pass_grid)
 
-        self.conveyors_to_here: list[list[PosInt]] = [[] for _ in range(self.bound_range)]
-        self.splitters_to_here: list[list[PosInt]] = [[] for _ in range(self.bound_range)]
+        self.conveyors_to_here: list[list[PosInt]] = [
+            [] for _ in range(self.bound_range)
+        ]
+        self.splitters_to_here: list[list[PosInt]] = [
+            [] for _ in range(self.bound_range)
+        ]
 
         # Symmetry
         self.symmetry_candidates: set[Symmetry] = {
@@ -377,16 +381,16 @@ class Builder(Unit):
 
     def my_sq_dist(self, p: PosInt) -> int:
         return self.dist_sq[p - self.my_pos + self.dist_offset]
-    
+
     def sq_dist(self, p: PosInt, q: PosInt) -> int:
         return self.dist_sq[p - q + self.dist_offset]
-    
+
     def mt_dist(self, p: PosInt, q: PosInt) -> int:
         return self.manhat[p - q + self.dist_offset]
-    
+
     def cv_dist(self, p: PosInt, q: PosInt) -> int:
         return self.chebyshev[p - q + self.dist_offset]
-    
+
     def pos(self, i: PosInt) -> Position:
         return Position(i % self.dist_stride, i // self.dist_stride)
 
@@ -561,6 +565,7 @@ class Builder(Unit):
             assert ct.get_team() == self.my_team
             assert ct.get_id() == self.my_id
             assert ct.get_current_round() == self.rnd
+
 
 def _end_of_turn_heal(ct: Controller) -> None:
     my_pos = ct.get_position()

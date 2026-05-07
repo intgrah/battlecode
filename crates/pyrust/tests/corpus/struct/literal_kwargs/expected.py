@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 class Cell:
     row: int
     col: int
@@ -9,6 +10,7 @@ class Cell:
         self.row = row
         self.col = col
         self.weight = weight
+
 
 r = 2
 c = 5

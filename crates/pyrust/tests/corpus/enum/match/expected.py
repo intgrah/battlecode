@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from enum import Enum, auto
 
+
 class Light(Enum):
     Red = auto()
     Yellow = auto()
     Green = auto()
+
 
 def action(l):
     match l:
@@ -15,6 +17,7 @@ def action(l):
             return "slow"
         case Light.Green:
             return "go"
+
 
 print(action(Light.Red))
 print(action(Light.Yellow))

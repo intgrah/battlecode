@@ -6,15 +6,18 @@ multi-builder deconfliction, healer-count math, wounded-enemy detection,
 and the "I'm low-HP on an enemy tile, fight to death instead of heal"
 bail-out gate that all three leaves consult.
 """
+
 from __future__ import annotations
 
 from cambc import EntityType
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position
 if TYPE_CHECKING:
     from builder import Builder
 from util.metrics import chebyshev
+
 
 def count_visible_attackers(self_, target):
     """
@@ -27,6 +30,7 @@ def count_visible_attackers(self_, target):
         if p.distance_squared(target) <= 2:
             n += 1
     return n
+
 
 def deconflict_rank(self_, ct, my_pos, target):
     """
@@ -51,6 +55,7 @@ def deconflict_rank(self_, ct, my_pos, target):
             rank += 1
     return rank
 
+
 def healers_needed(attackers):
     """
     Healers required to outpace `attackers` hitting a single tile.
@@ -62,6 +67,7 @@ def healers_needed(attackers):
     if attackers <= 1:
         return 1
     return (attackers + 1) // 2
+
 
 def has_wounded_enemy(self_, position):
     """
@@ -75,6 +81,7 @@ def has_wounded_enemy(self_, position):
     _kind, team = __opt_tuple
     i = self_.idx(position)
     return team != self_.my_team and self_.hp[i] < self_.max_hp[i]
+
 
 def fight_to_death(self_, ct):
     """

@@ -9,10 +9,12 @@ predicates (`vulnerable_harvesters`, `pick_harvester_target`,
 `begin_turn_offense` — the once-per-turn state-decay prelude that runs
 before any offense task fires.
 """
+
 from __future__ import annotations
 
 from cambc import EntityType, Environment, GameConstants
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Direction, Position
 if TYPE_CHECKING:
@@ -22,17 +24,36 @@ from builder.helpers import can_afford, make_move, try_move_dir
 from util.directions import DIR4, DIR8
 from util.metrics import chebyshev, closest
 
+
 def open_tiles(self_, positions):
-    return list((p for p in positions if self_.cost_grid[self_.idx(p)] != 1000000 and not (p in self_.all_bots)))
+    return list(
+        (
+            p
+            for p in positions
+            if self_.cost_grid[self_.idx(p)] != 1000000 and not (p in self_.all_bots)
+        )
+    )
+
 
 def is_allied_transport(self_, position):
-    return ((self_.building_kind[self_.idx(position)] is not None) and (self_.building_kind[self_.idx(position)] == EntityType.CONVEYOR or self_.building_kind[self_.idx(position)] == EntityType.ARMOURED_CONVEYOR or self_.building_kind[self_.idx(position)] == EntityType.SPLITTER or self_.building_kind[self_.idx(position)] == EntityType.BRIDGE)) and self_.building_team[self_.idx(position)] == self_.my_team
+    return (
+        (self_.building_kind[self_.idx(position)] is not None)
+        and (
+            self_.building_kind[self_.idx(position)] == EntityType.CONVEYOR
+            or self_.building_kind[self_.idx(position)] == EntityType.ARMOURED_CONVEYOR
+            or self_.building_kind[self_.idx(position)] == EntityType.SPLITTER
+            or self_.building_kind[self_.idx(position)] == EntityType.BRIDGE
+        )
+    ) and self_.building_team[self_.idx(position)] == self_.my_team
+
 
 def without_allied_transport(self_, positions):
     return list((p for p in positions if not is_allied_transport(self_, p)))
 
+
 def buildable(self_, positions):
     return list((p for p in positions if is_cheap_overbuild(self_, p)))
+
 
 def is_cheap_overbuild(self_, pos):
     if not self_.in_bounds(pos):
@@ -44,23 +65,36 @@ def is_cheap_overbuild(self_, pos):
         return True
     if kind == EntityType.MARKER:
         return True
-    return kind == EntityType.ROAD and self_.building_team[self_.idx(pos)] == self_.my_team
+    return (
+        kind == EntityType.ROAD and self_.building_team[self_.idx(pos)] == self_.my_team
+    )
+
 
 def nearest_enemy_bot(self_):
-    if (not self_.enemy_bots):
+    if not self_.enemy_bots:
         return None
     return closest(self_.my_pos, self_.enemy_bots)
+
 
 def should_attack(self_, pos):
     enemy_builder = nearest_enemy_bot(self_)
     i = self_.idx(pos)
-    return (enemy_builder is None) or chebyshev(self_.my_pos, enemy_builder) > 2 or self_.hp[i] <= self_.max_hp[i] - 4 or self_.hp[i] <= 4 or can_afford(self_, EntityType.HARVESTER)
+    return (
+        (enemy_builder is None)
+        or chebyshev(self_.my_pos, enemy_builder) > 2
+        or self_.hp[i] <= self_.max_hp[i] - 4
+        or self_.hp[i] <= 4
+        or can_afford(self_, EntityType.HARVESTER)
+    )
+
 
 def enemy_healer_near(self_, pos):
     return any(p.distance_squared(pos) <= 2 for p in self_.enemy_bots)
 
+
 def friendly_bot_adjacent(self_, pos):
     return any(p.distance_squared(pos) <= 1 for p in self_.friendly_bots)
+
 
 def min_friendly_chebyshev(ct, pos):
     """
@@ -82,6 +116,7 @@ def min_friendly_chebyshev(ct, pos):
             best = d
     return best
 
+
 def pick_conveyor_target(self_, ct, enemy_core, my_pos):
     """
     Pick an enemy conveyor/bridge/splitter tile to attack, falling
@@ -96,13 +131,18 @@ def pick_conveyor_target(self_, ct, enemy_core, my_pos):
         kind, team = __opt_tuple
         if team == self_.my_team:
             continue
-        if not (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR or kind == EntityType.SPLITTER or kind == EntityType.BRIDGE):
+        if not (
+            kind == EntityType.CONVEYOR
+            or kind == EntityType.ARMOURED_CONVEYOR
+            or kind == EntityType.SPLITTER
+            or kind == EntityType.BRIDGE
+        ):
             continue
         if not self_.cost_grid[self_.idx(pos)] != 1000000:
             continue
-        if (pos in self_.attack_tile_blacklist):
+        if pos in self_.attack_tile_blacklist:
             continue
-        if (pos in self_.friendly_turret_ray_tiles):
+        if pos in self_.friendly_turret_ray_tiles:
             continue
         uid = self_.all_bots.get(pos)
         if uid is not None and (uid != self_.my_id):
@@ -112,7 +152,11 @@ def pick_conveyor_target(self_, ct, enemy_core, my_pos):
         near_core = pos.distance_squared(enemy_core) <= 25
         has_flow = False
         bid = ct.get_tile_building_id(pos)
-        if (ct.is_in_vision(pos)) and bid is not None and ((ct.get_stored_resource(bid) is not None)):
+        if (
+            (ct.is_in_vision(pos))
+            and bid is not None
+            and (ct.get_stored_resource(bid) is not None)
+        ):
             has_flow = True
         if near_core:
             tier = 0
@@ -132,6 +176,7 @@ def pick_conveyor_target(self_, ct, enemy_core, my_pos):
                 best_score = score
     return best
 
+
 def pick_attack_destination(self_, target, avoid_healers):
     """
     Pick a cardinal neighbour of `target` (an enemy harvester) for
@@ -149,9 +194,9 @@ def pick_attack_destination(self_, target, avoid_healers):
         uid = self_.all_bots.get(pos)
         if uid is not None and (uid != self_.my_id):
             continue
-        if (pos in self_.attack_tile_blacklist):
+        if pos in self_.attack_tile_blacklist:
             continue
-        if (pos in self_.friendly_turret_ray_tiles):
+        if pos in self_.friendly_turret_ray_tiles:
             continue
         kind = self_.building_kind[self_.idx(pos)]
         team = self_.building_team[self_.idx(pos)]
@@ -169,10 +214,11 @@ def pick_attack_destination(self_, target, avoid_healers):
         in_ray: int = int((pos in self_.enemy_turret_ray_tiles))
         dist = self_.my_pos.distance_squared(pos)
         candidates.append((in_ray, cost, dist, pos))
-    if (not candidates):
+    if not candidates:
         return None
     candidates.sort()
     return candidates[0][3]
+
 
 def gunner_chain_facing(self_, pos):
     """
@@ -196,10 +242,16 @@ def gunner_chain_facing(self_, pos):
             kind, team = __opt_tuple
             if team == self_.my_team:
                 break
-            if (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR or kind == EntityType.SPLITTER or kind == EntityType.BRIDGE):
+            if (
+                kind == EntityType.CONVEYOR
+                or kind == EntityType.ARMOURED_CONVEYOR
+                or kind == EntityType.SPLITTER
+                or kind == EntityType.BRIDGE
+            ):
                 return d
             break
     return None
+
 
 def has_open_side(self_, position):
     """
@@ -215,9 +267,14 @@ def has_open_side(self_, position):
                 occupied = True
             case _:
                 occupied = False
-        if self_.cost_grid[self_.idx(new_position)] != 1000000 and not occupied and not is_allied_transport(self_, new_position):
+        if (
+            self_.cost_grid[self_.idx(new_position)] != 1000000
+            and not occupied
+            and not is_allied_transport(self_, new_position)
+        ):
             return True
     return False
+
 
 def vulnerable_harvesters(self_):
     """
@@ -238,6 +295,7 @@ def vulnerable_harvesters(self_):
             result.append(p)
     return result
 
+
 def pick_harvester_target(self_, vulnerable):
     """3-tier preference over vulnerable harvesters."""
     my_pos = self_.my_pos
@@ -251,13 +309,16 @@ def pick_harvester_target(self_, vulnerable):
             return h
     return closest(my_pos, vulnerable)
 
+
 def scout_toward_enemy(self_, ct):
     en_core = self_.en_core_guess
-    if (en_core in self_.nearby_tiles):
+    if en_core in self_.nearby_tiles:
         self_.en_core_seen = True
     if not self_.en_core_seen:
         make_move(self_, ct, en_core)
-    elif (en_core in self_.nearby_tiles) or self_.ti >= int(float(GameConstants.HARVESTER_BASE_COST[0] + 50) * (1.0 + self_.scale)):
+    elif (en_core in self_.nearby_tiles) or self_.ti >= int(
+        float(GameConstants.HARVESTER_BASE_COST[0] + 50) * (1.0 + self_.scale)
+    ):
         explore(self_, ct)
     else:
         dir8 = list(DIR8)
@@ -266,10 +327,17 @@ def scout_toward_enemy(self_, ct):
             if try_move_dir(ct, d):
                 break
 
+
 def begin_turn_offense(self_, ct):
     """Per-turn offense bookkeeping."""
     if not (not self_.attack_tile_blacklist):
-        new_blacklist: dict[Position, int] = dict((__v for t in self_.attack_tile_blacklist.items() if (__v := (t[0], t[1] - 1) if t[1] > 1 else None) is not None))
+        new_blacklist: dict[Position, int] = dict(
+            (
+                __v
+                for t in self_.attack_tile_blacklist.items()
+                if (__v := (t[0], t[1] - 1) if t[1] > 1 else None) is not None
+            )
+        )
         self_.attack_tile_blacklist = new_blacklist
     last = self_.last_fire
     if last is not None and (self_.my_pos != last[0]):
@@ -285,7 +353,11 @@ def begin_turn_offense(self_, ct):
                     occupied = True
                 case _:
                     occupied = False
-            invalidate_target = not self_.is_enemy_building(tgt) or not self_.cost_grid[self_.idx(tgt)] != 1000000 or occupied
+            invalidate_target = (
+                not self_.is_enemy_building(tgt)
+                or not self_.cost_grid[self_.idx(tgt)] != 1000000
+                or occupied
+            )
     if invalidate_target:
         self_.offense_target = None
         self_.offense_launcher = None

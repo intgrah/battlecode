@@ -6,9 +6,11 @@ the three ore-claim phases. Single responsibility: navigate (with
 contest-clearing) onto `ore_target` or `ax_ore_target`. No conveyor
 placement, no harvester placement.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, Position
 if TYPE_CHECKING:
@@ -16,17 +18,20 @@ if TYPE_CHECKING:
 from builder.harvest import walk_to_ore_claim
 from builder.helpers import ore_available
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
+
 
 def resolve_target(self_):
     t = self_.ore_target
     if t is not None:
         return t
     t = self_.ax_ore_target
-    if t is not None and ((self_.ax_sink is not None)):
+    if t is not None and (self_.ax_sink is not None):
         return t
     return None
+
 
 def claim_ore(self_, ct):
     target = resolve_target(self_)

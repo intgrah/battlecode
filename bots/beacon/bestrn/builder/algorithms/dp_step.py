@@ -1,7 +1,9 @@
 """DP path-follower: unrolled outward-expanding 69-cell scan with interior fast path."""
+
 from __future__ import annotations
 
 from util.constants import INF
+
 
 def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
     """
@@ -1945,6 +1947,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
     if best_fs == 8:
         return pos + 1
     return pos
+
 
 def dp_step(w, cost, h, pos, path_idx, min_idx):
     """

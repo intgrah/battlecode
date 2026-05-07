@@ -26,16 +26,28 @@ Note that "reachable" here is map-property reachability — barriers are
 considered reachable, since they sit on non-WALL tiles that something
 walked onto to place them.
 """
+
 from __future__ import annotations
 
 from typing import Final
 
 from cambc import Environment
 from util.constants import MAX_WIDTH
+
 K_PER_TURN: Final[int] = 25
 """Hard cap on frontier pops per turn."""
-DELTAS: Final[list[int]] = [-int(50) - 1, -int(50), -int(50) + 1, -1, 1, int(50) - 1, int(50), int(50) + 1]
+DELTAS: Final[list[int]] = [
+    -int(50) - 1,
+    -int(50),
+    -int(50) + 1,
+    -1,
+    1,
+    int(50) - 1,
+    int(50),
+    int(50) + 1,
+]
 """8-connected neighbour offsets in flat index space."""
+
 
 def find(parent, i):
     """Find with path-halving. `parent[i]` must be `!= -1`."""
@@ -45,6 +57,7 @@ def find(parent, i):
         i = parent[int(i)]
     return i
 
+
 def find_ro(parent, i):
     """
     Read-only find without path-halving. Walks the parent chain.
@@ -53,6 +66,7 @@ def find_ro(parent, i):
     while parent[int(i)] != i:
         i = parent[int(i)]
     return i
+
 
 def union(parent, a, b):
     """Union by minimum id (stable component ids)."""
@@ -64,6 +78,7 @@ def union(parent, a, b):
         parent[int(rb)] = ra
     else:
         parent[int(ra)] = rb
+
 
 def step_reachability(parent, frontier, env, w, h):
     """
@@ -78,7 +93,7 @@ def step_reachability(parent, frontier, env, w, h):
     stride = int(50)
     parent_len = int(len(parent))
     for _ in range(0, 25):
-        i = (frontier.pop() if frontier else None)
+        i = frontier.pop() if frontier else None
         if i is None:
             return
         cur_root = find(parent, i)
@@ -108,6 +123,7 @@ def step_reachability(parent, frontier, env, w, h):
                 continue
             parent[int(n)] = cur_root
             frontier.append(n)
+
 
 def update_reachability(parent, frontier, env, w, h):
     """

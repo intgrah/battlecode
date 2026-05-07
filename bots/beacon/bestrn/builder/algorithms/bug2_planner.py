@@ -26,15 +26,18 @@ Cost model:
 For the bot we pass `MAX_WIDTH`. `n_pad` is `stride * stride` (the size
 of the flat arrays). `w`, `h` are the actual map dimensions.
 """
+
 from __future__ import annotations
 
 from typing import Final
 from dataclasses import dataclass
 
 from util.constants import INF, MAX_WIDTH
+
 DX: Final[list[int]] = [0, 1, 1, 1, 0, -1, -1, -1]
 DY: Final[list[int]] = [-1, -1, 0, 1, 1, 1, 0, -1]
 IS_CARDINAL: Final[list[bool]] = [True, False, True, False, True, False, True, False]
+
 
 def build_mline_seq(sx, sy, gx, gy):
     """Build the Bresenham m-line sequence from `(sx, sy)` to `(gx, gy)`."""
@@ -59,38 +62,61 @@ def build_mline_seq(sx, sy, gx, gy):
             cy += syi
     return
 
+
 """Outcome of a single `step()` call."""
+
+
 @dataclass(frozen=True, slots=True)
 class StateAdvanceMLine:
     """Main outer loop entry: try to advance along the m-line."""
+
     pass
+
 
 @dataclass(frozen=True, slots=True)
 class StateWalkerRace:
     """Walker race: alternately step CW and CCW walkers."""
+
     pass
+
 
 @dataclass(frozen=True, slots=True)
 class StateEmitChosen:
     """Emit each cell of the chosen path one at a time."""
+
     idx: int
+
 
 @dataclass(frozen=True, slots=True)
 class StateEmitWinner:
     """Emit the winning cell."""
+
     pass
+
 
 @dataclass(frozen=True, slots=True)
 class StateAdvanceAfterWinner:
     """After winner emission, advance `m_i` past covered cells."""
+
     pass
+
 
 @dataclass(frozen=True, slots=True)
 class StateDone:
     """Done — return value is in `done_value`."""
+
     pass
 
-type State = StateAdvanceMLine | StateWalkerRace | StateEmitChosen | StateEmitWinner | StateAdvanceAfterWinner | StateDone
+
+type State = (
+    StateAdvanceMLine
+    | StateWalkerRace
+    | StateEmitChosen
+    | StateEmitWinner
+    | StateAdvanceAfterWinner
+    | StateDone
+)
+
 
 class Bug2Planner:
     """
@@ -99,6 +125,7 @@ class Bug2Planner:
     `cost` is supplied as a borrow on every `step()` call, mirroring the
     Python generator that closes over the caller's mutable `cost_grid` list.
     """
+
     w: int
     h: int
     gi: int
@@ -249,7 +276,15 @@ class Bug2Planner:
                     self.hit_d = ddx * ddx + ddy * ddy
                     bdx = nx - px
                     bdy = ny - py
-                    init_dir = (0 if bdy < 0 else 4) if bdx == 0 else ((1 if bdy < 0 else (2 if bdy == 0 else 3)) if bdx > 0 else (7 if bdy < 0 else (6 if bdy == 0 else 5)))
+                    init_dir = (
+                        (0 if bdy < 0 else 4)
+                        if bdx == 0
+                        else (
+                            (1 if bdy < 0 else (2 if bdy == 0 else 3))
+                            if bdx > 0
+                            else (7 if bdy < 0 else (6 if bdy == 0 else 5))
+                        )
+                    )
                     self.cw_faces = [0] * int(self.n_pad) * 4
                     self.ccw_faces = [0] * int(self.n_pad) * 4
                     self.cw_px = px
@@ -257,7 +292,9 @@ class Bug2Planner:
                     self.cw_dir = init_dir
                     self.cw_path.clear()
                     self.cw_alive = True
-                    self.cw_cross = (py - self.sy) * self.mdx - (px - self.sx) * self.mdy
+                    self.cw_cross = (py - self.sy) * self.mdx - (
+                        px - self.sx
+                    ) * self.mdy
                     self.cw_wox = px + DX[int(init_dir)]
                     self.cw_woy = py + DY[int(init_dir)]
                     self.ccw_px = px
@@ -328,10 +365,14 @@ class Bug2Planner:
                     self.state = StateAdvanceAfterWinner()
                     return None
                 case StateAdvanceAfterWinner():
-                    walker_dot = (self.win_x - self.sx) * self.mdx + (self.win_y - self.sy) * self.mdy
+                    walker_dot = (self.win_x - self.sx) * self.mdx + (
+                        self.win_y - self.sy
+                    ) * self.mdy
                     while self.m_i + 1 < len(self.mline_seq):
                         mx, my = self.mline_seq[self.m_i + 1]
-                        if (mx - self.sx) * self.mdx + (my - self.sy) * self.mdy <= walker_dot:
+                        if (mx - self.sx) * self.mdx + (
+                            my - self.sy
+                        ) * self.mdy <= walker_dot:
                             self.m_i += 1
                         else:
                             break
@@ -341,28 +382,47 @@ class Bug2Planner:
     def cw_substep(self, cost):
         moved = False
         for _ in range(0, 8):
-            self.cw_dir = ((self.cw_dir - 1) % (8))
+            self.cw_dir = (self.cw_dir - 1) % (8)
             nx2 = self.cw_px + DX[int(self.cw_dir)]
             ny2 = self.cw_py + DY[int(self.cw_dir)]
             if not (0 <= nx2 and nx2 < self.w and 0 <= ny2 and ny2 < self.h):
                 continue
             cell = ny2 * self.stride + nx2
             if cost[int(cell)] != 1000000:
-                if 0 <= self.cw_wox and self.cw_wox < self.w and 0 <= self.cw_woy and self.cw_woy < self.h:
+                if (
+                    0 <= self.cw_wox
+                    and self.cw_wox < self.w
+                    and 0 <= self.cw_woy
+                    and self.cw_woy < self.h
+                ):
                     wdx = self.cw_wox - nx2
                     wdy = self.cw_woy - ny2
                     if wdx == 0 or wdy == 0:
-                        face = 0 if wdx == -1 else (1 if wdx == 1 else (2 if wdy == 1 else 3))
+                        face = (
+                            0
+                            if wdx == -1
+                            else (1 if wdx == 1 else (2 if wdy == 1 else 3))
+                        )
                         k = int((self.cw_woy * self.stride + self.cw_wox) * 4 + face)
                         if self.ccw_faces[k] != 0:
                             self.met = True
                         self.cw_faces[k] = 1
                 nxt_cross = (ny2 - self.sy) * self.mdx - (nx2 - self.sx) * self.mdy
-                if self.cw_cross > 0 and nxt_cross < 0 or self.cw_cross < 0 and nxt_cross > 0 or nxt_cross == 0:
+                if (
+                    self.cw_cross > 0
+                    and nxt_cross < 0
+                    or self.cw_cross < 0
+                    and nxt_cross > 0
+                    or nxt_cross == 0
+                ):
                     cell_dot = (nx2 - self.sx) * self.mdx + (ny2 - self.sy) * self.mdy
                     ddx = nx2 - self.gx
                     ddy = ny2 - self.gy
-                    if 0 < cell_dot and cell_dot <= self.goal_dot and ddx * ddx + ddy * ddy < self.hit_d:
+                    if (
+                        0 < cell_dot
+                        and cell_dot <= self.goal_dot
+                        and ddx * ddx + ddy * ddy < self.hit_d
+                    ):
                         self.winner = 0
                         self.win_x = nx2
                         self.win_y = ny2
@@ -372,13 +432,18 @@ class Bug2Planner:
                 self.cw_cross = nxt_cross
                 self.cw_path.append(cell)
                 if IS_CARDINAL[int(self.cw_dir)]:
-                    self.cw_dir = ((self.cw_dir + 2) % (8))
+                    self.cw_dir = (self.cw_dir + 2) % (8)
                 else:
-                    self.cw_dir = ((self.cw_dir + 3) % (8))
+                    self.cw_dir = (self.cw_dir + 3) % (8)
                 self.cw_wox = self.cw_px + DX[int(self.cw_dir)]
                 self.cw_woy = self.cw_py + DY[int(self.cw_dir)]
                 moved = True
-                if not (0 <= self.cw_wox and self.cw_wox < self.w and 0 <= self.cw_woy and self.cw_woy < self.h):
+                if not (
+                    0 <= self.cw_wox
+                    and self.cw_wox < self.w
+                    and 0 <= self.cw_woy
+                    and self.cw_woy < self.h
+                ):
                     self.cw_alive = False
                 break
             if IS_CARDINAL[int(self.cw_dir)]:
@@ -397,28 +462,47 @@ class Bug2Planner:
     def ccw_substep(self, cost):
         moved = False
         for _ in range(0, 8):
-            self.ccw_dir = ((self.ccw_dir + 1) % (8))
+            self.ccw_dir = (self.ccw_dir + 1) % (8)
             nx2 = self.ccw_px + DX[int(self.ccw_dir)]
             ny2 = self.ccw_py + DY[int(self.ccw_dir)]
             if not (0 <= nx2 and nx2 < self.w and 0 <= ny2 and ny2 < self.h):
                 continue
             cell = ny2 * self.stride + nx2
             if cost[int(cell)] != 1000000:
-                if 0 <= self.ccw_wox and self.ccw_wox < self.w and 0 <= self.ccw_woy and self.ccw_woy < self.h:
+                if (
+                    0 <= self.ccw_wox
+                    and self.ccw_wox < self.w
+                    and 0 <= self.ccw_woy
+                    and self.ccw_woy < self.h
+                ):
                     wdx = self.ccw_wox - nx2
                     wdy = self.ccw_woy - ny2
                     if wdx == 0 or wdy == 0:
-                        face = 0 if wdx == -1 else (1 if wdx == 1 else (2 if wdy == 1 else 3))
+                        face = (
+                            0
+                            if wdx == -1
+                            else (1 if wdx == 1 else (2 if wdy == 1 else 3))
+                        )
                         k = int((self.ccw_woy * self.stride + self.ccw_wox) * 4 + face)
                         if self.cw_faces[k] != 0:
                             self.met = True
                         self.ccw_faces[k] = 1
                 nxt_cross = (ny2 - self.sy) * self.mdx - (nx2 - self.sx) * self.mdy
-                if self.ccw_cross > 0 and nxt_cross < 0 or self.ccw_cross < 0 and nxt_cross > 0 or nxt_cross == 0:
+                if (
+                    self.ccw_cross > 0
+                    and nxt_cross < 0
+                    or self.ccw_cross < 0
+                    and nxt_cross > 0
+                    or nxt_cross == 0
+                ):
                     cell_dot = (nx2 - self.sx) * self.mdx + (ny2 - self.sy) * self.mdy
                     ddx = nx2 - self.gx
                     ddy = ny2 - self.gy
-                    if 0 < cell_dot and cell_dot <= self.goal_dot and ddx * ddx + ddy * ddy < self.hit_d:
+                    if (
+                        0 < cell_dot
+                        and cell_dot <= self.goal_dot
+                        and ddx * ddx + ddy * ddy < self.hit_d
+                    ):
                         self.winner = 1
                         self.win_x = nx2
                         self.win_y = ny2
@@ -428,13 +512,18 @@ class Bug2Planner:
                 self.ccw_cross = nxt_cross
                 self.ccw_path.append(cell)
                 if IS_CARDINAL[int(self.ccw_dir)]:
-                    self.ccw_dir = ((self.ccw_dir - 2) % (8))
+                    self.ccw_dir = (self.ccw_dir - 2) % (8)
                 else:
-                    self.ccw_dir = ((self.ccw_dir - 3) % (8))
+                    self.ccw_dir = (self.ccw_dir - 3) % (8)
                 self.ccw_wox = self.ccw_px + DX[int(self.ccw_dir)]
                 self.ccw_woy = self.ccw_py + DY[int(self.ccw_dir)]
                 moved = True
-                if not (0 <= self.ccw_wox and self.ccw_wox < self.w and 0 <= self.ccw_woy and self.ccw_woy < self.h):
+                if not (
+                    0 <= self.ccw_wox
+                    and self.ccw_wox < self.w
+                    and 0 <= self.ccw_woy
+                    and self.ccw_woy < self.h
+                ):
                     self.ccw_alive = False
                 break
             if IS_CARDINAL[int(self.ccw_dir)]:

@@ -5,9 +5,11 @@ Walk onto `offensive_ore_target` (enemy-side ore picked by the
 inverse-bisector gate) to claim it. Mirrors `claim_ore` but uses the
 offense-specific target.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller
 if TYPE_CHECKING:
@@ -15,8 +17,10 @@ if TYPE_CHECKING:
 from builder.harvest import walk_to_ore_claim
 from builder.helpers import ore_available
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
+
 
 def claim_offensive_ore(self_, ct):
     target = self_.offensive_ore_target

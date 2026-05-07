@@ -9,15 +9,18 @@ a common name (and optional gate). The runner does depth-first
 traversal; the first leaf that doesn't reject claims the turn. See
 `_policy.rs` for `TaskGroup` and `run_policy`.
 """
+
 from __future__ import annotations
 
 from builder.role import Role
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from builder.tasks._policy import Policy, PolicyGroup, PolicyLeaf
 from builder.tasks.defense import DEFENSE_GROUP
 from builder.tasks.econ import ECON_GROUP
 from builder.tasks.offense import PARASITIC_ROLE_GROUP, PUSH_ROLE_GROUP
+
 
 def policy_for_role(role):
     """Resolve a role to its top-level policy tree."""

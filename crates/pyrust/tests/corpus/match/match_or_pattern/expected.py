@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 def parity(n):
     match n:
         case 0 | 2 | 4 | 6 | 8:
@@ -8,6 +9,7 @@ def parity(n):
             return "odd-low"
         case _:
             return "big"
+
 
 print(parity(2))
 print(parity(7))

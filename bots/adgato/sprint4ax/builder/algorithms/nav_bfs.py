@@ -34,6 +34,7 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
     },
 )
 
+
 def _bfs_compute(
     pnb_push: list[list[int]],
     pnb_set: list[list[int]],
@@ -66,6 +67,7 @@ def _bfs_compute(
             return frontier
     return []
 
+
 class PassableGrid:
     """Padded-by-1 passability grid with incremental neighbour tables.
 
@@ -86,7 +88,7 @@ class PassableGrid:
     def __init__(self, w: int, h: int) -> None:
         self.navs: list[NavBfs] = []
         pw = w + 2
-        
+
         self.pw = pw
         n = pw * (h + 2)
         self.n = n
@@ -110,7 +112,7 @@ class PassableGrid:
             -1,  # W
         )
         ne_off, se_off, sw_off, nw_off, n_off, e_off, s_off, w_off = self.offsets
-        
+
         pnb_push = self.pnb_push
         pnb_set = self.pnb_set
         for y in range(h):
@@ -120,9 +122,8 @@ class PassableGrid:
                 pnb_push[pi] = [pi + ne_off, pi + se_off, pi + sw_off, pi + nw_off]
                 pnb_set[pi] = [pi + n_off, pi + e_off, pi + s_off, pi + w_off]
 
-
     def init(self, w: int, h: int) -> None:
-        
+
         rpw = w + 2
         pw = self.pw
         self.rn = w * h
@@ -377,13 +378,13 @@ class NavBfs:
 
         if ct.get_move_cooldown() > 0:
             return None
-        
+
         self._cur_idx = (start.y + 1) * self.grid.pw + (start.x + 1)
         self.set_goal(goals)
 
         if self._cur_idx in self._gis:
             return start
-        
+
         if self._dirty:
             self._restart()
             self._dirty = False

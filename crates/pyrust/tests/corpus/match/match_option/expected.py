@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 def describe(opt):
     match opt:
         case None:
@@ -8,6 +9,7 @@ def describe(opt):
             return "zero"
         case _:
             return "non-zero"
+
 
 print(describe(0))
 print(describe(7))

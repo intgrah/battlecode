@@ -1,4 +1,5 @@
 """Translation of `bots/intgrah/v54.7.9/gunner/__init__.py`."""
+
 from __future__ import annotations
 
 from typing import Final
@@ -6,17 +7,25 @@ from typing import Final
 from unit import in_bounds
 from cambc import EntityType, GameConstants
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Direction, Position
 from unit import UnitState
 from util.directions import DIR8
+
 
 def is_valid_rotation_target(et):
     """
     Valid priority targets for rotation: other enemy turrets we should
     actually use our shot on.
     """
-    return (et == EntityType.SENTINEL or et == EntityType.GUNNER or et == EntityType.LAUNCHER or et == EntityType.BREACH)
+    return (
+        et == EntityType.SENTINEL
+        or et == EntityType.GUNNER
+        or et == EntityType.LAUNCHER
+        or et == EntityType.BREACH
+    )
+
 
 class Gunner:
     state: UnitState
@@ -25,6 +34,7 @@ class Gunner:
     def __init__(self):
         self.state = UnitState()
         self.idle_turns = 0
+
     SELF_DESTRUCT_THRESHOLD: Final[int] = 10
 
     def fire_target(self, ct, direction):

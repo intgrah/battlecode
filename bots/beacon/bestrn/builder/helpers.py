@@ -1,10 +1,12 @@
 """Translation of `bots/intgrah/v54.7.9/builder/helpers.py`."""
+
 from __future__ import annotations
 
 from typing import Final
 
 from cambc import Direction, EntityType, Environment, ResourceType
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position
 if TYPE_CHECKING:
@@ -14,6 +16,7 @@ from util.debug import Scope, debug as log
 from util.directions import DIR4, DIR8, delta_to_dir
 from util.metrics import chebyshev, claims_by_proximity, manhattan
 from util.visualiser import auto_wrap_position
+
 
 def make_move(builder, ct, target):
     """
@@ -38,7 +41,10 @@ def make_move(builder, ct, target):
         args = {}
         args[str("start")] = auto_wrap_position(builder.state.my_pos)
         args[str("target")] = auto_wrap_position(target)
-        log("make_move: FAILED {start}->{target} (bugnav: no plan, random step also blocked)", args)
+        log(
+            "make_move: FAILED {start}->{target} (bugnav: no plan, random step also blocked)",
+            args,
+        )
         return False
     args = {}
     args[str("start")] = auto_wrap_position(builder.state.my_pos)
@@ -46,6 +52,7 @@ def make_move(builder, ct, target):
     args[str("next")] = auto_wrap_position(next_move)
     log("make_move: bugnav {start}->{target} step {next}", args)
     return try_move_with_road(builder, ct, next_move)
+
 
 def make_move_or_adjacent(builder, ct, target):
     """
@@ -82,6 +89,7 @@ def make_move_or_adjacent(builder, ct, target):
     log("make_move_or_adjacent: {target} impassable, routing to cardinal {adj}", args)
     return make_move(builder, ct, best)
 
+
 def try_move_dir(ct, d):
     if ct.can_move(d):
         args = {}
@@ -90,6 +98,7 @@ def try_move_dir(ct, d):
         ct.move(d)
         return True
     return False
+
 
 def try_move_to(builder, ct, target_pos):
     dx = target_pos.x - builder.state.my_pos.x
@@ -110,6 +119,7 @@ def try_move_to(builder, ct, target_pos):
         return True
     return False
 
+
 def try_move_with_road(builder, ct, target_pos):
     if builder.cost_grid[builder.idx(target_pos)] > 1 and ct.can_build_road(target_pos):
         args = {}
@@ -118,6 +128,7 @@ def try_move_with_road(builder, ct, target_pos):
         log("try_move_with_road: paving road at {target} (cost={cost} > 1)", args)
         ct.build_road(target_pos)
     return try_move_to(builder, ct, target_pos)
+
 
 def try_attack(ct, pos):
     if ct.can_fire(pos):
@@ -128,10 +139,15 @@ def try_attack(ct, pos):
         return True
     return False
 
+
 def ti_needed(builder, etype):
     base = c[0] if ((c := base_cost(etype)) is not None) else 0
     scale = builder.state.scale
-    foundry = int(float(base_cost(EntityType.FOUNDRY)[0]) * scale) if builder.state.round >= 500 and not (not builder.ax_harvester_adjacent) else 0
+    foundry = (
+        int(float(base_cost(EntityType.FOUNDRY)[0]) * scale)
+        if builder.state.round >= 500 and not (not builder.ax_harvester_adjacent)
+        else 0
+    )
     match etype:
         case EntityType.FOUNDRY:
             return int(float(base) * scale)
@@ -145,8 +161,10 @@ def ti_needed(builder, etype):
         case _:
             return int(float(base) * scale) + foundry
 
+
 def can_afford(builder, etype):
     return builder.state.ti >= ti_needed(builder, etype)
+
 
 def required_ti_for_ore_claim(builder, ore_pos, sink_pos):
     """
@@ -166,17 +184,25 @@ def required_ti_for_ore_claim(builder, ore_pos, sink_pos):
     chain_cost = int(float(d_sink) * (0.7 * float(c_cost) + 0.3 * float(b_cost) / 3.0))
     return h_cost + ring_cost + chain_cost + walk_cost
 
+
 def ore_claim_leniency(builder):
     """
     Leniency multiplier on `required_ti_for_ore_claim`. Decaying
     exponential in friendly harvester count: starts at 0.65, asymptotes to 1.60.
     """
     n = float(len(builder.my_harvesters))
-    return (0.95 * (1.0 - ((0.958) ** (n))) + 0.65)
+    return 0.95 * (1.0 - ((0.958) ** (n))) + 0.65
+
 
 def can_afford_ore_claim(builder, ore_pos, sink_pos):
-    return builder.state.ti >= int(float(required_ti_for_ore_claim(builder, ore_pos, sink_pos)) * ore_claim_leniency(builder))
+    return builder.state.ti >= int(
+        float(required_ti_for_ore_claim(builder, ore_pos, sink_pos))
+        * ore_claim_leniency(builder)
+    )
+
+
 type TryPlaceExtra = BuildExtra
+
 
 def try_place(builder, ct, etype, pos, extra, destroy):
     if not can_afford(builder, etype):
@@ -192,7 +218,10 @@ def try_place(builder, ct, etype, pos, extra, destroy):
                 base_for_log = c[0]
         args[str("base")] = base_for_log
         args[str("scale")] = builder.state.scale
-        log("try_place: cannot afford {etype} at {pos} (have {have}, need {need}; base {base}, scale {scale:.2f})", args)
+        log(
+            "try_place: cannot afford {etype} at {pos} (have {have}, need {need}; base {base}, scale {scale:.2f})",
+            args,
+        )
         return False
     if destroy and ct.can_destroy(pos):
         args = {}
@@ -208,20 +237,28 @@ def try_place(builder, ct, etype, pos, extra, destroy):
         args[str("extra")] = f"{extra!r}"
         args[str("ti")] = builder.state.ti
         args[str("scale")] = builder.state.scale
-        log("try_place: built {etype} at {pos} extra={extra} (ti={ti}, scale={scale:.2f})", args)
+        log(
+            "try_place: built {etype} at {pos} extra={extra} (ti={ti}, scale={scale:.2f})",
+            args,
+        )
         ct.build(etype, pos, extra)
         return True
     args = {}
     args[str("etype")] = f"{etype!r}"
     args[str("pos")] = auto_wrap_position(pos)
     args[str("extra")] = f"{extra!r}"
-    log("try_place: controller rejected {etype} at {pos} extra={extra} (can_build False)", args)
+    log(
+        "try_place: controller rejected {etype} at {pos} extra={extra} (can_build False)",
+        args,
+    )
     return False
+
 
 def trace_downstream(builder, start_pos, target_head):
     path: list[Position] = []
     _trace_downstream_inner(builder, start_pos, target_head, path)
     return path
+
 
 def _trace_downstream_inner(builder, start_pos, target_head, path):
     current_pos = start_pos
@@ -231,7 +268,7 @@ def _trace_downstream_inner(builder, start_pos, target_head, path):
         kind = builder.building_kind[i]
         match kind:
             case EntityType.CONVEYOR | EntityType.ARMOURED_CONVEYOR | EntityType.BRIDGE:
-                if (not builder.out_edges[i]):
+                if not builder.out_edges[i]:
                     break
                 current_pos = builder.out_edges[i][0]
             case EntityType.SPLITTER:
@@ -244,13 +281,14 @@ def _trace_downstream_inner(builder, start_pos, target_head, path):
                         if not (not new_path) and (target_head in new_path):
                             path = new_path
                             return
-                    elif (builder.get_building(new_pos) is None):
+                    elif builder.get_building(new_pos) is None:
                         path.append(new_pos)
                         return
             case _:
                 break
-        if (current_pos in path):
+        if current_pos in path:
             break
+
 
 def try_heal(builder, ct, position, conserve_ti):
     repair_pos = builder.repair_pos
@@ -266,6 +304,7 @@ def try_heal(builder, ct, position, conserve_ti):
         return True
     return False
 
+
 def move_random(builder, ct):
     dir8: list[Direction] = list(DIR8)
     builder.state.rng.shuffle(dir8)
@@ -275,23 +314,33 @@ def move_random(builder, ct):
             return True
     return False
 
+
 def trace_upstream(builder, position):
     path: list[Position] = []
     feeders: list[Position] = [position]
     while not (not feeders):
         position = feeders[0]
         feeders = builder.get_in_edges(position)
-        if (position in path):
+        if position in path:
             break
         path.append(position)
     return path
+
 
 def ore_available(builder, pos):
     __opt_kind__team = builder.get_building(pos)
     kind = __opt_kind__team[0] if __opt_kind__team is not None else None
     _team = __opt_kind__team[1] if __opt_kind__team is not None else None
     if __opt_kind__team is not None:
-        allowed = (kind == EntityType.ROAD or kind == EntityType.MARKER or kind == EntityType.BARRIER) or (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR) and is_inward_guard(builder, pos)
+        allowed = (
+            (
+                kind == EntityType.ROAD
+                or kind == EntityType.MARKER
+                or kind == EntityType.BARRIER
+            )
+            or (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR)
+            and is_inward_guard(builder, pos)
+        )
         if not allowed:
             return False
     uid = builder.state.all_bots.get(pos)
@@ -299,9 +348,14 @@ def ore_available(builder, pos):
         return False
     return True
 
+
 def harvester_feed_cardinal(builder, ore_pos):
     """The cardinal of `ore_pos` chosen as the future flow-feed slot."""
-    sink: Position | None = (builder.en_core_guess if (builder.symmetry is not None) else None) if on_enemy_side(builder, ore_pos) else (t if ((t := builder.ti_sink) is not None) else builder.my_core)
+    sink: Position | None = (
+        (builder.en_core_guess if (builder.symmetry is not None) else None)
+        if on_enemy_side(builder, ore_pos)
+        else (t if ((t := builder.ti_sink) is not None) else builder.my_core)
+    )
     sink = sink
     if sink is None:
         args = {}
@@ -324,12 +378,25 @@ def harvester_feed_cardinal(builder, ore_pos):
         ci = builder.idx(c)
         kind = builder.building_kind[ci]
         team = builder.building_team[ci]
-        if ((kind is not None) and (kind == EntityType.BRIDGE or kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR or kind == EntityType.SPLITTER)) and team != builder.state.my_team:
+        if (
+            (kind is not None)
+            and (
+                kind == EntityType.BRIDGE
+                or kind == EntityType.CONVEYOR
+                or kind == EntityType.ARMOURED_CONVEYOR
+                or kind == EntityType.SPLITTER
+            )
+        ) and team != builder.state.my_team:
             classification.append((c, "enemy_transport"))
             continue
         match kind:
             case EntityType.BRIDGE:
-                target = ((builder.out_edges[ci][0] if builder.out_edges[ci] else None) if (builder.out_edges[ci][0] if builder.out_edges[ci] else None) is not None else c)
+                target = (
+                    (builder.out_edges[ci][0] if builder.out_edges[ci] else None)
+                    if (builder.out_edges[ci][0] if builder.out_edges[ci] else None)
+                    is not None
+                    else c
+                )
                 if target == ore_pos:
                     classification.append((c, "inward_guard: bridge target == ore"))
                 else:
@@ -337,7 +404,12 @@ def harvester_feed_cardinal(builder, ore_pos):
                     classification.append((c, "tier1: bridge"))
                 continue
             case EntityType.CONVEYOR | EntityType.ARMOURED_CONVEYOR:
-                target = ((builder.out_edges[ci][0] if builder.out_edges[ci] else None) if (builder.out_edges[ci][0] if builder.out_edges[ci] else None) is not None else c)
+                target = (
+                    (builder.out_edges[ci][0] if builder.out_edges[ci] else None)
+                    if (builder.out_edges[ci][0] if builder.out_edges[ci] else None)
+                    is not None
+                    else c
+                )
                 if target == ore_pos:
                     classification.append((c, "inward_guard: conveyor output -> ore"))
                 else:
@@ -352,13 +424,20 @@ def harvester_feed_cardinal(builder, ore_pos):
                         tier1.append(c)
                         classification.append((c, "tier1: outward splitter"))
                     else:
-                        classification.append((c, "inward_guard: splitter back not -> ore"))
+                        classification.append(
+                            (c, "inward_guard: splitter back not -> ore")
+                        )
                 continue
             case EntityType.CORE if team == builder.state.my_team:
                 tier1.append(c)
                 classification.append((c, "tier1: my_core"))
                 continue
-            case EntityType.FOUNDRY | EntityType.CORE | EntityType.HARVESTER | EntityType.BARRIER:
+            case (
+                EntityType.FOUNDRY
+                | EntityType.CORE
+                | EntityType.HARVESTER
+                | EntityType.BARRIER
+            ):
                 classification.append((c, "blocking_building"))
                 continue
             case _:
@@ -368,15 +447,32 @@ def harvester_feed_cardinal(builder, ore_pos):
         d_away = delta_to_dir(dx, dy)
         if d_away is None:
             continue
-        u_shape = [c.add(d_away), c.add(rotate_left(rotate_left(d_away))), c.add(rotate_right(rotate_right(d_away))), c.add(rotate_left(d_away)), c.add(rotate_right(d_away))]
-        has_escape = any(builder.in_bounds(p) and builder.cost_grid[builder.idx(p)] != 1000000 for p in u_shape)
+        u_shape = [
+            c.add(d_away),
+            c.add(rotate_left(rotate_left(d_away))),
+            c.add(rotate_right(rotate_right(d_away))),
+            c.add(rotate_left(d_away)),
+            c.add(rotate_right(d_away)),
+        ]
+        has_escape = any(
+            builder.in_bounds(p) and builder.cost_grid[builder.idx(p)] != 1000000
+            for p in u_shape
+        )
         if not has_escape:
             classification.append((c, "no_escape"))
             continue
         tier2.append(c)
         classification.append((c, "tier2"))
-    chosen: Position | None = (min(tier1, key=lambda c: c.distance_squared(sink)) if tier1 else None) if not (not tier1) else ((min(tier2, key=lambda c: c.distance_squared(sink)) if tier2 else None) if not (not tier2) else None)
-    if (chosen is None):
+    chosen: Position | None = (
+        (min(tier1, key=lambda c: c.distance_squared(sink)) if tier1 else None)
+        if not (not tier1)
+        else (
+            (min(tier2, key=lambda c: c.distance_squared(sink)) if tier2 else None)
+            if not (not tier2)
+            else None
+        )
+    )
+    if chosen is None:
         label = f"feed_pick_{ore_pos.x}_{ore_pos.y}"
         with Scope(label) as _g:
             args = {}
@@ -386,27 +482,58 @@ def harvester_feed_cardinal(builder, ore_pos):
                 c = ore_pos.add(d)
                 if not builder.in_bounds(c):
                     continue
-                status = (next((__v for t in classification if (__v := t[1] if t[0] == c else None) is not None), None) if next((__v for t in classification if (__v := t[1] if t[0] == c else None) is not None), None) is not None else "?")
+                status = (
+                    next(
+                        (
+                            __v
+                            for t in classification
+                            if (__v := t[1] if t[0] == c else None) is not None
+                        ),
+                        None,
+                    )
+                    if next(
+                        (
+                            __v
+                            for t in classification
+                            if (__v := t[1] if t[0] == c else None) is not None
+                        ),
+                        None,
+                    )
+                    is not None
+                    else "?"
+                )
                 args = {}
                 args[str("c")] = auto_wrap_position(c)
                 args[str("status")] = str(status)
                 log("  {c}: {status}", args)
     return chosen
 
+
 def harvester_io_cardinals(builder, ore_pos):
     """Cardinals of `ore_pos` that must NOT be barriered."""
-    cardinals: list[Position] = list((p for p in (ore_pos.add(d) for d in DIR4) if builder.in_bounds(p)))
+    cardinals: list[Position] = list(
+        (p for p in (ore_pos.add(d) for d in DIR4) if builder.in_bounds(p))
+    )
     reserved: set[Position] = set()
     for c in cardinals:
         if c == builder.state.my_pos:
             reserved.add(c)
             continue
-        if ((builder.building_kind[builder.idx(c)] is not None) and (builder.building_kind[builder.idx(c)] == EntityType.CONVEYOR or builder.building_kind[builder.idx(c)] == EntityType.ARMOURED_CONVEYOR or builder.building_kind[builder.idx(c)] == EntityType.SPLITTER or builder.building_kind[builder.idx(c)] == EntityType.BRIDGE or builder.building_kind[builder.idx(c)] == EntityType.FOUNDRY or builder.building_kind[builder.idx(c)] == EntityType.CORE or builder.building_kind[builder.idx(c)] == EntityType.HARVESTER)):
+        if (builder.building_kind[builder.idx(c)] is not None) and (
+            builder.building_kind[builder.idx(c)] == EntityType.CONVEYOR
+            or builder.building_kind[builder.idx(c)] == EntityType.ARMOURED_CONVEYOR
+            or builder.building_kind[builder.idx(c)] == EntityType.SPLITTER
+            or builder.building_kind[builder.idx(c)] == EntityType.BRIDGE
+            or builder.building_kind[builder.idx(c)] == EntityType.FOUNDRY
+            or builder.building_kind[builder.idx(c)] == EntityType.CORE
+            or builder.building_kind[builder.idx(c)] == EntityType.HARVESTER
+        ):
             reserved.add(c)
     feed = harvester_feed_cardinal(builder, ore_pos)
     if feed is not None:
         reserved.add(feed)
     return reserved
+
 
 def harvester_barrier_saturated(builder, ore_pos):
     """True iff at least 3 of `ore_pos`'s 4 in-bounds cardinals already host a barrier."""
@@ -419,18 +546,32 @@ def harvester_barrier_saturated(builder, ore_pos):
             barriers += 1
     return barriers >= 3
 
+
 def pick_ore_target(builder):
     return _pick_ore(builder, Environment.ORE_TITANIUM)
 
+
 def pick_ax_ore_target(builder):
     return _pick_ore(builder, Environment.ORE_AXIONITE)
+
 
 def pick_offensive_ti_ore_target(builder):
     """Pick a Ti ore tile outside our econ disc for an offensive harvester."""
     econ_radius_sq = builder.econ_radius_sq
     my_pos = builder.state.my_pos
     my_core = builder.my_core
-    friendlies: list[tuple[Position, int]] = list((__v for t in builder.state.all_bots.items() if (__v := (t[0], t[1]) if t[1] != builder.state.my_id and (t[0] in builder.state.friendly_bots) else None) is not None))
+    friendlies: list[tuple[Position, int]] = list(
+        (
+            __v
+            for t in builder.state.all_bots.items()
+            if (
+                __v := (t[0], t[1])
+                if t[1] != builder.state.my_id and (t[0] in builder.state.friendly_bots)
+                else None
+            )
+            is not None
+        )
+    )
     best_target: Position | None = None
     min_dist = 9223372036854775807
     for pos in sorted(builder.visible_ti_ores):
@@ -459,10 +600,14 @@ def pick_offensive_ti_ore_target(builder):
         best_target = pos
     return best_target
 
+
 def harvester_would_contaminate(builder, pos):
     ore_env = builder.env[builder.idx(pos)]
     if ore_env == Environment.ORE_TITANIUM:
-        bad_upstream, bad_flows = (builder.ax_upstream, [ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE])
+        bad_upstream, bad_flows = (
+            builder.ax_upstream,
+            [ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE],
+        )
     else:
         if ore_env == Environment.ORE_AXIONITE:
             bad_upstream, bad_flows = (builder.ti_upstream, [ResourceType.TITANIUM])
@@ -479,12 +624,20 @@ def harvester_would_contaminate(builder, pos):
         if __opt_tuple is None:
             continue
         kind, team = __opt_tuple
-        if not (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR or kind == EntityType.SPLITTER or kind == EntityType.BRIDGE):
+        if not (
+            kind == EntityType.CONVEYOR
+            or kind == EntityType.ARMOURED_CONVEYOR
+            or kind == EntityType.SPLITTER
+            or kind == EntityType.BRIDGE
+        ):
             continue
         if team != builder.state.my_team:
             continue
         ni = int(n.y) * 50 + int(n.x)
-        is_bad = (n in bad_upstream) or any((t[0] is not None and (lambda res: (res in bad_flows))(t[0])) for t in builder.flow_history[ni])
+        is_bad = (n in bad_upstream) or any(
+            (t[0] is not None and (lambda res: res in bad_flows)(t[0]))
+            for t in builder.flow_history[ni]
+        )
         if not is_bad:
             continue
         hostile_found = True
@@ -495,7 +648,12 @@ def harvester_would_contaminate(builder, pos):
                 heavy_hostile_count += 1
     if not hostile_found:
         return False
-    return not (ore_env == Environment.ORE_AXIONITE and heavy_hostile_count == 0 and pure_ti_conveyor_count == 1)
+    return not (
+        ore_env == Environment.ORE_AXIONITE
+        and heavy_hostile_count == 0
+        and pure_ti_conveyor_count == 1
+    )
+
 
 def on_enemy_side(builder, pos):
     """
@@ -503,6 +661,7 @@ def on_enemy_side(builder, pos):
     `sqrt(econ_radius_sq)` (= 0.7·max(w,h)) from our core.
     """
     return pos.distance_squared(builder.my_core) > builder.econ_radius_sq
+
 
 def is_inward_guard(builder, pos):
     """
@@ -512,23 +671,45 @@ def is_inward_guard(builder, pos):
     i = builder.idx(pos)
     kind = builder.building_kind[i]
     team = builder.building_team[i]
-    if not ((kind is not None) and (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR)):
+    if not (
+        (kind is not None)
+        and (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR)
+    ):
         return False
     if team != builder.state.my_team:
         return False
-    if (not builder.out_edges[i]):
+    if not builder.out_edges[i]:
         return False
     target = builder.out_edges[i][0]
     if not builder.in_bounds(target):
         return False
-    return builder.building_kind[builder.idx(target)] == EntityType.HARVESTER and builder.building_team[builder.idx(target)] == builder.state.my_team
+    return (
+        builder.building_kind[builder.idx(target)] == EntityType.HARVESTER
+        and builder.building_team[builder.idx(target)] == builder.state.my_team
+    )
+
 
 def _pick_ore(builder, wanted):
-    ore_set = builder.visible_ti_ores if wanted == Environment.ORE_TITANIUM else builder.visible_ax_ores
+    ore_set = (
+        builder.visible_ti_ores
+        if wanted == Environment.ORE_TITANIUM
+        else builder.visible_ax_ores
+    )
     econ_radius_sq = builder.econ_radius_sq
     my_pos = builder.state.my_pos
     my_core = builder.my_core
-    friendlies: list[tuple[Position, int]] = list((__v for t in builder.state.all_bots.items() if (__v := (t[0], t[1]) if t[1] != builder.state.my_id and (t[0] in builder.state.friendly_bots) else None) is not None))
+    friendlies: list[tuple[Position, int]] = list(
+        (
+            __v
+            for t in builder.state.all_bots.items()
+            if (
+                __v := (t[0], t[1])
+                if t[1] != builder.state.my_id and (t[0] in builder.state.friendly_bots)
+                else None
+            )
+            is not None
+        )
+    )
     best_target: Position | None = None
     min_dist = 9223372036854775807
     for pos in sorted(ore_set):
@@ -553,13 +734,16 @@ def _pick_ore(builder, wanted):
             continue
         if harvester_would_contaminate(builder, pos):
             continue
-        if (harvester_feed_cardinal(builder, pos) is None):
+        if harvester_feed_cardinal(builder, pos) is None:
             continue
         min_dist = d
         best_target = pos
     return best_target
+
+
 _UPSTREAM_MAX_NODES: Final[int] = 80
 _DOWNSTREAM_MAX_NODES: Final[int] = 80
+
 
 def upstream_tree(builder, start):
     """
@@ -573,11 +757,12 @@ def upstream_tree(builder, start):
         if len(visited) >= 80:
             break
         for u in builder.in_edges[int(pos.y) * 50 + int(pos.x)]:
-            if (u in visited):
+            if u in visited:
                 continue
             visited.add(u)
             queue.append(u)
     return visited
+
 
 def downstream_tree(builder, start):
     """BFS forwards via `out_edges`."""
@@ -588,40 +773,56 @@ def downstream_tree(builder, start):
         if len(visited) >= 80:
             break
         for out in builder.out_edges[int(pos.y) * 50 + int(pos.x)]:
-            if (out in visited):
+            if out in visited:
                 continue
             visited.add(out)
             queue.append(out)
     return visited
 
+
 def chain_has_foundry(builder, start):
     my_team = builder.state.my_team
     for pos in upstream_tree(builder, start):
-        if builder.building_kind[builder.idx(pos)] == EntityType.FOUNDRY and builder.building_team[builder.idx(pos)] == my_team:
+        if (
+            builder.building_kind[builder.idx(pos)] == EntityType.FOUNDRY
+            and builder.building_team[builder.idx(pos)] == my_team
+        ):
             return True
     for pos in downstream_tree(builder, start):
-        if builder.building_kind[builder.idx(pos)] == EntityType.FOUNDRY and builder.building_team[builder.idx(pos)] == my_team:
+        if (
+            builder.building_kind[builder.idx(pos)] == EntityType.FOUNDRY
+            and builder.building_team[builder.idx(pos)] == my_team
+        ):
             return True
     return False
 
+
 def ax_feeds_target(builder, target):
     for feeder in builder.in_edges[int(target.y) * 50 + int(target.x)]:
-        if (feeder in builder.ax_upstream):
+        if feeder in builder.ax_upstream:
             return True
     for d in DIR4:
         n = target.add(d)
         if not builder.in_bounds(n):
             continue
         ni = int(n.y) * 50 + int(n.x)
-        if builder.building_kind[ni] == EntityType.HARVESTER and builder.building_team[ni] == builder.state.my_team and builder.env[ni] == Environment.ORE_AXIONITE:
+        if (
+            builder.building_kind[ni] == EntityType.HARVESTER
+            and builder.building_team[ni] == builder.state.my_team
+            and builder.env[ni] == Environment.ORE_AXIONITE
+        ):
             return True
     return False
 
+
 def tile_has_ax_flow(builder, pos):
     for r, _rid in builder.flow_history[int(pos.y) * 50 + int(pos.x)]:
-        if ((r is not None) and (r == ResourceType.RAW_AXIONITE or r == ResourceType.REFINED_AXIONITE)):
+        if (r is not None) and (
+            r == ResourceType.RAW_AXIONITE or r == ResourceType.REFINED_AXIONITE
+        ):
             return True
     return False
+
 
 def rotate_right(d):
     match d:
@@ -643,6 +844,7 @@ def rotate_right(d):
             return Direction.NORTH
         case Direction.CENTRE:
             return Direction.CENTRE
+
 
 def rotate_left(d):
     match d:

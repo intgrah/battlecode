@@ -22,6 +22,7 @@ __all__ = [
     "mirror_pos",
 ]
 
+
 class Entity(IntEnum):
     CONVEYOR = 4
     ARMOURED_CONVEYOR = 6
@@ -59,21 +60,25 @@ DIR_DELTA: dict[Direction, tuple[int, int]] = {
     Direction.NORTHWEST: (-1, -1),
 }
 
-DIRECTIONAL: frozenset[Entity] = frozenset({
-    Entity.CONVEYOR,
-    Entity.ARMOURED_CONVEYOR,
-    Entity.SPLITTER,
-    Entity.GUNNER,
-    Entity.SENTINEL,
-    Entity.BREACH,
-})
+DIRECTIONAL: frozenset[Entity] = frozenset(
+    {
+        Entity.CONVEYOR,
+        Entity.ARMOURED_CONVEYOR,
+        Entity.SPLITTER,
+        Entity.GUNNER,
+        Entity.SENTINEL,
+        Entity.BREACH,
+    }
+)
 
-TURRET: frozenset[Entity] = frozenset({
-    Entity.GUNNER,
-    Entity.SENTINEL,
-    Entity.BREACH,
-    Entity.LAUNCHER,
-})
+TURRET: frozenset[Entity] = frozenset(
+    {
+        Entity.GUNNER,
+        Entity.SENTINEL,
+        Entity.BREACH,
+        Entity.LAUNCHER,
+    }
+)
 
 DELTA_DIR: dict[tuple[int, int], Direction] = {d: k for k, d in DIR_DELTA.items()}
 

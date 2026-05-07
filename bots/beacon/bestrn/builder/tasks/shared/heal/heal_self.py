@@ -6,19 +6,23 @@ Heal own tile. If standing on an enemy building, step off first
 when there's an unwounded escape direction. Bails out under the
 "fight to death" gate (low-HP self on enemy tile).
 """
+
 from __future__ import annotations
 
 from cambc import GameConstants
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi
 if TYPE_CHECKING:
     from builder import Builder
 from builder.helpers import move_random, try_heal
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
 from builder.tasks.shared.heal._helpers import fight_to_death, has_wounded_enemy
+
 
 def heal_self(self_, ct):
     if fight_to_death(self_, ct):

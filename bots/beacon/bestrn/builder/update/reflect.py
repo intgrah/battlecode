@@ -4,10 +4,13 @@ from typing import Final
 
 from cambc import Environment, Position
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from builder import Builder
 from util.constants import INF, MAX_WIDTH, ROAD_COST
+
 _REFLECT_BUDGET: Final[int] = 25
+
 
 def update_reflect(builder):
     """
@@ -26,11 +29,11 @@ def update_reflect(builder):
     h = builder.state.height
     n = min(len(builder.reflect_queue), 25)
     for _ in range(0, n):
-        i = (builder.reflect_queue.pop(0) if builder.reflect_queue else None)
+        i = builder.reflect_queue.pop(0) if builder.reflect_queue else None
         t = Position(x=int(i % 50), y=int(i // 50))
         m = sym.action(t, w, h)
         mi = int(m.y) * 50 + int(m.x)
-        if (builder.env[mi] is not None):
+        if builder.env[mi] is not None:
             continue
         env = builder.env[i]
         builder.env[mi] = env

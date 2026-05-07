@@ -16,6 +16,7 @@ cdylib has its own copy of the static, and the engine serialises bot
 calls per turn, so no locking is needed in practice — `unsafe` reads from
 a `static mut` are fine on this single-threaded path.
 """
+
 from __future__ import annotations
 
 from typing import Final
@@ -23,14 +24,30 @@ import time
 import json
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position
 from config import DEBUG_LOG
 from util.visualiser import Dumper
+
 if TYPE_CHECKING:
-    from util.visualiser import Dump, DumpBoolGrid, DumpU8Grid, DumpI16Grid, DumpU16Grid, DumpF32Grid, DumpTiles, DumpTile, DumpDot, DumpPath, DumpVectorField, DumpScalar
+    from util.visualiser import (
+        Dump,
+        DumpBoolGrid,
+        DumpU8Grid,
+        DumpI16Grid,
+        DumpU16Grid,
+        DumpF32Grid,
+        DumpTiles,
+        DumpTile,
+        DumpDot,
+        DumpPath,
+        DumpVectorField,
+        DumpScalar,
+    )
 TYPE_KEY: Final[str] = "$type"
 """Discriminator key for typed JSON nodes (matches Python `_TYPE = "$type"`)."""
+
 
 class Frame:
     """
@@ -38,6 +55,7 @@ class Frame:
     `children` array, plus (for timed scopes) the start nanosecond timestamp.
     The frame at index 0 has `parent_child_idx = None` because it is the root.
     """
+
     parent_child_idx: int | None
     t0_ns: int | None
 
@@ -45,8 +63,10 @@ class Frame:
         self.parent_child_idx = parent_child_idx
         self.t0_ns = t0_ns
 
+
 class DebugCtx:
     """Per-bot debug state. One instance per process via `DebugCtx::global()`."""
+
     root: Value | None
     frames: list[Frame]
     dumper: Dumper
@@ -73,7 +93,7 @@ class DebugCtx:
     def push_scope(self, label, timed):
         node = {"$type": "scope", "name": str(label), "children": []}
         t0_ns = time.perf_counter_ns() if timed else None
-        if (self.root is None):
+        if self.root is None:
             self.root = node
             self.frames.append(Frame(parent_child_idx=None, t0_ns=t0_ns))
             return
@@ -84,22 +104,22 @@ class DebugCtx:
         self.frames.append(Frame(parent_child_idx=idx, t0_ns=t0_ns))
 
     def pop_scope(self):
-        frame = (self.frames.pop() if self.frames else None)
+        frame = self.frames.pop() if self.frames else None
         t0_ns = frame.t0_ns
         if t0_ns is not None:
             us = (time.perf_counter_ns() - t0_ns) // 1000
-            if (not self.frames):
+            if not self.frames:
                 root = self.root
                 root["us"] = us
             else:
                 idx = frame.parent_child_idx
                 parent = self.current_scope_mut()
                 parent["children"][idx]["us"] = us
-        if (not self.frames):
+        if not self.frames:
             self.root = None
 
     def emit_child(self, node):
-        if (not self.frames):
+        if not self.frames:
             return
         parent = self.current_scope_mut()
         parent["children"].append(node)
@@ -109,7 +129,7 @@ class DebugCtx:
         self.emit_child(node)
 
     def vis(self, name, value):
-        if (not self.frames):
+        if not self.frames:
             return
         root = self.root
         node: Value = root
@@ -131,6 +151,8 @@ class DebugCtx:
     @staticmethod
     def default():
         return DebugCtx()
+
+
 CTX: DebugCtx | None = None
 """
 Process-global debug context. Lazily initialised on first access. Each
@@ -139,11 +161,13 @@ per turn, so the unsynchronised access is safe on the single-threaded
 hot path.
 """
 
+
 def ctx():
     global CTX
-    if (CTX is None):
+    if CTX is None:
         CTX = DebugCtx()
     return CTX
+
 
 class Scope:
     """
@@ -155,6 +179,7 @@ class Scope:
     pyrust will translate `let _g = Scope::new("foo");` blocks back to Python
     `with Scope("foo"):` blocks (RAII guard ↔ context manager).
     """
+
     label: str
 
     def __init__(self, label):
@@ -185,6 +210,7 @@ class Scope:
     def __exit__(self, exc_type, exc, tb):
         self.drop()
 
+
 def debug(tmpl, args):
     """
     Append a `msg` node under the current scope. `tmpl` is a Python-style
@@ -195,6 +221,7 @@ def debug(tmpl, args):
         return
     ctx().debug(tmpl, args)
 
+
 def vis(name, value):
     """
     Append a vis node under the current scope, routed through the per-unit
@@ -203,6 +230,7 @@ def vis(name, value):
     if not DEBUG_LOG:
         return
     ctx().vis(name, value)
+
 
 def flush():
     """
@@ -214,6 +242,7 @@ def flush():
         return
     ctx().flush()
 
+
 def dot(ct, pos, r, g, b):
     """
     Wrapper over `Controller::draw_indicator_dot`. Engine-side overlay,
@@ -222,6 +251,7 @@ def dot(ct, pos, r, g, b):
     if not DEBUG_LOG:
         return
     ct.draw_indicator_dot(pos, r, g, b)
+
 
 def line(ct, pos_a, pos_b, r, g, b):
     """Wrapper over `Controller::draw_indicator_line`."""

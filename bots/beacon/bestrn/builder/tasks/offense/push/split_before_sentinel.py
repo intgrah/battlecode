@@ -4,20 +4,24 @@ Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/push/split_before_sen
 Upgrade the conveyor immediately upstream of a friendly sentinel into
 a splitter, forking the offensive chain into three outputs.
 """
+
 from __future__ import annotations
 
 from cambc import Direction, EntityType
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, Position
 if TYPE_CHECKING:
     from builder import Builder
 from builder.helpers import can_afford, make_move, try_place
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
 from util.constants import MAX_WIDTH
 from util.directions import DIR4, delta_to_dir
+
 
 def feeder_delta(self_, pos):
     """
@@ -37,6 +41,7 @@ def feeder_delta(self_, pos):
         return None
     return d
 
+
 def split_before_sentinel(self_, ct):
     if not can_afford(self_, EntityType.SPLITTER):
         return TaskRejected("cannot afford SPLITTER")
@@ -44,11 +49,17 @@ def split_before_sentinel(self_, ct):
     best_dir: Direction | None = None
     best_dist = 1 << 30
     for sent_pos in self_.nearby_buildings:
-        if not (self_.building_kind[self_.idx(sent_pos)] == EntityType.SENTINEL and self_.building_team[self_.idx(sent_pos)] == self_.my_team):
+        if not (
+            self_.building_kind[self_.idx(sent_pos)] == EntityType.SENTINEL
+            and self_.building_team[self_.idx(sent_pos)] == self_.my_team
+        ):
             continue
         feeders = list(self_.in_edges[int(sent_pos.y) * 50 + int(sent_pos.x)])
         for split_pos in feeders:
-            if not (self_.building_kind[self_.idx(split_pos)] == EntityType.CONVEYOR and self_.building_team[self_.idx(split_pos)] == self_.my_team):
+            if not (
+                self_.building_kind[self_.idx(split_pos)] == EntityType.CONVEYOR
+                and self_.building_team[self_.idx(split_pos)] == self_.my_team
+            ):
                 continue
             uid = self_.all_bots.get(split_pos)
             if uid is not None and (uid != self_.my_id):

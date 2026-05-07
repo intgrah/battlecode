@@ -3,10 +3,12 @@ Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/infrastructure/guard_har
 
 Guard work around our Ti harvesters / claimed-but-unbuilt ore tiles.
 """
+
 from __future__ import annotations
 
 from cambc import EntityType, Environment
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position
 if TYPE_CHECKING:
@@ -14,23 +16,29 @@ if TYPE_CHECKING:
 from builder.harvest import needs_harvester_guard, place_harvester_guard
 from builder.helpers import can_afford, harvester_feed_cardinal, harvester_io_cardinals
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
 from util.debug import debug as log
 from util.directions import DIR4
 from util.visualiser import auto_wrap_position
 
+
 def guard_harvester_neighbours(self_, ct):
     targets: list[Position] = []
     for pos in self_.nearby_tiles:
-        if self_.building_kind[self_.idx(pos)] == EntityType.HARVESTER and self_.building_team[self_.idx(pos)] == self_.my_team and self_.env[self_.idx(pos)] == Environment.ORE_TITANIUM:
+        if (
+            self_.building_kind[self_.idx(pos)] == EntityType.HARVESTER
+            and self_.building_team[self_.idx(pos)] == self_.my_team
+            and self_.env[self_.idx(pos)] == Environment.ORE_TITANIUM
+        ):
             targets.append(pos)
     my_pos = self_.my_pos
     for tgt_opt in [self_.ore_target, self_.ax_ore_target]:
         tgt = tgt_opt
         if tgt is not None and (my_pos == tgt) and (not (tgt in targets)):
             targets.append(tgt)
-    if (not targets):
+    if not targets:
         return TaskRejected("nothing to guard around any visible harvester / claim")
     near: set[Position] = list(self_.nearby_tiles)
     affords_road = can_afford(self_, EntityType.ROAD)
@@ -45,7 +53,12 @@ def guard_harvester_neighbours(self_, ct):
         feed = feed
         if feed is None:
             continue
-        if affords_road and (feed in near) and self_.cost_grid[self_.idx(feed)] > 1 and ct.can_build_road(feed):
+        if (
+            affords_road
+            and (feed in near)
+            and self_.cost_grid[self_.idx(feed)] > 1
+            and ct.can_build_road(feed)
+        ):
             args = {}
             args[str("feed")] = auto_wrap_position(feed)
             log("guard_harvester_neighbours: ROAD on feed {feed} (prep step-off)", args)
@@ -57,7 +70,7 @@ def guard_harvester_neighbours(self_, ct):
             pos = target.add(d)
             if not (pos in near):
                 continue
-            if (pos in no_guard):
+            if pos in no_guard:
                 continue
             if not needs_harvester_guard(self_, pos, target, no_guard):
                 continue

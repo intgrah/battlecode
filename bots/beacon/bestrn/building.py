@@ -6,12 +6,15 @@ Per-tile building helpers. The bot stores building state in the
 These free functions handle reading from `ct` at `_add_topology` time
 (the only place Building info enters the bot's state).
 """
+
 from __future__ import annotations
 
 from cambc import Direction, EntityType, Position
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Team
+
 
 def make_building(ct, bid):
     """
@@ -20,9 +23,10 @@ def make_building(ct, bid):
     """
     kind = ct.get_entity_type(bid)
     team = ct.get_team(bid)
-    if (kind == EntityType.BUILDER_BOT):
+    if kind == EntityType.BUILDER_BOT:
         raise Exception("BUILDER_BOT is not a building")
     return (kind, team)
+
 
 def edge_targets(ct, pos, bid, kind):
     """
@@ -41,6 +45,7 @@ def edge_targets(ct, pos, bid, kind):
         case _:
             return []
 
+
 def splitter_back_input(pos, outputs):
     """
     Splitter back-input cell (the side opposite its forward output). Sum
@@ -50,6 +55,7 @@ def splitter_back_input(pos, outputs):
     sum_x: int = sum((p.x for p in outputs))
     sum_y: int = sum((p.y for p in outputs))
     return Position(x=4 * pos.x - sum_x, y=4 * pos.y - sum_y)
+
 
 def rotate_right_2(d):
     match d:
@@ -71,6 +77,7 @@ def rotate_right_2(d):
             return Direction.NORTHEAST
         case Direction.CENTRE:
             return Direction.CENTRE
+
 
 def rotate_left_2(d):
     match d:

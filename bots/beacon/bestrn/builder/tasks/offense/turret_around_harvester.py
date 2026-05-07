@@ -4,20 +4,30 @@ Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/turret_around_harvest
 Place gunner / sentinel turrets adjacent to a vulnerable enemy
 harvester, capping at 2 gunners + 1 sentinel per harvester.
 """
+
 from __future__ import annotations
 
 from cambc import Direction, EntityType, Environment
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position
 if TYPE_CHECKING:
     from builder import Builder
 from builder.helpers import move_random, try_place
-from builder.tasks.offense.helpers import gunner_chain_facing, is_allied_transport, pick_harvester_target, scout_toward_enemy, vulnerable_harvesters
+from builder.tasks.offense.helpers import (
+    gunner_chain_facing,
+    is_allied_transport,
+    pick_harvester_target,
+    scout_toward_enemy,
+    vulnerable_harvesters,
+)
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
 from util.directions import DIR4
+
 
 def direction_to(src, dst):
     """Snap the unit vector from `src` to `dst` to the nearest 45-degree direction."""
@@ -43,6 +53,7 @@ def direction_to(src, dst):
         case _:
             return Direction.CENTRE
 
+
 def rotate_right(d):
     match d:
         case Direction.NORTH:
@@ -64,9 +75,10 @@ def rotate_right(d):
         case Direction.CENTRE:
             return Direction.CENTRE
 
+
 def turret_around_harvester(self_, ct):
     vulnerable = vulnerable_harvesters(self_)
-    if (not vulnerable):
+    if not vulnerable:
         return TaskRejected("not on empty terrain cardinal to a vulnerable harvester")
     target = pick_harvester_target(self_, vulnerable)
     if self_.my_pos.distance_squared(target) != 1:

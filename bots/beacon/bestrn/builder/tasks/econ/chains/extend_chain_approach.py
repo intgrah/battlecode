@@ -8,17 +8,21 @@ variant rejects (dangling end out of vision). The cached
 `dangling_output` is refreshed every turn by `update_dangling` (no
 stickiness).
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller
 if TYPE_CHECKING:
     from builder import Builder
 from builder.chain_routing import extend_chain
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
+
 
 def extend_chain_approach(self_, ct):
     dangling = self_.dangling_output

@@ -46,7 +46,13 @@ def explore(self: Builder, ct: Controller) -> None:
         or not m.is_passable(self._idx(t))
     ):
         t = Position(-10, -10)
-        while t.x < 0 or t.y < 0 or t.x >= m.w or t.y >= m.h or not m.is_passable(self._idx(t)):
+        while (
+            t.x < 0
+            or t.y < 0
+            or t.x >= m.w
+            or t.y >= m.h
+            or not m.is_passable(self._idx(t))
+        ):
             theta = self.rng.random() * 2 * math.pi
             t = Position(
                 my_pos.x + round(math.cos(theta) * self.scout_radius),
@@ -77,7 +83,13 @@ def initial_explore(self: Builder, ct: Controller, vertical: int = 0) -> None:
         or m.get_cost(self._idx(t)) == INF
     ):
         t = Position(-10, -10)
-        while t.x < 0 or t.y < 0 or t.x >= m.w or t.y >= m.h or m.get_cost(self._idx(t)) == INF:
+        while (
+            t.x < 0
+            or t.y < 0
+            or t.x >= m.w
+            or t.y >= m.h
+            or m.get_cost(self._idx(t)) == INF
+        ):
             up_down = self.rng.randint(0, 1)
             theta = self.rng.random() * math.pi / 2
             if not vertical:
@@ -89,10 +101,8 @@ def initial_explore(self: Builder, ct: Controller, vertical: int = 0) -> None:
             if number_tries > 5:
                 vertical = -1
             t = Position(
-                my_pos.x
-                + round(math.cos(theta) * self.scout_initial_radius),
-                my_pos.y
-                + round(math.sin(theta) * self.scout_initial_radius),
+                my_pos.x + round(math.cos(theta) * self.scout_initial_radius),
+                my_pos.y + round(math.sin(theta) * self.scout_initial_radius),
             )
             if (
                 self.scout_initial_radius >= m.w / 2

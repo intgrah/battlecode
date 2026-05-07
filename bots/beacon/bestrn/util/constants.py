@@ -1,9 +1,11 @@
 """Translation of `bots/intgrah/v54.7.9/util/constants.py`."""
+
 from __future__ import annotations
 
 from typing import Final
 
 from cambc import EntityType, GameConstants
+
 FLOW_HISTORY_LEN: Final[int] = 8
 """
 Length of per-tile `flow_history` deques. Each entry is one observation
@@ -18,6 +20,7 @@ MAX_WIDTH: Final[int] = 50
 """Hardcoded map-size stride for flat indexing. All flat arrays are length `MAX_N`."""
 MAX_N: Final[int] = 50 * 50
 """Length of all flat per-tile arrays (2500)."""
+
 
 def base_cost(et):
     """
