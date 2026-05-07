@@ -6,7 +6,7 @@ from typing import override
 
 from cambc import Controller, Direction, EntityType, ResourceType
 from unit import Unit
-from util import DIR4, DIR8, DELTA_TO_DIR
+from util import DELTA_TO_DIR, DIR4, DIR8
 
 __all__ = ["Core"]
 

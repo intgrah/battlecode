@@ -20,9 +20,10 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import Position
+from util.constants import MAX_N
+
 from builder.algorithms.bug2_planner import Bug2Planner, build_mline_seq
 from builder.algorithms.dp_step import dp_step
-from util.constants import INF, MAX_N, MAX_WIDTH
 
 PLAN_BUDGET: Final[int] = 25
 
@@ -48,7 +49,7 @@ class NavCtx:
         h: int,
         nearby_tiles: list[Position],
         all_bots: dict[Position, int],
-    ):
+    ) -> None:
         self.my_pos = my_pos
         self.cost_grid = cost_grid
         self.w = w
@@ -68,7 +69,7 @@ class BugNav:
     unreachable: bool
     committed: list[int]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.active_goal = None
         self.active_start = None
         self.planner = None
@@ -89,8 +90,7 @@ class BugNav:
         p = self.planner
         if p is not None:
             return p.path_idx()
-        else:
-            return self.path_idx_storage
+        return self.path_idx_storage
 
     def step(self, ctx, goal):
         """
@@ -104,10 +104,10 @@ class BugNav:
         pos = ctx.my_pos
         if pos == goal:
             return None
-        stride = int(50)
+        stride = 50
         si = pos.y * stride + pos.x
         gi = goal.y * stride + goal.x
-        for attempt in range(0, 2):
+        for attempt in range(2):
             force_replan = attempt == 1
             replan = (
                 force_replan
@@ -135,7 +135,7 @@ class BugNav:
             if self.unreachable:
                 return None
             if not self.gen_done and (self.planner is not None):
-                for _ in range(0, 25):
+                for _ in range(25):
                     planner = self.planner
                     match planner.step(ctx.cost_grid):
                         case None:
@@ -160,7 +160,7 @@ class BugNav:
                 if self.unreachable:
                     return None
             saved: list[tuple[int, int]] = []
-            for fb_pos in ctx.all_bots.keys():
+            for fb_pos in ctx.all_bots:
                 if fb_pos == pos:
                     continue
                 fi = int(fb_pos.y * stride + fb_pos.x)
@@ -172,7 +172,7 @@ class BugNav:
                 else self.path_idx_storage
             )
             cur_min = path_idx_ref[int(si)]
-            nxt = dp_step(int(50), ctx.cost_grid, ctx.h, si, path_idx_ref, cur_min)
+            nxt = dp_step(50, ctx.cost_grid, ctx.h, si, path_idx_ref, cur_min)
             for fi, prev in saved:
                 ctx.cost_grid[fi] = prev
             if nxt == si:
@@ -180,13 +180,10 @@ class BugNav:
             return Position(x=nxt % stride, y=nxt // stride)
         return None
 
-    def any_path_tile_visible(self, nearby):
-        stride = int(50)
+    def any_path_tile_visible(self, nearby) -> bool:
+        stride = 50
         path_idx = self.path_idx()
-        for tile in nearby:
-            if path_idx[int(tile.y * stride + tile.x)] != -1:
-                return True
-        return False
+        return any(path_idx[int(tile.y * stride + tile.x)] != -1 for tile in nearby)
 
     def path_idx_array(self):
         """
@@ -200,8 +197,8 @@ class BugNav:
         Cells the planner has committed to the path so far, in order
         (start → goalward). Used by the state dump as a `DumpPath`.
         """
-        stride = int(50)
-        return list((Position(x=i % stride, y=i // stride) for i in self.committed))
+        stride = 50
+        return [Position(x=i % stride, y=i // stride) for i in self.committed]
 
     def mline(self):
         """
@@ -212,6 +209,4 @@ class BugNav:
         g = self.active_goal
         if s is None or g is None:
             return []
-        return list(
-            (Position(x=t[0], y=t[1]) for t in build_mline_seq(s.x, s.y, g.x, g.y))
-        )
+        return [Position(x=t[0], y=t[1]) for t in build_mline_seq(s.x, s.y, g.x, g.y)]

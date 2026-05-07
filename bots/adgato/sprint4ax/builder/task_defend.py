@@ -14,8 +14,8 @@ from building import (
     BuildingSentinel,
     BuildingSplitter,
 )
-from cambc import Controller, EntityType, GameConstants, Direction, Team
-from util import DIR4, DIR8, DELTA_TO_DIR, get_direction_object
+from cambc import Controller, Direction, EntityType, GameConstants, Team
+from util import DELTA_TO_DIR, DIR4, DIR8, get_direction_object
 
 from .helpers import move_random, try_place
 

@@ -10,22 +10,14 @@ one is set and the target is far; else direct.
 from __future__ import annotations
 
 from cambc import EntityType
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from cambc import Controller
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.helpers import make_move
 from builder.tasks.offense.helpers import vulnerable_harvesters
 from builder.tasks.rejected import TaskRejected
 
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
-
 
 def walk_to_cached_target(self_, ct):
-    if not (not vulnerable_harvesters(self_)):
+    if vulnerable_harvesters(self_):
         return TaskRejected("a vulnerable harvester is in vision — approach it first")
     offense_target = self_.offense_target
     if offense_target is None:

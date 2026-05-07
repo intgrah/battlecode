@@ -10,22 +10,16 @@ extend-chain tasks. Otherwise approach the bridge.
 
 from __future__ import annotations
 
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from cambc import EntityType
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position
-if TYPE_CHECKING:
-    from builder import Builder
+    from cambc import Position
+from util.metrics import chebyshev
+
 from builder.helpers import make_move
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
-from util.constants import MAX_WIDTH
-from util.metrics import chebyshev
 
 UPSTREAM_SEARCH_CAP: Final[int] = 80
 

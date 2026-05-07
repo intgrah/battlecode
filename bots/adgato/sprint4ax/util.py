@@ -1,8 +1,9 @@
 from __future__ import annotations
-from enum import StrEnum
-from typing import Final, TYPE_CHECKING
 
-from cambc import Controller, Direction, EntityType, GameConstants, Position
+from enum import StrEnum
+from typing import TYPE_CHECKING, Final
+
+from cambc import Controller, Direction, EntityType, GameConstants
 
 if TYPE_CHECKING:
     from builder import Builder, PosInt

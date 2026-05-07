@@ -20,18 +20,12 @@ shape the target selection reactively.
 
 from __future__ import annotations
 
-from typing import Final
 import math
+from typing import Final
 
 from cambc import Position
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from cambc import Controller
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.helpers import make_move
-from util.constants import MAX_WIDTH
 
 _K_CANDIDATES: Final[int] = 20
 """Number of unobserved tiles to sample as candidate targets each replan."""
@@ -56,7 +50,7 @@ full γ penalty; falls off linearly to 0 at radius.
 """
 
 
-def explore(builder, ct):
+def explore(builder, ct) -> None:
     if (builder.explore_target is None) or _target_invalid(
         builder, builder.explore_target
     ):
@@ -101,7 +95,7 @@ def _pick_target(builder):
     cx = center.x
     cy = center.y
     candidates: list[Position] = []
-    for _ in range(0, 20 * 4):
+    for _ in range(20 * 4):
         if len(candidates) >= 20:
             break
         x = int(builder.state.rng.randint(0, int(w - 1)))
@@ -144,12 +138,12 @@ def _score(builder, c, heading):
     unseen = 0
     for k in range(1, (8) + 1):
         t = float(k) / float(8 + 1)
-        sx = int(round(float(pos.x) + t * float(dx)))
-        sy = int(round(float(pos.y) + t * float(dy)))
+        sx = round(float(pos.x) + t * float(dx))
+        sy = round(float(pos.y) + t * float(dy))
         if (
-            0 <= sx
+            sx >= 0
             and sx < builder.state.width
-            and 0 <= sy
+            and sy >= 0
             and sy < builder.state.height
             and (builder.env[int(sy) * 50 + int(sx)] is None)
         ):

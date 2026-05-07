@@ -3,17 +3,11 @@
 from __future__ import annotations
 
 from cambc import EntityType
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi
-if TYPE_CHECKING:
-    from builder import Builder
 from util.debug import debug as log
 from util.directions import DIR8
 
 
-def end_of_turn_heal(builder, ct):
+def end_of_turn_heal(builder, ct) -> None:
     """
     Opportunistic end-of-turn healing. Heal is a separate action from
     the task action, so we spend it after whatever the task chose. Order:

@@ -10,8 +10,9 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import Position, ResourceType
+from util.constants import MAX_N
+
 from builder.algorithms.reachability import find as uf_find
-from util.constants import INF, MAX_N, MAX_WIDTH
 
 TARGET_DRIFT_SQ: Final[int] = 25
 BUCKET_COUNT: Final[int] = 32
@@ -53,14 +54,14 @@ def conv_neighbors():
 
 def x_of_table():
     out = [0] * MAX_N
-    for i in range(0, MAX_N):
+    for i in range(MAX_N):
         out[i] = int(i % 50)
     return out
 
 
 def y_of_table():
     out = [0] * MAX_N
-    for i in range(0, MAX_N):
+    for i in range(MAX_N):
         out[i] = int(i // 50)
     return out
 
@@ -89,7 +90,7 @@ class EconAstarCtx:
         my_pos: Position,
         nearby_tiles: list[Position],
         all_bots: dict[Position, int],
-    ):
+    ) -> None:
         self.ax_routable = ax_routable
         self.ti_routable = ti_routable
         self.routing_extra = routing_extra
@@ -127,20 +128,20 @@ class AStarSearch:
     x_of: list[int]
     y_of: list[int]
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Construct a fresh search with all per-tile data structures pre-allocated."""
         neighbors_template = conv_neighbors()
         neighbors: list[list[tuple[int, int]]] = [[] for _ in range(MAX_N)]
         cardinal_neighbors: list[list[int]] = [[] for _ in range(MAX_N)]
         weighted_neighbors: list[list[int]] = [[] for _ in range(MAX_N)]
-        for cy in range(0, int(50)):
-            for cx in range(0, int(50)):
-                i = int(cy * int(50) + cx)
+        for cy in range(50):
+            for cx in range(50):
+                i = int(cy * 50 + cx)
                 for dx, dy, extra in neighbors_template:
                     nx = cx + dx
                     ny = cy + dy
-                    if 0 <= nx and nx < int(50) and 0 <= ny and ny < int(50):
-                        ni = ny * int(50) + nx
+                    if nx >= 0 and nx < 50 and ny >= 0 and ny < 50:
+                        ni = ny * 50 + nx
                         neighbors[i].append((ni, extra))
                         if extra == 0:
                             cardinal_neighbors[i].append(ni)
@@ -179,7 +180,7 @@ class AStarSearch:
         return self.search_unidirectional(start, target, resource, ctx)
 
     def search_bidirectional(self, start, target, resource, ctx):
-        stride = int(50)
+        stride = 50
         si = start.y * stride + start.x
         gi = target.y * stride + target.x
         gx = target.x
@@ -202,14 +203,11 @@ class AStarSearch:
             return [start, target]
         routable: list[bool] = (
             ctx.ax_routable
-            if (
-                resource == ResourceType.RAW_AXIONITE
-                or resource == ResourceType.REFINED_AXIONITE
-            )
+            if (resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE))
             else ctx.ti_routable
         )
         routing_extra = ctx.routing_extra
-        for i in range(0, 50):
+        for i in range(50):
             self.x_heur_fwd[i] = abs(int(i) - gx)
             self.y_heur_fwd[i] = abs(int(i) - gy)
             self.x_heur_bwd[i] = abs(int(i) - sx)
@@ -237,7 +235,7 @@ class AStarSearch:
         self.dist_bwd[int(gi)] = 0
         self.parent_bwd[int(gi)] = gi
         self.touched_bwd.append(gi)
-        nb_count = int(32)
+        nb_count = 32
         bucket_mask = nb_count - 1
         f0 = self.x_heur_fwd[int(sx)] + self.y_heur_fwd[int(sy)]
         for bucket in self.buckets_fwd:
@@ -389,14 +387,14 @@ class AStarSearch:
             cur_bwd += 1
         self.finished = True
         if best_meet == -1:
-            self.last_fail_reason = str("exhausted")
+            self.last_fail_reason = "exhausted"
             return None
         rev_path: list[int] = [best_meet]
         node = best_meet
         while node != si:
             node = self.parent_fwd[int(node)]
             if node == -1:
-                self.last_fail_reason = str("extraction_stuck")
+                self.last_fail_reason = "extraction_stuck"
                 return None
             rev_path.append(node)
         rev_path.reverse()
@@ -404,16 +402,14 @@ class AStarSearch:
         while node != gi:
             node = self.parent_bwd[int(node)]
             if node == -1:
-                self.last_fail_reason = str("extraction_stuck")
+                self.last_fail_reason = "extraction_stuck"
                 return None
             rev_path.append(node)
         self.last_fail_reason = ""
-        return list(
-            (Position(x=self.x_of[int(i)], y=self.y_of[int(i)]) for i in rev_path)
-        )
+        return [Position(x=self.x_of[int(i)], y=self.y_of[int(i)]) for i in rev_path]
 
     def search_unidirectional(self, start, target, resource, ctx):
-        stride = int(50)
+        stride = 50
         si = start.y * stride + start.x
         gi = target.y * stride + target.x
         resumed_search = False
@@ -431,16 +427,13 @@ class AStarSearch:
             gi = target.y * stride + target.x
         routable: list[bool] = (
             ctx.ax_routable
-            if (
-                resource == ResourceType.RAW_AXIONITE
-                or resource == ResourceType.REFINED_AXIONITE
-            )
+            if (resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE))
             else ctx.ti_routable
         )
         routing_extra = ctx.routing_extra
         sx = start.x
         sy = start.y
-        for i in range(0, 50):
+        for i in range(50):
             self.x_heur_fwd[i] = abs(int(i) - sx)
             self.y_heur_fwd[i] = abs(int(i) - sy)
         my_root = uf_find(ctx.reach_parent, ctx.my_pos.y * stride + ctx.my_pos.x)
@@ -450,7 +443,7 @@ class AStarSearch:
         nodes_expanded = 0
         if self._dist[int(gi)] == 1000000:
             self._dist[int(gi)] = 0
-        nb_count = int(32)
+        nb_count = 32
         bucket_mask = nb_count - 1
         gx = target.x
         gy = target.y
@@ -541,7 +534,7 @@ class AStarSearch:
         self.finished = True
         self.last_nodes_expanded = nodes_expanded
         if not found:
-            self.last_fail_reason = str("exhausted")
+            self.last_fail_reason = "exhausted"
             return None
         path: list[int] = [si]
         node = si
@@ -574,7 +567,7 @@ class AStarSearch:
                         best_dist = d
                         best = ni
                 if best == node:
-                    self.last_fail_reason = str("extraction_stuck")
+                    self.last_fail_reason = "extraction_stuck"
                     return None
                 path.append(best)
                 node = best
@@ -593,20 +586,20 @@ class AStarSearch:
                         best_dist = d
                         best = ni
                 if best == node:
-                    self.last_fail_reason = str("extraction_stuck")
+                    self.last_fail_reason = "extraction_stuck"
                     return None
                 path.append(best)
                 node = best
                 cur_d = best_dist
         self.last_fail_reason = ""
-        return list((Position(x=self.x_of[int(i)], y=self.y_of[int(i)]) for i in path))
+        return [Position(x=self.x_of[int(i)], y=self.y_of[int(i)]) for i in path]
 
     def search_blocked(self, start, goal, ctx):
         """
         Run `search` but treat tiles occupied by other friendly bots as
         non-routable. Mutates `ti_routable` / `ax_routable` temporarily.
         """
-        stride = int(50)
+        stride = 50
         saved: list[tuple[int, bool, bool]] = []
         nearby = list(ctx.nearby_tiles)
         for pos in nearby:

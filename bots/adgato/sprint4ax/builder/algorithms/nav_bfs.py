@@ -20,6 +20,7 @@ ported intact.
 from __future__ import annotations
 
 from typing import Final
+
 from cambc import Controller, EntityType, Environment, Position
 
 _BUDGET: Final[int] = 1729
@@ -53,11 +54,11 @@ def _bfs_compute(
             if node == cur_idx:
                 return frontier
             for ni in pnb_push[node]:
-                if dist[ni] is 0xFF:
+                if dist[ni] == 0xFF:
                     dist[ni] = d
                     next_frontier.append(ni)
             for ni in pnb_set[node]:
-                if dist[ni] is 0xFF:
+                if dist[ni] == 0xFF:
                     dist[ni] = d
                 if ni == cur_idx:
                     next_frontier.append(ni)
@@ -399,7 +400,7 @@ class NavBfs:
 
         cd = self._dist[self._cur_idx]
         self._cur_dist = cd
-        if cd is 0xFF:
+        if cd == 0xFF:
             return None
         if not cd:
             # we overflowed path length, cursed fix
@@ -432,7 +433,7 @@ class NavBfs:
             for off in offsets:
                 ni = pi + off
                 dn = dist[ni]
-                if dn < d and passable[ni] is 1:
+                if dn < d and passable[ni] == 1:
                     pi = ni
                     d = dn
                     break
@@ -441,7 +442,7 @@ class NavBfs:
         # d <= 1: either already on the goal (d==0) or one step away.
         # Check neighbors for the actual goal tile (dist==0), which may
         # be impassable (e.g. a barrier).
-        if d is 1:
+        if d == 1:
             for off in offsets:
                 ni = pi + off
                 if not dist[ni]:

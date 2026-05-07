@@ -1,6 +1,5 @@
 import heapq
 
-
 _CARDINALS: tuple[tuple[int, int], ...] = ((0, 1), (0, -1), (1, 0), (-1, 0))
 _DIAGONALS: tuple[tuple[int, int], ...] = ((2, 2), (2, -2), (-2, 2), (-2, -2))
 _DIAGONAL_BONUS: int = 20
@@ -25,10 +24,7 @@ def run(
     w = len(grid[0]) if h else 0
 
     def blocked(x: int, y: int) -> bool:
-        for cx, cy in cores:
-            if abs(x - cx) <= 1 and abs(y - cy) <= 1:
-                return True
-        return False
+        return any(abs(x - cx) <= 1 and abs(y - cy) <= 1 for cx, cy in cores)
 
     def cost(x: int, y: int) -> int:
         row = grid[y] if y < len(grid) else []

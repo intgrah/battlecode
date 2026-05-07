@@ -14,7 +14,7 @@ from __future__ import annotations
 class TaskRejected:
     reason: str
 
-    def __init__(self, reason):
+    def __init__(self, reason) -> None:
         """Build a rejection from a static reason string."""
         self.reason = str(reason)
 

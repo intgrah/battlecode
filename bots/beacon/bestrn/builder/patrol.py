@@ -5,14 +5,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cambc import Controller, Position
-if TYPE_CHECKING:
-    from builder import Builder
-from builder.helpers import make_move
-from util.constants import INF, MAX_WIDTH
+    from cambc import Position
 from util.debug import debug as log
 from util.directions import DIR4
 from util.visualiser import auto_wrap_position
+
+from builder.helpers import make_move
 
 
 def _walkable_anchor(builder, pos):
@@ -71,7 +69,7 @@ def _pick_head(builder):
     return best_pos
 
 
-def run_patrol(builder, ct):
+def run_patrol(builder, ct) -> bool:
     """
     Walk toward the oldest important tile. Sticky: keeps the
     previously-chosen `patrol_head` until we reach it (`dist² <= 2`)
@@ -90,7 +88,7 @@ def run_patrol(builder, ct):
         reached = builder.state.my_pos.distance_squared(h) <= 2
         if reached or head_age <= 0:
             args = {}
-            args[str("head")] = auto_wrap_position(h)
+            args["head"] = auto_wrap_position(h)
             log("patrol: head {head} reached / refreshed, repicking", args)
             head = None
     if head is None:
@@ -99,8 +97,8 @@ def run_patrol(builder, ct):
         if h is not None:
             age = rnd - builder.last_seen[int(h.y) * 50 + int(h.x)]
             args = {}
-            args[str("head")] = auto_wrap_position(h)
-            args[str("age")] = age
+            args["head"] = auto_wrap_position(h)
+            args["age"] = age
             log("patrol: new head {head} (age={age})", args)
     builder.patrol_head = head
     head = head

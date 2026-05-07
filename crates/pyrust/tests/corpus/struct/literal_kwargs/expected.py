@@ -6,7 +6,7 @@ class Cell:
     col: int
     weight: int
 
-    def __init__(self, row: int, col: int, weight: int):
+    def __init__(self, row: int, col: int, weight: int) -> None:
         self.row = row
         self.col = col
         self.weight = weight

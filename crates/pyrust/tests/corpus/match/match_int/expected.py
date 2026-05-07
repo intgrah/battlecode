@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def name(n):
+def name(n) -> str:
     match n:
         case 0:
             return "zero"

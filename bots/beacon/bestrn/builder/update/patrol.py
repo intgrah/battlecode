@@ -8,16 +8,11 @@ most fresh information per offset enumerated.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from builder import Builder
-from util.constants import MAX_WIDTH
 from util.debug import debug as log
 from util.visualiser import auto_wrap_position
 
 
-def update_patrol(builder):
+def update_patrol(builder) -> None:
     rnd = builder.state.round
     own_count: int = 0
     nearby = list(builder.state.nearby_tiles)
@@ -26,7 +21,7 @@ def update_patrol(builder):
         own_count += 1
     if not builder.state.friendly_bots:
         args = {}
-        args[str("n")] = own_count
+        args["n"] = own_count
         log("patrol: refreshed {n} own-vision tiles, no friends in vision", args)
         return
     my_pos = builder.state.my_pos
@@ -45,14 +40,14 @@ def update_patrol(builder):
     best = best_pos
     if best is None:
         args = {}
-        args[str("n")] = own_count
+        args["n"] = own_count
         log("patrol: refreshed {n} own-vision tiles, no farthest friend selected", args)
         return
     fx = best.x
     fy = best.y
     w = builder.state.width
     h = builder.state.height
-    base = fy * int(50) + fx
+    base = fy * 50 + fx
     transitive_count: int = 0
     offsets: list[tuple[int, int, int]] = list(builder._vision_offsets)
     if (fx in range(4, w - 4)) and (fy in range(4, h - 4)):
@@ -63,16 +58,16 @@ def update_patrol(builder):
         for dx, dy, off in offsets:
             nx = fx + dx
             ny = fy + dy
-            if (nx in range(0, w)) and (ny in range(0, h)):
+            if (nx in range(w)) and (ny in range(h)):
                 builder.last_seen[int(base + off)] = rnd
                 transitive_count += 1
-    nf = int(len(friends))
+    nf = len(friends)
     args = {}
-    args[str("own")] = own_count
-    args[str("trans")] = transitive_count
-    args[str("friend")] = auto_wrap_position(best)
-    args[str("d")] = best_d
-    args[str("nf")] = nf
+    args["own"] = own_count
+    args["trans"] = transitive_count
+    args["friend"] = auto_wrap_position(best)
+    args["d"] = best_d
+    args["nf"] = nf
     log(
         "patrol: refreshed own={own} + transitive={trans} via farthest friend {friend} (d²={d}, total friends={nf})",
         args,

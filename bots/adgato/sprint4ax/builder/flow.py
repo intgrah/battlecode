@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections import namedtuple
+from dataclasses import dataclass
 
 from cambc import ResourceType
 

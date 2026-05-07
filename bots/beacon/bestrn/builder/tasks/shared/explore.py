@@ -11,17 +11,9 @@ from __future__ import annotations
 
 from typing import Final
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.explore import explore as run_explore
 from builder.tasks.rejected import TaskRejected
 
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
 EXPLORE_MIN_TI: Final[int] = 100
 
 

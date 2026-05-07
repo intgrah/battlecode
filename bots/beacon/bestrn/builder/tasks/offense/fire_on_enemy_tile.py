@@ -8,12 +8,6 @@ expected_hp)` so a future visit can detect enemy heals.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.helpers import make_move, try_attack
 from builder.tasks.offense.helpers import (
     is_allied_transport,
@@ -23,9 +17,6 @@ from builder.tasks.offense.helpers import (
     vulnerable_harvesters,
 )
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
 
 
 def fire_on_enemy_tile(self_, ct):

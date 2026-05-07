@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from builder.tasks._policy import Policy, TaskGroup, PolicyGroup, PolicyLeaf
+from builder.tasks._policy import Policy, PolicyGroup, PolicyLeaf, TaskGroup
 from builder.tasks.offense.fire_on_enemy_tile import fire_on_enemy_tile
 from builder.tasks.offense.parasitic import OFFENSE_PARASITIC_GROUP
 from builder.tasks.offense.push import OFFENSE_PUSH_GROUP

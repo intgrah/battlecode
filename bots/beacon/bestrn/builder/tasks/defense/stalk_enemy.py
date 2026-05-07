@@ -13,16 +13,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cambc import Controller, Position
-if TYPE_CHECKING:
-    from builder import Builder
-from builder.helpers import make_move
-from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
+    from cambc import Position
 from util.debug import debug as log
 from util.visualiser import auto_wrap_position
+
+from builder.helpers import make_move
+from builder.tasks.rejected import TaskRejected
 
 
 def stalk_enemy(self_, ct):
@@ -50,8 +46,8 @@ def stalk_enemy(self_, ct):
     if target is None:
         return TaskRejected("another friendly builder is closer to every visible enemy")
     args = {}
-    args[str("target")] = auto_wrap_position(target)
-    args[str("d")] = target_d
+    args["target"] = auto_wrap_position(target)
+    args["d"] = target_d
     log("stalk_enemy: following {target} (d²={d})", args)
     make_move(self_, ct, target)
     return None

@@ -12,8 +12,9 @@ traversal; the first leaf that doesn't reject claims the turn. See
 
 from __future__ import annotations
 
-from builder.role import Role
 from typing import TYPE_CHECKING
+
+from builder.role import Role
 
 if TYPE_CHECKING:
     from builder.tasks._policy import Policy, PolicyGroup, PolicyLeaf

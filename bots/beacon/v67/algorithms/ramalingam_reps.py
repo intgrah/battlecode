@@ -7,14 +7,14 @@ any number of times, then call propagate() once to restore the SSSP invariant.
 """
 
 import heapq
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 INF = 1_000_000
 
 T = TypeVar("T")
 
 
-class RamalingamReps(Generic[T]):
+class RamalingamReps[T]:
     def __init__(self) -> None:
         self.dist: dict[T, int] = {}
         self.pred: dict[T, T | None] = {}

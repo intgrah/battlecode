@@ -15,9 +15,9 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position, Team
-from config import DEBUG_DUMP, DEBUG_TASK, DEBUG_TIMING, DEBUG_ASSERT
+from config import DEBUG_ASSERT, DEBUG_DUMP, DEBUG_TASK, DEBUG_TIMING
 from unit import Unit
-from util import DIR8, INF, DELTA_TO_DIR, Symmetry, can_afford, try_move
+from util import DELTA_TO_DIR, DIR8, INF, Symmetry, can_afford, try_move
 
 from .algorithms.nav_bfs import NavBfs, PassableGrid
 from .dump import dump
@@ -222,7 +222,7 @@ class Builder(Unit):
                 ady = dy if dy >= 0 else -dy
                 self.dist_sq[i] = dx * dx + dy * dy
                 self.manhat[i] = adx + ady
-                self.chebyshev[i] = adx if adx > ady else ady
+                self.chebyshev[i] = max(ady, adx)
         self.bound_range: int = self.dist_stride * 50
         self.posint_valid: bytearray = bytearray(self.bound_range)
 

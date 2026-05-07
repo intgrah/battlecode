@@ -32,19 +32,18 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import Environment
-from util.constants import MAX_WIDTH
 
 K_PER_TURN: Final[int] = 25
 """Hard cap on frontier pops per turn."""
 DELTAS: Final[list[int]] = [
-    -int(50) - 1,
-    -int(50),
-    -int(50) + 1,
+    -50 - 1,
+    -50,
+    -50 + 1,
     -1,
     1,
-    int(50) - 1,
-    int(50),
-    int(50) + 1,
+    50 - 1,
+    50,
+    50 + 1,
 ]
 """8-connected neighbour offsets in flat index space."""
 
@@ -68,7 +67,7 @@ def find_ro(parent, i):
     return i
 
 
-def union(parent, a, b):
+def union(parent, a, b) -> None:
     """Union by minimum id (stable component ids)."""
     ra = find(parent, a)
     rb = find(parent, b)
@@ -80,7 +79,7 @@ def union(parent, a, b):
         parent[int(ra)] = rb
 
 
-def step_reachability(parent, frontier, env, w, h):
+def step_reachability(parent, frontier, env, w, h) -> None:
     """
     Pop up to K tiles from the frontier and expand 8-connected.
 
@@ -90,9 +89,9 @@ def step_reachability(parent, frontier, env, w, h):
     - env[n] is non-WALL and known: admit n into current component, push
     - otherwise (env unknown or env == WALL): skip
     """
-    stride = int(50)
-    parent_len = int(len(parent))
-    for _ in range(0, 25):
+    stride = 50
+    parent_len = len(parent)
+    for _ in range(25):
         i = frontier.pop() if frontier else None
         if i is None:
             return
@@ -125,7 +124,7 @@ def step_reachability(parent, frontier, env, w, h):
             frontier.append(n)
 
 
-def update_reachability(parent, frontier, env, w, h):
+def update_reachability(parent, frontier, env, w, h) -> None:
     """
     Per-turn entry point. Building admissions happen at vision time
     (see `_add_topology`); this just drains the frontier within budget.

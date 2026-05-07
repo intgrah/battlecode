@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
-from unit import in_bounds
 from cambc import EntityType, GameConstants
-from typing import TYPE_CHECKING
+from unit import in_bounds
 
 if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Direction, Position
+    from cambc import Direction
 from unit import UnitState
 from util.directions import DIR8
 
@@ -19,11 +18,11 @@ def is_valid_rotation_target(et):
     Valid priority targets for rotation: other enemy turrets we should
     actually use our shot on.
     """
-    return (
-        et == EntityType.SENTINEL
-        or et == EntityType.GUNNER
-        or et == EntityType.LAUNCHER
-        or et == EntityType.BREACH
+    return et in (
+        EntityType.SENTINEL,
+        EntityType.GUNNER,
+        EntityType.LAUNCHER,
+        EntityType.BREACH,
     )
 
 
@@ -31,7 +30,7 @@ class Gunner:
     state: UnitState
     idle_turns: int
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.state = UnitState()
         self.idle_turns = 0
 
@@ -48,7 +47,7 @@ class Gunner:
         my_pos = self.state.my_pos
         my_team = self.state.my_team
         cur = my_pos
-        for _ in range(0, 3):
+        for _ in range(3):
             cur = cur.add(direction)
             if cur.distance_squared(my_pos) > GameConstants.GUNNER_VISION_RADIUS_SQ:
                 return None
@@ -92,7 +91,7 @@ class Gunner:
         my_pos = self.state.my_pos
         my_team = self.state.my_team
         cur = my_pos
-        for _ in range(0, 3):
+        for _ in range(3):
             cur = cur.add(direction)
             if cur.distance_squared(my_pos) > GameConstants.GUNNER_VISION_RADIUS_SQ:
                 return (0, None)
@@ -121,7 +120,7 @@ class Gunner:
                 return (2, cur)
         return (0, None)
 
-    def try_rotate_to_enemy(self, ct):
+    def try_rotate_to_enemy(self, ct) -> bool:
         """
         Find a direction whose forward ray hits something worth shooting.
         Enumerates all 8 directions, scores each via the same logic the
@@ -149,7 +148,7 @@ class Gunner:
             return True
         return False
 
-    def try_self_destruct(self, ct):
+    def try_self_destruct(self, ct) -> None:
         my_team = self.state.my_team
         has_ally = False
         for uid in ct.get_nearby_units(None):
@@ -170,7 +169,7 @@ class Gunner:
     def unit_state_mut(self):
         return self.state
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         self.state.cache_per_turn_state(ct)
         self.state.check_symmetry_marker(ct)
         facing = ct.get_direction(None)
@@ -187,7 +186,7 @@ class Gunner:
         if self.idle_turns > Gunner.SELF_DESTRUCT_THRESHOLD:
             self.try_self_destruct(ct)
 
-    def post_init(self, ct):
+    def post_init(self, ct) -> None:
         """
         ct-dependent init. Runs once on first turn for this unit. Mirrors
         Python `Unit.post_init`.

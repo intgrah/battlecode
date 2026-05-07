@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def parity(n):
+def parity(n) -> str:
     match n:
         case 0 | 2 | 4 | 6 | 8:
             return "even-low"

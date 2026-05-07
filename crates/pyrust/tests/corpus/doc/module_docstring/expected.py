@@ -7,7 +7,7 @@ Greets the world.
 """
 
 
-def greet(name):
+def greet(name) -> None:
     """
     Greets the named recipient.
 

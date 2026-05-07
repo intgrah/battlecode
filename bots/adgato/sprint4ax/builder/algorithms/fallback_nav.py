@@ -5,7 +5,6 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from cambc import Controller, Position
-from util import INF
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -66,8 +65,6 @@ def fallback_step(
         blocked = set()
 
     w, h = self.w, self.h
-    pad = self.pad
-    pw = self.pw
 
     if curr == target:
         return None

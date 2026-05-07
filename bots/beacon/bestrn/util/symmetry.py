@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Final
 from enum import IntEnum
+from typing import Final
 
 from cambc import Position
 

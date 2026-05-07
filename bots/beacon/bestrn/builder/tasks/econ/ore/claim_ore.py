@@ -9,18 +9,9 @@ placement, no harvester placement.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller, Position
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.harvest import walk_to_ore_claim
 from builder.helpers import ore_available
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
 
 
 def resolve_target(self_):

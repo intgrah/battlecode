@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
-from unit import in_bounds
 from cambc import Direction, EntityType, Position, ResourceType
-from typing import TYPE_CHECKING
+from unit import in_bounds
 
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi
 from config import HARDCODE
-from core.spawn_tempo import compute_spawn_tempo
 from hardcode.identify import identify_map
+
+from core.spawn_tempo import compute_spawn_tempo
 
 if TYPE_CHECKING:
     from hardcode.identify import KnownMap
@@ -60,9 +60,9 @@ class Core:
     spawn_tempo: float
     known_map: KnownMap | None
 
-    def __init__(self):
+    def __init__(self) -> None:
         deliveries: list[int] = []
-        for _ in range(0, Core.INCOME_SAMPLES):
+        for _ in range(Core.INCOME_SAMPLES):
             deliveries.append(0)
         self.state = UnitState()
         self.my_core = Position(x=0, y=0)
@@ -85,7 +85,7 @@ class Core:
     CONVERSION_TI_THRESHOLD: Final[int] = 200
     CONVERSION_AX_THRESHOLD: Final[int] = 2
 
-    def maybe_convert(self, ct):
+    def maybe_convert(self, ct) -> None:
         need = Core.CONVERSION_TI_THRESHOLD - self.state.ti
         surplus_ax = self.state.ax - Core.CONVERSION_AX_THRESHOLD
         if need > 0 and surplus_ax > 0:
@@ -104,10 +104,7 @@ class Core:
                 if bid is None:
                     continue
                 etype = ct.get_entity_type(bid)
-                if not (
-                    etype == EntityType.CONVEYOR
-                    or etype == EntityType.ARMOURED_CONVEYOR
-                ):
+                if etype not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
                     continue
                 if ct.get_direction(bid).opposite() != cd:
                     continue
@@ -141,23 +138,21 @@ class Core:
             and self.state.round - self.last_spawn_round > Core.TRICKLE_MIN_INTERVAL
         )
         return (
-            self.state.round > 20
-            and has_income
-            or self.state.round > 40
-            and has_surplus
+            (self.state.round > 20 and has_income)
+            or (self.state.round > 40 and has_surplus)
             or has_trickle
         )
 
-    def spawn_at(self, ct, pos):
+    def spawn_at(self, ct, pos) -> None:
         ct.spawn_builder(pos)
         self.spawned += 1
         self.last_spawn_round = self.state.round
 
-    def try_spawn(self, ct):
+    def try_spawn(self, ct) -> None:
         if self.spawned < Core.INITIAL_SPAWNS:
             en_core = self.en_core_guess()
-            corners: list[Position] = list((self.state.my_pos.add(d) for d in CORNERS))
-            corners.sort(key=lambda p: en_core.distance_squared(p))
+            corners: list[Position] = [self.state.my_pos.add(d) for d in CORNERS]
+            corners.sort(key=en_core.distance_squared)
             preferred = corners[int(self.spawned)]
             if ct.can_spawn(preferred):
                 self.spawn_at(ct, preferred)
@@ -168,7 +163,7 @@ class Core:
                     return
             return
         d = self.state.rng.choice(DIR8)
-        for _ in range(0, 8):
+        for _ in range(8):
             sp = self.state.my_pos.add(d)
             if ct.can_spawn(sp):
                 self.spawn_at(ct, sp)
@@ -188,7 +183,7 @@ class Core:
     def unit_state_mut(self):
         return self.state
 
-    def post_init(self, ct):
+    def post_init(self, ct) -> None:
         self.state.init_static_state(ct)
         self.state.narrow_symmetry_from_vision(ct)
         core = self.resolve_my_core(ct)
@@ -203,13 +198,13 @@ class Core:
         numerator = float((36 - 18) * (area - 20 * 20))
         denominator = float(50 * 50 - 20 * 20)
         raw = 18.0 + numerator / denominator
-        self.max_team_units = int(round(raw))
+        self.max_team_units = round(raw)
         with Scope.new_timed("spawn_tempo") as _scope:
             self.spawn_tempo = compute_spawn_tempo(
                 self.state.width, self.state.height, ct
             )
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         self.state.cache_per_turn_state(ct)
         self.state.check_symmetry_marker(ct)
         incoming = self.count_incoming(ct)
@@ -225,13 +220,13 @@ class Core:
     def my_core_pos(self):
         return self.my_core
 
-    def set_my_core(self, pos):
+    def set_my_core(self, pos) -> None:
         self.my_core = pos
 
     def resolve_my_core(self, ct):
         return ct.get_position(None)
 
-    def post_init_core_aware(self, ct):
+    def post_init_core_aware(self, ct) -> None:
         """
         Override `Unit::post_init` chain for core-aware units. Concrete
         `Unit::post_init` impls on `CoreAwareUnit` types should delegate here.

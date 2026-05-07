@@ -8,12 +8,8 @@ harvester, capping at 2 gunners + 1 sentinel per harvester.
 from __future__ import annotations
 
 from cambc import Direction, EntityType, Environment
-from typing import TYPE_CHECKING
+from util.directions import DIR4
 
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.helpers import move_random, try_place
 from builder.tasks.offense.helpers import (
     gunner_chain_facing,
@@ -23,10 +19,6 @@ from builder.tasks.offense.helpers import (
     vulnerable_harvesters,
 )
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
-from util.directions import DIR4
 
 
 def direction_to(src, dst):

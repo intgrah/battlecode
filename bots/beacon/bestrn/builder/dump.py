@@ -10,42 +10,23 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import Position
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller
-if TYPE_CHECKING:
-    from builder import Builder
-from util.constants import INF, MAX_WIDTH
 from util.debug import Scope, vis
 from util.visualiser import (
-    Colour,
-    Dump,
-    Palette,
-    PaletteStop,
-    ScalarValue,
     TRANSPARENT,
-    DumpI16Grid,
-    DumpTiles,
-    DumpTile,
+    Colour,
     DumpDot,
+    DumpI16Grid,
     DumpPath,
     DumpScalar,
-    ScalarValueInt,
+    DumpTile,
+    DumpTiles,
+    Palette,
+    PaletteStop,
     ScalarValueBool,
-    ScalarValueStr,
+    ScalarValueInt,
     ScalarValueNull,
+    ScalarValueStr,
 )
-
-if TYPE_CHECKING:
-    from util.visualiser import (
-        DumpBoolGrid,
-        DumpU8Grid,
-        DumpU16Grid,
-        DumpF32Grid,
-        DumpVectorField,
-        ScalarValueFloat,
-    )
 
 
 def p_fog():
@@ -74,7 +55,7 @@ def p_dist():
             PaletteStop(t=0, colour=Colour(50, 240, 50, 140)),
             PaletteStop(t=36, colour=Colour(240, 50, 50, 140)),
         ],
-        special=[(int(1000000), TRANSPARENT), (-1, TRANSPARENT)],
+        special=[(1000000, TRANSPARENT), (-1, TRANSPARENT)],
     )
 
 
@@ -105,9 +86,9 @@ def _crop(arr, w, h):
     table can render them as transparent.
     """
     out = []
-    for y in range(0, h):
+    for y in range(h):
         base = int(y) * 50
-        for x in range(0, w):
+        for x in range(w):
             c = arr[base + int(x)]
             out.append(int(c) if c < 1000000 else -1)
     return out
@@ -115,9 +96,9 @@ def _crop(arr, w, h):
 
 def _crop_bool(arr, w, h):
     out = []
-    for y in range(0, h):
+    for y in range(h):
         base = int(y) * 50
-        for x in range(0, w):
+        for x in range(w):
             out.append(arr[base + int(x)])
     return out
 
@@ -129,8 +110,8 @@ def _econ_disc_tiles(builder):
     h = builder.state.height
     core = builder.my_core
     r2 = builder.econ_radius_sq
-    for y in range(0, h):
-        for x in range(0, w):
+    for y in range(h):
+        for x in range(w):
             p = Position(x=x, y=y)
             if p.distance_squared(core) <= r2:
                 tiles.add(p)
@@ -140,9 +121,9 @@ def _econ_disc_tiles(builder):
 def _reach_roots(builder, w, h):
     parent = builder.reach_parent
     out = []
-    for y in range(0, h):
+    for y in range(h):
         base = int(y) * 50
-        for x in range(0, w):
+        for x in range(w):
             out.append(int(parent[base + int(x)]))
     return out
 
@@ -178,9 +159,9 @@ def _reach_palette(builder, w, h):
     parent = builder.reach_parent
     keys: list[int] = []
     seen: set[int] = set()
-    for y in range(0, h):
+    for y in range(h):
         base = int(y) * 50
-        for x in range(0, w):
+        for x in range(w):
             v = parent[base + int(x)]
             if v != -1 and seen.add(v):
                 keys.append(v)
@@ -199,33 +180,33 @@ def _reach_palette(builder, w, h):
     )
 
 
-def vis_tile(name, pos):
+def vis_tile(name, pos) -> None:
     vis(name, DumpTile(pos=pos))
 
 
-def vis_tiles(name, iter):
+def vis_tiles(name, iter) -> None:
     data: list[Position] = list(iter)
     data.sort(key=lambda p: (p.y, p.x))
     vis(name, DumpTiles(data=data))
 
 
-def vis_scalar_str(name, s):
+def vis_scalar_str(name, s) -> None:
     vis(name, DumpScalar(value=ScalarValueStr(_0=str(s))))
 
 
-def vis_scalar_int(name, v):
+def vis_scalar_int(name, v) -> None:
     vis(name, DumpScalar(value=ScalarValueInt(_0=v)))
 
 
-def vis_scalar_bool(name, v):
+def vis_scalar_bool(name, v) -> None:
     vis(name, DumpScalar(value=ScalarValueBool(_0=v)))
 
 
-def vis_scalar_null(name):
+def vis_scalar_null(name) -> None:
     vis(name, DumpScalar(value=ScalarValueNull()))
 
 
-def dump(builder, _ct):
+def dump(builder, _ct) -> None:
     w = builder.state.width
     h = builder.state.height
     with Scope("dump") as _g:
@@ -244,9 +225,7 @@ def dump(builder, _ct):
                     vis_scalar_null("symmetry")
                 case s if s is not None:
                     vis_scalar_str("symmetry", f"{s}")
-            sym_names: list[str] = list(
-                (f"{s}" for s in builder.state.symmetry_candidates)
-            )
+            sym_names: list[str] = [f"{s}" for s in builder.state.symmetry_candidates]
             sym_names.sort()
             vis_scalar_str("symmetry_candidates", ", ".join(sym_names))
             vis_scalar_bool("en_core_seen", builder.en_core_seen)
@@ -352,6 +331,6 @@ def dump(builder, _ct):
                     best_dist = d
                     best_pos = p
             vis_tile("patrol_target", best_pos)
-            vis_scalar_int("reflect_queue_len", int(len(builder.reflect_queue)))
-            vis_scalar_int("nearby_buildings", int(len(builder.nearby_buildings)))
+            vis_scalar_int("reflect_queue_len", len(builder.reflect_queue))
+            vis_scalar_int("nearby_buildings", len(builder.nearby_buildings))
             vis_tiles("healable_buildings", builder.healable_buildings)

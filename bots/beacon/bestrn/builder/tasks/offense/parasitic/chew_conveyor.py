@@ -10,12 +10,6 @@ it.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.helpers import make_move, try_attack
 from builder.tasks.offense.helpers import (
     pick_conveyor_target,
@@ -24,12 +18,9 @@ from builder.tasks.offense.helpers import (
 )
 from builder.tasks.rejected import TaskRejected
 
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
-
 
 def chew_conveyor(self_, ct):
-    if not (not vulnerable_harvesters(self_)):
+    if vulnerable_harvesters(self_):
         return TaskRejected("a vulnerable harvester is in vision — handle that first")
     if self_.offense_target is not None:
         return TaskRejected("offense_target is set — walk_to_cached_target handles it")

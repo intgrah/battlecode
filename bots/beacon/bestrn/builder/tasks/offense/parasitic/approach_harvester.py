@@ -11,12 +11,9 @@ cascade.
 from __future__ import annotations
 
 from cambc import EntityType, GameConstants
-from typing import TYPE_CHECKING
+from util.directions import DIR4
+from util.metrics import closest
 
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.helpers import make_move, try_attack, try_place
 from builder.tasks.offense.helpers import (
     buildable,
@@ -29,11 +26,6 @@ from builder.tasks.offense.helpers import (
     without_allied_transport,
 )
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
-from util.directions import DIR4
-from util.metrics import closest
 
 
 def approach_harvester(self_, ct):
@@ -48,7 +40,7 @@ def approach_harvester(self_, ct):
         )
     destination = pick_attack_destination(self_, target, False)
     if destination is None:
-        cardinal_positions: list[object] = list((target.add(d) for d in DIR4))
+        cardinal_positions: list[object] = [target.add(d) for d in DIR4]
         opens = open_tiles(self_, cardinal_positions)
         filtered = without_allied_transport(self_, opens)
         destination = closest(self_.my_pos, filtered)
@@ -58,13 +50,11 @@ def approach_harvester(self_, ct):
     neighbours_8 = list(self_.neighbours_8)
     buildable_8 = buildable(self_, neighbours_8)
     launcher_location = closest(destination, buildable_8)
-    adjacent_launchers: list[object] = list(
-        (
-            p
-            for p in self_.neighbours_8
-            if self_.building_kind[self_.idx(p)] == EntityType.LAUNCHER
-        )
-    )
+    adjacent_launchers: list[object] = [
+        p
+        for p in self_.neighbours_8
+        if self_.building_kind[self_.idx(p)] == EntityType.LAUNCHER
+    ]
     best_adjacent_launcher = closest(destination, adjacent_launchers)
     if (
         self_.my_pos.distance_squared(destination) <= 2

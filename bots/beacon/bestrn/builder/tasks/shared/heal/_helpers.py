@@ -10,12 +10,6 @@ bail-out gate that all three leaves consult.
 from __future__ import annotations
 
 from cambc import EntityType
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position
-if TYPE_CHECKING:
-    from builder import Builder
 from util.metrics import chebyshev
 
 
@@ -51,7 +45,7 @@ def deconflict_rank(self_, ct, my_pos, target):
             continue
         fp = ct.get_position(uid)
         fd = chebyshev(fp, target)
-        if fd < my_d or fd == my_d and uid < self_.my_id:
+        if fd < my_d or (fd == my_d and uid < self_.my_id):
             rank += 1
     return rank
 

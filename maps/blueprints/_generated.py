@@ -2,7 +2,6 @@
 # do not edit by hand; source: *.bp files in this directory
 
 from blueprint import BlueprintEntry, Direction, Entity
-
 from hardcode.known import KnownMap
 
 __all__ = ["BLUEPRINTS"]

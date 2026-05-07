@@ -12,27 +12,25 @@ before any offense task fires.
 
 from __future__ import annotations
 
-from cambc import EntityType, Environment, GameConstants
 from typing import TYPE_CHECKING
 
+from cambc import EntityType, Environment, GameConstants
+
 if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Direction, Position
-if TYPE_CHECKING:
-    from builder import Builder
-from builder.explore import explore
-from builder.helpers import can_afford, make_move, try_move_dir
+    from cambc import Position
 from util.directions import DIR4, DIR8
 from util.metrics import chebyshev, closest
 
+from builder.explore import explore
+from builder.helpers import can_afford, make_move, try_move_dir
+
 
 def open_tiles(self_, positions):
-    return list(
-        (
-            p
-            for p in positions
-            if self_.cost_grid[self_.idx(p)] != 1000000 and not (p in self_.all_bots)
-        )
-    )
+    return [
+        p
+        for p in positions
+        if self_.cost_grid[self_.idx(p)] != 1000000 and p not in self_.all_bots
+    ]
 
 
 def is_allied_transport(self_, position):
@@ -48,11 +46,11 @@ def is_allied_transport(self_, position):
 
 
 def without_allied_transport(self_, positions):
-    return list((p for p in positions if not is_allied_transport(self_, p)))
+    return [p for p in positions if not is_allied_transport(self_, p)]
 
 
 def buildable(self_, positions):
-    return list((p for p in positions if is_cheap_overbuild(self_, p)))
+    return [p for p in positions if is_cheap_overbuild(self_, p)]
 
 
 def is_cheap_overbuild(self_, pos):
@@ -112,8 +110,7 @@ def min_friendly_chebyshev(ct, pos):
         if ct.get_team(uid) != my_team:
             continue
         d = chebyshev(pos, ct.get_position(uid))
-        if d < best:
-            best = d
+        best = min(best, d)
     return best
 
 
@@ -131,14 +128,14 @@ def pick_conveyor_target(self_, ct, enemy_core, my_pos):
         kind, team = __opt_tuple
         if team == self_.my_team:
             continue
-        if not (
-            kind == EntityType.CONVEYOR
-            or kind == EntityType.ARMOURED_CONVEYOR
-            or kind == EntityType.SPLITTER
-            or kind == EntityType.BRIDGE
+        if kind not in (
+            EntityType.CONVEYOR,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.SPLITTER,
+            EntityType.BRIDGE,
         ):
             continue
-        if not self_.cost_grid[self_.idx(pos)] != 1000000:
+        if self_.cost_grid[self_.idx(pos)] == 1000000:
             continue
         if pos in self_.attack_tile_blacklist:
             continue
@@ -160,11 +157,10 @@ def pick_conveyor_target(self_, ct, enemy_core, my_pos):
             has_flow = True
         if near_core:
             tier = 0
+        elif has_flow:
+            tier = 1
         else:
-            if has_flow:
-                tier = 1
-            else:
-                continue
+            continue
         spacing = min_friendly_chebyshev(ct, pos)
         my_dist = my_pos.distance_squared(pos)
         score = (tier, -min(spacing, 3), my_dist)
@@ -187,7 +183,7 @@ def pick_attack_destination(self_, target, avoid_healers):
         pos = target.add(d)
         if not self_.in_bounds(pos):
             continue
-        if not self_.cost_grid[self_.idx(pos)] != 1000000:
+        if self_.cost_grid[self_.idx(pos)] == 1000000:
             continue
         if is_allied_transport(self_, pos):
             continue
@@ -211,7 +207,7 @@ def pick_attack_destination(self_, target, avoid_healers):
                 cost = 5
         if avoid_healers and enemy_healer_near(self_, pos):
             continue
-        in_ray: int = int((pos in self_.enemy_turret_ray_tiles))
+        in_ray: int = int(pos in self_.enemy_turret_ray_tiles)
         dist = self_.my_pos.distance_squared(pos)
         candidates.append((in_ray, cost, dist, pos))
     if not candidates:
@@ -228,7 +224,7 @@ def gunner_chain_facing(self_, pos):
     """
     for d in DIR8:
         current = pos
-        for _ in range(0, 4):
+        for _ in range(4):
             current = current.add(d)
             if not self_.in_bounds(current):
                 break
@@ -242,18 +238,18 @@ def gunner_chain_facing(self_, pos):
             kind, team = __opt_tuple
             if team == self_.my_team:
                 break
-            if (
-                kind == EntityType.CONVEYOR
-                or kind == EntityType.ARMOURED_CONVEYOR
-                or kind == EntityType.SPLITTER
-                or kind == EntityType.BRIDGE
+            if kind in (
+                EntityType.CONVEYOR,
+                EntityType.ARMOURED_CONVEYOR,
+                EntityType.SPLITTER,
+                EntityType.BRIDGE,
             ):
                 return d
             break
     return None
 
 
-def has_open_side(self_, position):
+def has_open_side(self_, position) -> bool:
     """
     True iff `position` has at least one passable, unoccupied,
     non-allied-transport cardinal neighbour.
@@ -300,7 +296,7 @@ def pick_harvester_target(self_, vulnerable):
     """3-tier preference over vulnerable harvesters."""
     my_pos = self_.my_pos
     sorted: list[Position] = list(vulnerable)
-    sorted.sort(key=lambda p: my_pos.distance_squared(p))
+    sorted.sort(key=my_pos.distance_squared)
     for h in sorted:
         if not enemy_healer_near(self_, h) and not friendly_bot_adjacent(self_, h):
             return h
@@ -310,7 +306,7 @@ def pick_harvester_target(self_, vulnerable):
     return closest(my_pos, vulnerable)
 
 
-def scout_toward_enemy(self_, ct):
+def scout_toward_enemy(self_, ct) -> None:
     en_core = self_.en_core_guess
     if en_core in self_.nearby_tiles:
         self_.en_core_seen = True
@@ -328,15 +324,13 @@ def scout_toward_enemy(self_, ct):
                 break
 
 
-def begin_turn_offense(self_, ct):
+def begin_turn_offense(self_, ct) -> None:
     """Per-turn offense bookkeeping."""
-    if not (not self_.attack_tile_blacklist):
+    if self_.attack_tile_blacklist:
         new_blacklist: dict[Position, int] = dict(
-            (
-                __v
-                for t in self_.attack_tile_blacklist.items()
-                if (__v := (t[0], t[1] - 1) if t[1] > 1 else None) is not None
-            )
+            __v
+            for t in self_.attack_tile_blacklist.items()
+            if (__v := (t[0], t[1] - 1) if t[1] > 1 else None) is not None
         )
         self_.attack_tile_blacklist = new_blacklist
     last = self_.last_fire
@@ -355,7 +349,7 @@ def begin_turn_offense(self_, ct):
                     occupied = False
             invalidate_target = (
                 not self_.is_enemy_building(tgt)
-                or not self_.cost_grid[self_.idx(tgt)] != 1000000
+                or self_.cost_grid[self_.idx(tgt)] == 1000000
                 or occupied
             )
     if invalidate_target:

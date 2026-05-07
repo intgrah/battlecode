@@ -4,14 +4,14 @@ Heuristic-guided single source shortest path (SSSP).
 """
 
 import heapq
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 INF = 1_000_000
 
 T = TypeVar("T")
 
 
-class Astar(Generic[T]):
+class Astar[T]:
     def __init__(self, source: T, goals: set[T]) -> None:
         self.done = False
         self._result: list[T] | None = None

@@ -71,7 +71,8 @@ def main() -> None:
     so_b = f"target/release/lib{args.bot_b}.so"
     for so in (so_a, so_b):
         if not Path(so).exists():
-            raise SystemExit(f"missing: {so}  (run cargo build --release -p ...)")
+            msg = f"missing: {so}  (run cargo build --release -p ...)"
+            raise SystemExit(msg)
 
     if args.maps:
         maps = [

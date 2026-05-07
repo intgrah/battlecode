@@ -15,16 +15,17 @@ Per-turn caching mirrors Python:
 
 from __future__ import annotations
 
-from cambc import EntityType, Position, Team
 from typing import TYPE_CHECKING
 
+from cambc import EntityType, Position, Team
+
 if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Direction, Environment
+    from cambc import Direction, Environment
+from random import Random as Rng
+
 from marker import find_symmetry_marker
-from util.constants import MAX_WIDTH
 from util.directions import DIR4, DIR8
 from util.symmetry import ALL, Symmetry
-from random import Random as Rng
 
 
 class UnitState:
@@ -53,7 +54,7 @@ class UnitState:
     neighbours_8: list[Position]
     symmetry_candidates: set[Symmetry]
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         ct-independent allocation. Mirrors Python `Unit.__init__` — runs in
         `Player::default()` (5s window).
@@ -85,7 +86,7 @@ class UnitState:
     def default():
         return UnitState()
 
-    def init_static_state(self, ct):
+    def init_static_state(self, ct) -> None:
         """
         One-time setup shared by every unit. Concrete `Unit::post_init`
         impls call this on their `state` field — the receiver is concrete
@@ -97,7 +98,7 @@ class UnitState:
         self.my_team = ct.get_team(None)
         self.rng = Rng(int(self.my_id))
 
-    def cache_per_turn_state(self, ct):
+    def cache_per_turn_state(self, ct) -> None:
         """
         Per-turn caching shared by every unit: position, neighbours, round,
         resources, visible bots. Concrete `Unit::run` impls call this on
@@ -118,8 +119,8 @@ class UnitState:
             p = my_pos.add(d)
             if in_bounds(p, width, height):
                 dir_neighbours_8.append((d, p))
-        neighbours_4: list[Position] = list((t[1] for t in dir_neighbours_4))
-        neighbours_8: list[Position] = list((t[1] for t in dir_neighbours_8))
+        neighbours_4: list[Position] = [t[1] for t in dir_neighbours_4]
+        neighbours_8: list[Position] = [t[1] for t in dir_neighbours_8]
         round = ct.get_current_round()
         ti, ax = ct.get_global_resources()
         scale = ct.get_scale_percent() / 100.0
@@ -151,7 +152,7 @@ class UnitState:
         self.friendly_bots = friendly_bots
         self.all_bots = all_bots
 
-    def narrow_symmetry_from_vision(self, ct):
+    def narrow_symmetry_from_vision(self, ct) -> None:
         """
         One-shot narrowing of `symmetry_candidates` from current vision.
         Mirrors Python `narrow_symmetry_from_vision`.
@@ -181,7 +182,7 @@ class UnitState:
         for sym in invalid:
             self.symmetry_candidates.discard(sym)
 
-    def check_symmetry_marker(self, ct):
+    def check_symmetry_marker(self, ct) -> None:
         """
         Mirrors Python `_check_symmetry_marker`: pin candidate set to whatever
         an allied symmetry marker in vision asserts.

@@ -15,10 +15,9 @@ from __future__ import annotations
 
 from typing import Final
 
-from . import heal_adjacent_builder
-from . import heal_buildings
-from . import heal_self
-from builder.tasks._policy import Policy, TaskGroup, PolicyGroup, PolicyLeaf
+from builder.tasks._policy import Policy, PolicyGroup, PolicyLeaf, TaskGroup
+
+from . import heal_adjacent_builder, heal_buildings, heal_self
 
 HEAL_CHILDREN: Final[list[Policy]] = [
     PolicyLeaf(name="heal_buildings", fn_=heal_buildings.heal_buildings),

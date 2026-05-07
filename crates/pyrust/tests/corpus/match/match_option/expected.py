@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def describe(opt):
+def describe(opt) -> str:
     match opt:
         case None:
             return "nothing"

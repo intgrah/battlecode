@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-from . import econ
-from . import patrol
-from . import prune
-from . import reflect
-from . import role
-from . import threat
-from . import turrets
-from . import vision
 from typing import TYPE_CHECKING
+
+from . import econ, patrol, prune, reflect, role, threat, turrets, vision
 
 if TYPE_CHECKING:
     from cambc import Controller
@@ -20,7 +14,7 @@ from config import DEBUG_INVARIANTS
 from util.debug import Scope
 
 
-def update(builder, ct):
+def update(builder, ct) -> None:
     with Scope.new_timed("update") as _g:
         with Scope.new_timed("prune") as _g:
             prune.prune_stale(builder, ct)

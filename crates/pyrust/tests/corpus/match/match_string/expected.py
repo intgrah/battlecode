@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def cardinal(s):
+def cardinal(s) -> int:
     match s:
         case "north":
             return 0

@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 from building import BuildingHarvester, BuildingRoad
 from cambc import Controller, Environment
+from util import DELTA_TO_DIR, DIR4
 
-from util import DIR4, DELTA_TO_DIR
 from .helpers import try_move_adj_to
 
 if TYPE_CHECKING:

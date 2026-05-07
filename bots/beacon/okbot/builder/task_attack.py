@@ -295,7 +295,7 @@ def run_attack(state: State, ct: Controller) -> None:
         target = None
         for h in sorted(
             vulnerable_harvesters,
-            key=lambda p: my_pos.distance_squared(p),
+            key=my_pos.distance_squared,
         ):
             if not _enemy_healer_near(ct, h):
                 target = h

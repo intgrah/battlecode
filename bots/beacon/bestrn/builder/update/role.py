@@ -2,10 +2,6 @@ from __future__ import annotations
 
 from typing import Final
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.role import Role
 
 _OPENING_ROLES: Final[list[Role]] = [
@@ -86,11 +82,11 @@ _REASSIGN_AFTER: Final[int] = 400
 
 
 def weighted_choice(builder, choices):
-    total: int = sum((t[1] for t in choices))
+    total: int = sum(t[1] for t in choices)
     if total == 0:
         return choices[0][0]
-    population: list[Role] = list((t[0] for t in choices))
-    weights: list[float] = list((float(t[1]) for t in choices))
+    population: list[Role] = [t[0] for t in choices]
+    weights: list[float] = [float(t[1]) for t in choices]
     return builder.state.rng.choices(population, weights, k=1)[0]
 
 
@@ -106,7 +102,7 @@ def _pick_initial_role(builder):
     defence-heavy, mid more aggressive).
     """
     idx = builder.state.round - 1
-    if idx in range(0, int(len(_OPENING_ROLES))):
+    if idx in range(len(_OPENING_ROLES)):
         return _OPENING_ROLES[int(idx)]
     w: list[tuple[Role, int]] = (
         _INITIAL_WEIGHTS_VERY_EARLY
@@ -120,7 +116,7 @@ def _pick_initial_role(builder):
     return weighted_choice(builder, w)
 
 
-def update_role(builder):
+def update_role(builder) -> None:
     if builder.role is None:
         builder.role = _pick_initial_role(builder)
     if builder.role == Role.EconReactive and builder.state.round > 25:

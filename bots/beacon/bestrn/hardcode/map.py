@@ -7,9 +7,7 @@ callers gate on `HARDCODE` and never reach these.
 
 from __future__ import annotations
 
-from typing import Final
-
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
     from util.symmetry import Symmetry

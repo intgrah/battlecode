@@ -13,18 +13,10 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import EntityType, Environment
-from typing import TYPE_CHECKING
+from util.debug import debug as log
 
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.helpers import ax_feeds_target, can_afford, make_move, try_place
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
-from util.debug import debug as log
 
 FOUNDRY_ROUND_GATE: Final[int] = 500
 """First foundry >= turn 500."""
@@ -39,7 +31,7 @@ def build_foundry(self_, ct):
     kind = self_.building_kind[self_.idx(target)]
     team = self_.building_team[self_.idx(target)]
     is_conveyor = (kind is not None) and (
-        kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR
+        kind in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR)
     )
     if not is_conveyor:
         return TaskRejected.from_string(

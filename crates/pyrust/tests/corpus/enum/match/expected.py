@@ -9,7 +9,7 @@ class Light(Enum):
     Green = auto()
 
 
-def action(l):
+def action(l) -> str | None:
     match l:
         case Light.Red:
             return "stop"

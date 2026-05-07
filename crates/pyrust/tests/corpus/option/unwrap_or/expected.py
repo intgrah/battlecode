@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def lookup(found):
+def lookup(found) -> int | None:
     return 99 if found else None
 
 

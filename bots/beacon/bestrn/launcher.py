@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
-from unit import in_bounds
 from cambc import EntityType, Environment, GameConstants
-from typing import TYPE_CHECKING
+from unit import in_bounds
 
 if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position
+    from cambc import Position
 from unit import UnitState
 from util.directions import DIR4
 
@@ -25,11 +24,11 @@ PASSABLE_BUILDINGS: Final[list[EntityType]] = [
 class Launcher:
     state: UnitState
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.state = UnitState()
 
     def is_empty_walkable(self, ct, pos):
-        return self.is_walkable(ct, pos) and not (pos in self.state.all_bots)
+        return self.is_walkable(ct, pos) and pos not in self.state.all_bots
 
     def is_walkable(self, ct, pos):
         if not self.in_bounds(pos) or not ct.is_in_vision(pos):
@@ -91,7 +90,7 @@ class Launcher:
     def unit_state_mut(self):
         return self.state
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         self.state.cache_per_turn_state(ct)
         self.state.check_symmetry_marker(ct)
         enemy_throw_tile, enemy_throw_dist = self.find_enemy_throw_tile(ct)
@@ -128,7 +127,7 @@ class Launcher:
         if bb is not None and bd is not None and (ct.can_launch(bb, bd)):
             ct.launch(bb, bd)
 
-    def post_init(self, ct):
+    def post_init(self, ct) -> None:
         """
         ct-dependent init. Runs once on first turn for this unit. Mirrors
         Python `Unit.post_init`.
