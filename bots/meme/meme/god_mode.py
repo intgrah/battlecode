@@ -1,68 +1,79 @@
 from typing import TYPE_CHECKING
 
-from cambc import Environment, EntityType, Team
-from rust import EntityBuilderBot, GameDiffPlaceEntity, GameDiffRemoveEntity
+from cambc import Position, Environment, EntityType, Team, ResourceType
+from rust import GameDiff, GameDiffPlaceEntity, GameDiffFireTurret
 
 if TYPE_CHECKING:
-    from cambc import Position, Controller, Direction
+    from cambc import Controller, Direction
     from main import Player
     from rust import Game
+
+INF = 1_000_000_000
 
 class GodMode:
 
     @staticmethod
-    def destroy(p: Player, g: Game, ct: Controller, pos: Position) -> bool:
+    def destroy(p: Player, bid: int) -> bool:
         assert p.builder_id is not None
-        
-        old_id = ct.get_id()
-        g.possess(p.builder_id)
 
-        old_team = ct.get_team()
-        me = p.builder(g)
-        me.base.position = pos
-        
-        bid = ct.get_tile_building_id(pos)
-        if bid is None:
+        if bid not in p.g.entities:
             return False
         
-        me.base.team = ct.get_team(bid)
+        old_id = p.ct.get_id()
+        p.g.possess(p.builder_id)
 
-        assert ct.can_destroy(pos), "should be able to destroy"
-        ct.destroy(pos)
+        entity = p.g.entities[bid].base
+        pos = entity.position
+
+        me = p.builder()
+        old_team = me.base.team
+        me.base.position = pos
+
+        tile = p.g.game_map.tile(pos.x, pos.y)
+        old_bid = tile.building
+        tile.building = bid
         
-        me = p.builder(g)
+        me.base.team = entity.team
+
+        assert p.ct.can_destroy(pos), "should be able to destroy"
+        p.ct.destroy(pos)
+
+        if bid != old_bid:
+            tile.building = old_bid
+        
+        me = p.builder()
         me.base.team = old_team
 
-        g.possess(old_id)
+        p.g.possess(old_id)
         return True
 
 
     @staticmethod
     def build(
         p: Player, 
-        g: Game, 
-        ct: Controller, 
         etype: EntityType, 
         pos: Position, 
         extra: Position | Direction | None = None, 
-        enemy_team: bool = False
+        enemy_team: bool = False,
+        silent: bool = False
     ) -> int | None:
         assert p.builder_id is not None
         assert etype != EntityType.BUILDER_BOT and etype != EntityType.CORE
         
-        old_id = ct.get_id()
-        g.possess(p.builder_id)
+        old_id = p.ct.get_id()
+        p.g.possess(p.builder_id)
         
-        old_team = ct.get_team()
-        me = p.builder(g)
+        old_team = p.ct.get_team()
+        me = p.builder()
         if enemy_team:
             me.base.team = Team.A if old_team == Team.B else Team.B
         me.base.position = pos
         me.action_cooldown = 0
 
-        assert ct.get_action_cooldown() == 0
+        assert p.ct.get_action_cooldown() == 0
 
-        tile = g.game_map.tile(pos.x, pos.y)
+        tile = p.g.game_map.tile(pos.x, pos.y)
+        old_bid = tile.building
         old_bbid = tile.builder_bot
         old_env = tile.environment
 
@@ -70,93 +81,117 @@ class GodMode:
         tile.building = None
         tile.environment = Environment.ORE_TITANIUM
         
-        if not ct.can_build(etype, pos, extra):
+        if not p.ct.can_build(etype, pos, extra):
             return None
         
-        bid = ct.build(etype, pos, extra)
+        bid = p.ct.build(etype, pos, extra)
 
+        if silent:
+            tile.building = old_bid
         tile.builder_bot = old_bbid
         tile.environment = old_env
 
         if enemy_team:
-            me = p.builder(g)
+            me = p.builder()
             me.base.team = old_team
 
-        g.possess(old_id)
+        p.g.possess(old_id)
         return bid
     
     @staticmethod
-    def place_marker(
-        p: Player, 
-        g: Game, 
-        ct: Controller, 
-        pos: Position, 
-        enemy_team: bool = False
-    ) -> bool:
-        assert p.builder_id is not None
-        
-        old_id = ct.get_id()
-        g.possess(p.builder_id)
-        
-        old_team = ct.get_team()
-        me = p.builder(g)
-        if enemy_team:
-            me.base.team = Team.A if old_team == Team.B else Team.B
-        me.base.position = pos
-        me.action_cooldown = 0
+    def hide_last(g: Game, subsitute_bid: int):
 
-        assert ct.get_action_cooldown() == 0
-
-        tile = g.game_map.tile(pos.x, pos.y)
-        old_bbid = tile.builder_bot
-        old_env = tile.environment
-
-        tile.builder_bot = None
-        tile.building = None
-        tile.environment = Environment.ORE_TITANIUM
-        
-        if not ct.can_place_marker(pos):
-            return False
-        
-        ct.place_marker(pos, 0)
-
-        tile.builder_bot = old_bbid
-        tile.environment = old_env
-
-        if enemy_team:
-            me = p.builder(g)
-            me.base.team = old_team
-
-        g.possess(old_id)
-        return True
+        bid = subsitute_bid
+        entity = g.entities[bid]
+        from_pos = entity.base.position
+        from_tile = g.game_map.tile(from_pos.x, from_pos.y)
+        if from_tile.builder_bot == bid:
+            from_tile.builder_bot = None
+        if from_tile.building == bid:
+            from_tile.building = None
+        entity_bytes = g._raw.read_bytes(entity._addr + 8, 64)
+        diff_variant = g.replay_recorder.last_place_entity.as_variant
+        assert isinstance(diff_variant, GameDiffPlaceEntity)
+        g._raw.write_bytes(diff_variant._addr, entity_bytes)   
+        spawn_base = diff_variant.entity.base
+        spawn_base.id = bid
+        spawn_base.position = g.entities[bid].base.position
     
     @staticmethod
-    def move(p: Player, g: Game, ct: Controller, from_pos: Position, to_pos: Position, in_replay: bool = True):
+    def move(p: Player, bid: int, to_pos: Position, in_replay: bool = True):
 
-        from_tile = g.game_map.tile(from_pos.x, from_pos.y)
-        bid = from_tile.building
-        if bid is None or from_pos == to_pos or bid not in g.entities:
+        if bid not in p.g.entities:
             return
 
-        # Snapshot the moving entity's bytes so we can stamp them over the
-        # PlaceEntity diff below (skip the bucket's key(4)+pad(4)).
-        entity_bytes = g._raw.read_bytes(g.entities[bid]._addr + 8, 64)
-
-        from_tile.building = None
-        to_tile = g.game_map.tile(to_pos.x, to_pos.y)
-
         if in_replay:
-            # 1) Build a throwaway road at to_pos to produce a PlaceEntity diff.
-            # 2) Repurpose the two diffs:
-            #    PlaceEntity{road @ to_pos} → PlaceEntity{bid's entity @ to_pos}
-            #    RemoveEntity{road_id}      → RemoveEntity{bid}
-            if not GodMode.place_marker(p, g, ct, to_pos):
-                return
+            GodMode.move_in_replay(p, bid, to_pos)
+        
+        entity = p.g.entities[bid]
+        from_pos = entity.base.position
 
-            place_diff = g.replay_recorder.last_diff.as_variant
-            assert isinstance(place_diff, GameDiffPlaceEntity)
-            g._raw.write_bytes(place_diff._addr, entity_bytes)
-            place_diff.entity.base.position = to_pos
+        p.g.game_map.tile(from_pos.x, from_pos.y).building = None
+        p.g.game_map.tile(to_pos.x, to_pos.y).building = bid
+        p.g.entities[bid].base.position = to_pos
 
-        to_tile.building = bid
-        g.entities[bid].base.position = to_pos
+    @staticmethod
+    def move_in_replay(p: Player, bid: int, to_pos: Position):
+
+        if bid not in p.g.entities:
+            return
+        
+        entity = p.g.entities[bid]
+        from_pos = entity.base.position
+        entity_bytes = p.g._raw.read_bytes(entity._addr + 8, 64)
+
+        if not GodMode.build(p, EntityType.ROAD, from_pos, silent=True):
+            return
+
+        place_diff = p.g.replay_recorder.last_place_entity.as_variant
+        assert isinstance(place_diff, GameDiffPlaceEntity)
+        p.g._raw.write_bytes(place_diff._addr, entity_bytes)
+        place_diff.entity.base.position = to_pos
+
+    @staticmethod
+    def move_last_in_replay(p: Player, to_pos: Position):
+
+        place_diff = p.g.replay_recorder.last_place_entity.as_variant
+        assert isinstance(place_diff, GameDiffPlaceEntity)
+        bid = place_diff.entity.base.id
+
+        if bid not in p.g.entities:
+            return
+        
+        entity = p.g.entities[bid]
+        entity_bytes = p.g._raw.read_bytes(entity._addr + 8, 64)
+
+        p.g._raw.write_bytes(place_diff._addr, entity_bytes)
+        place_diff.entity.base.position = to_pos
+
+    @staticmethod
+    def draw_line(p: Player, from_pos: Position, to_pos: Position):
+
+        assert p.turret_id is not None
+
+        old_id = p.ct.get_id()
+        p.g.possess(p.turret_id)
+        me = p.turret()
+
+        me.action_cooldown = 0
+        me.ammo_type = ResourceType.TITANIUM
+        me.ammo_amount = INF
+
+        assert p.ct.get_action_cooldown() == 0
+
+        if not p.ct.can_fire(Position(0, 1)):
+            return
+        
+        p.ct.fire(Position(0, 1))
+
+        last_fire = p.g.replay_recorder.last_fire_turret.as_variant
+        assert isinstance(last_fire, GameDiffFireTurret)
+
+        last_fire.from_ = from_pos
+        last_fire.to = to_pos
+
+        old_id = p.ct.get_id()
+        p.g.possess(old_id)

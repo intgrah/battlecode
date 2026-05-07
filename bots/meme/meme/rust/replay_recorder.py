@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Final
 
 from rust.base import U8, U64, Inner, RustStruct
-from rust.game_diff import GameDiff
+from rust.game_diff import GameDiff, _TAG_FIRE_TURRET
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -111,3 +111,33 @@ class ReplayRecorder(RustStruct):
     def last_diff(self) -> GameDiff:
         """The most recently appended `GameDiff` in the current turn."""
         return self.current_turn[-1]
+
+    @property
+    def last_place_entity(self) -> GameDiff:
+        """The most recent PlaceEntity diff in the current turn (tag == None).
+
+        Searching backward is necessary because engines >= 1.8 append
+        SetActionCooldown after spawn/build, so last_diff is not PlaceEntity.
+        """
+        turn = self.current_turn
+        for i in range(len(turn) - 1, -1, -1):
+            d = turn[i]
+            if d.tag is None:
+                return d
+        msg = "no PlaceEntity diff in current turn"
+        raise LookupError(msg)
+
+    @property
+    def last_fire_turret(self) -> GameDiff:
+        """The most recent FireTurret diff in the current turn (tag == 11).
+
+        Searching backward is necessary because fire() appends SetActionCooldown
+        after FireTurret via finish_firing_turret.
+        """
+        turn = self.current_turn
+        for i in range(len(turn) - 1, -1, -1):
+            d = turn[i]
+            if d.tag == _TAG_FIRE_TURRET:
+                return d
+        msg = f"no FireTurret diff (tag={_TAG_FIRE_TURRET}) in current turn"
+        raise LookupError(msg)

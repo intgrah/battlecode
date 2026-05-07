@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 # gunner-fire variant added in the rotate balance change).
 _NICHE_BASE: Final = 0x800000000000000E
 _TAG_REMOVE_ENTITY: Final = 2
-_TAG_FIRE_TURRET: Final = 11
+_TAG_FIRE_TURRET: Final = 12
 
 
 class GameDiff(RustStruct):
@@ -65,7 +65,7 @@ class GameDiff(RustStruct):
                 return GameDiffPlaceEntity(self._raw, self._addr)
             case t if t == _TAG_REMOVE_ENTITY:
                 return GameDiffRemoveEntity(self._raw, self._addr)
-            case t if t == _TAG_FIRE_TURRET:
+            case t if t == _TAG_FIRE_TURRET:  # 12 in installed binary (extra variant before FireTurret)
                 return GameDiffFireTurret(self._raw, self._addr)
             case other:
                 msg = f"GameDiff tag {other!r} not yet wrapped"
