@@ -1,8 +1,0 @@
-[project]
-name = "bot-v54-2-1"
-version = "0.0.0"
-requires-python = ">=3.12,<3.14"
-dependencies = ["cambc", "visualiser"]
-
-[tool.ty.environment]
-root = ["."]
