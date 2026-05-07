@@ -8,7 +8,7 @@ class GameDiffFireTurret(GameDiffVariant):
     """
     GameDiff::FireTurret (72 B):
 
-      +0   8   discriminant     u64  (niche tag = 0x8000000000000019)
+      +0   8   discriminant     u64  (niche tag = 0x800000000000001a, idx=12 in installed binary)
       +8   8   from             Pos
       +16  8   to               Pos
       +24  48  padding
