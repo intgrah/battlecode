@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generator
-
-from cambc import EntityType, Position, Team, Direction, ResourceType
-from rust import Game, RawMem, EntityBuilderBot, EntitySentinel
-from god_mode import GodMode
 import random
+from typing import TYPE_CHECKING
+
+from cambc import Direction, EntityType, Position, Team
+from god_mode import GodMode
+from rust import EntityBuilderBot, EntitySentinel, Game, RawMem
 
 INF = 1_000_000_000
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from cambc import Controller
+
 
 class Player:
     def __init__(self) -> None:
@@ -31,13 +34,13 @@ class Player:
         me = self.g.entities[self.builder_id].as_variant
         assert isinstance(me, EntityBuilderBot)
         return me
-    
+
     def turret(self) -> EntitySentinel:
         assert self.turret_id is not None
         me = self.g.entities[self.turret_id].as_variant
         assert isinstance(me, EntitySentinel)
         return me
-    
+
     def print(self, message: object) -> None:
         self.log += str(message) + "\n"
 
@@ -46,7 +49,7 @@ class Player:
         if ct.get_entity_type() != EntityType.CORE:
             ct.resign("non core got a turn")
             return
-        
+
         self.ct = ct
         self.g = Game.open(RawMem(), ct)
 
@@ -60,8 +63,7 @@ class Player:
         if self.turn_work is None:
             print(self.log)
             return
-        
-        
+
         try:
             while ct.get_cpu_time_elapsed() < 1500:
                 next(self.turn_work)
@@ -81,11 +83,9 @@ class Player:
         del self.ct
 
         print(self.log)
-            
 
     def run_turn_section(self) -> Generator:
 
-        
         if self.team is None or self.enemy_team is None:
             self.team = self.ct.get_team()
             self.enemy_team = Team.A if self.team == Team.B else Team.B
@@ -108,7 +108,9 @@ class Player:
                     break
 
         if self.turret_id is None:
-            self.turret_id = GodMode.build(self, EntityType.SENTINEL, Position(0, 0), Direction.SOUTH)
+            self.turret_id = GodMode.build(
+                self, EntityType.SENTINEL, Position(0, 0), Direction.SOUTH
+            )
             assert self.turret_id is not None
             self.g.entities[self.turret_id].base.hp = INF
             GodMode.hide_last(self.g, self.core)
@@ -117,31 +119,40 @@ class Player:
                 if uid == self.turret_id:
                     self.g.unit_order[i] = self.core
                     break
-        
+
         for i in range(self.workers_built, 40):
             cont = GodMode.build(self, EntityType.LAUNCHER, Position(0, 0), silent=True)
             assert cont is not None, "cont is none"
-            
-            for i in range(len(self.g.unit_order)):
-                uid = self.g.unit_order[i]
+
+            for j in range(len(self.g.unit_order)):
+                uid = self.g.unit_order[j]
                 if uid == cont:
-                    self.print((i, cont))
-                    self.g.unit_order[i] = self.core
+                    self.print((j, cont))
+                    self.g.unit_order[j] = self.core
                     break
             GodMode.destroy(self, cont)
             self.workers_built = i
             yield
 
-
         if not self.built:
-            road_id = GodMode.build(self, EntityType.ROAD, Position(10, 10), silent=True)
+            road_id = GodMode.build(
+                self, EntityType.ROAD, Position(10, 10), silent=True
+            )
             if road_id is not None:
                 GodMode.move_last_in_replay(self, Position(-1, -1))
             GodMode.move(self, self.core, Position(1, 1))
             self.built = True
 
-        GodMode.draw_line(self, Position(-1, -1), Position(self.ct.get_map_width(), self.ct.get_map_height()))
-        GodMode.draw_line(self, Position(self.ct.get_map_width() - 1, 0), Position(0, self.ct.get_map_height() - 1))
+        GodMode.draw_line(
+            self,
+            Position(-1, -1),
+            Position(self.ct.get_map_width(), self.ct.get_map_height()),
+        )
+        GodMode.draw_line(
+            self,
+            Position(self.ct.get_map_width() - 1, 0),
+            Position(0, self.ct.get_map_height() - 1),
+        )
 
         rnd = self.ct.get_current_round()
 
