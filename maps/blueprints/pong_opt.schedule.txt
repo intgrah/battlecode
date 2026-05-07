@@ -1,0 +1,153 @@
+# pong_opt.bp build schedule  (3 builders, completion T=256, total 10247 Ti)
+T   0  S  BUILDER    pos=(8, 8)  cost= 30  scale=1.20  Ti_after=470
+T   0  B  FOUNDRY    pos=(8, 6)  cost= 48  scale=1.70  Ti_after=422
+T   1  S  BUILDER    pos=(8, 8)  cost= 51  scale=1.90  Ti_after=371
+T   1  B  BRIDGE     pos=(5, 6)  cost= 38  scale=2.00  Ti_after=333
+T   1  B  BRIDGE     pos=(4, 9)  cost= 40  scale=2.10  Ti_after=293
+T   2  B  BRIDGE     pos=(6, 11)  cost= 42  scale=2.20  Ti_after=251
+T   2  B  BRIDGE     pos=(7, 13)  cost= 44  scale=2.30  Ti_after=207
+T   3  B  BRIDGE     pos=(3, 13)  cost= 46  scale=2.40  Ti_after=161
+T   3  B  HARVESTER  pos=(7, 5)  cost= 48  scale=2.45  Ti_after=113
+T   4  B  HARVESTER  pos=(5, 7)  cost= 49  scale=2.50  Ti_after=74
+T   4  B  HARVESTER  pos=(7, 12)  cost= 50  scale=2.55  Ti_after=24
+T  16  B  HARVESTER  pos=(8, 13)  cost= 51  scale=2.60  Ti_after=3
+T  36  B  HARVESTER  pos=(6, 5)  cost= 51  scale=2.65  Ti_after=2
+T  56  B  HARVESTER  pos=(4, 6)  cost= 52  scale=2.70  Ti_after=0
+T  80  B  HARVESTER  pos=(5, 12)  cost= 53  scale=2.75  Ti_after=7
+T 100  B  HARVESTER  pos=(6, 13)  cost= 54  scale=2.80  Ti_after=3
+T 101  B  CONVEYOR   pos=(8, 5)  cost=  8  scale=2.81  Ti_after=35
+T 101  B  CONVEYOR   pos=(9, 6)  cost=  8  scale=2.82  Ti_after=27
+T 102  B  CONVEYOR   pos=(5, 8)  cost=  8  scale=2.83  Ti_after=59
+T 102  B  CONVEYOR   pos=(7, 10)  cost=  8  scale=2.84  Ti_after=51
+T 103  B  CONVEYOR   pos=(8, 4)  cost=  8  scale=2.85  Ti_after=83
+T 103  B  CONVEYOR   pos=(4, 8)  cost=  8  scale=2.86  Ti_after=75
+T 104  B  CONVEYOR   pos=(6, 10)  cost=  8  scale=2.87  Ti_after=117
+T 104  B  CONVEYOR   pos=(7, 4)  cost=  8  scale=2.88  Ti_after=109
+T 105  B  CONVEYOR   pos=(3, 8)  cost=  8  scale=2.89  Ti_after=141
+T 105  B  CONVEYOR   pos=(5, 10)  cost=  8  scale=2.90  Ti_after=133
+T 106  B  CONVEYOR   pos=(6, 4)  cost=  8  scale=2.91  Ti_after=165
+T 106  B  CONVEYOR   pos=(3, 7)  cost=  8  scale=2.92  Ti_after=157
+T 107  B  CONVEYOR   pos=(3, 9)  cost=  8  scale=2.93  Ti_after=189
+T 107  B  CONVEYOR   pos=(4, 10)  cost=  8  scale=2.94  Ti_after=181
+T 108  B  CONVEYOR   pos=(6, 12)  cost=  8  scale=2.95  Ti_after=223
+T 108  B  CONVEYOR   pos=(3, 10)  cost=  8  scale=2.96  Ti_after=215
+T 109  B  CONVEYOR   pos=(3, 4)  cost=  8  scale=2.97  Ti_after=247
+T 109  B  FOUNDRY    pos=(6, 8)  cost=118  scale=3.47  Ti_after=129
+T 110  B  FOUNDRY    pos=(2, 9)  cost=138  scale=3.97  Ti_after=31
+T 113  B  FOUNDRY    pos=(10, 16)  cost=158  scale=4.47  Ti_after=3
+T 118  B  FOUNDRY    pos=(3, 16)  cost=178  scale=4.97  Ti_after=35
+T 122  B  FOUNDRY    pos=(17, 16)  cost=198  scale=5.47  Ti_after=7
+T 125  B  BRIDGE     pos=(10, 14)  cost=109  scale=5.57  Ti_after=28
+T 128  B  BRIDGE     pos=(11, 14)  cost=111  scale=5.67  Ti_after=47
+T 130  B  BRIDGE     pos=(2, 4)  cost=113  scale=5.77  Ti_after=14
+T 133  B  BRIDGE     pos=(0, 10)  cost=115  scale=5.87  Ti_after=29
+T 136  B  BRIDGE     pos=(3, 15)  cost=117  scale=5.97  Ti_after=42
+T 138  B  BRIDGE     pos=(0, 13)  cost=119  scale=6.07  Ti_after=3
+T 141  B  BRIDGE     pos=(10, 19)  cost=121  scale=6.17  Ti_after=12
+T 144  B  BRIDGE     pos=(3, 19)  cost=123  scale=6.27  Ti_after=19
+T 147  B  BRIDGE     pos=(17, 19)  cost=125  scale=6.37  Ti_after=14
+T 150  B  HARVESTER  pos=(4, 7)  cost=127  scale=6.42  Ti_after=17
+T 153  B  HARVESTER  pos=(5, 4)  cost=128  scale=6.47  Ti_after=19
+T 156  B  HARVESTER  pos=(3, 6)  cost=129  scale=6.52  Ti_after=20
+T 159  B  HARVESTER  pos=(4, 4)  cost=130  scale=6.57  Ti_after=10
+T 162  B  HARVESTER  pos=(3, 5)  cost=131  scale=6.62  Ti_after=9
+T 165  B  HARVESTER  pos=(8, 16)  cost=132  scale=6.67  Ti_after=7
+T 168  B  HARVESTER  pos=(4, 3)  cost=133  scale=6.72  Ti_after=4
+T 172  B  HARVESTER  pos=(2, 5)  cost=134  scale=6.77  Ti_after=40
+T 175  B  HARVESTER  pos=(3, 12)  cost=135  scale=6.82  Ti_after=25
+T 178  B  HARVESTER  pos=(13, 12)  cost=136  scale=6.87  Ti_after=19
+T 181  B  HARVESTER  pos=(4, 13)  cost=137  scale=6.92  Ti_after=12
+T 184  B  HARVESTER  pos=(3, 3)  cost=138  scale=6.97  Ti_after=4
+T 188  B  HARVESTER  pos=(9, 17)  cost=139  scale=7.02  Ti_after=35
+T 191  B  HARVESTER  pos=(1, 12)  cost=140  scale=7.07  Ti_after=15
+T 193  B  HARVESTER  pos=(15, 12)  cost=141  scale=7.12  Ti_after=44
+T 195  B  HARVESTER  pos=(2, 13)  cost=142  scale=7.17  Ti_after=62
+T 196  B  HARVESTER  pos=(5, 16)  cost=143  scale=7.22  Ti_after=9
+T 198  B  HARVESTER  pos=(12, 16)  cost=144  scale=7.27  Ti_after=25
+T 200  B  HARVESTER  pos=(11, 17)  cost=145  scale=7.32  Ti_after=50
+T 202  B  HARVESTER  pos=(17, 12)  cost=146  scale=7.37  Ti_after=64
+T 204  B  HARVESTER  pos=(4, 17)  cost=147  scale=7.42  Ti_after=87
+T 205  B  HARVESTER  pos=(7, 20)  cost=148  scale=7.47  Ti_after=19
+T 207  B  HARVESTER  pos=(9, 20)  cost=149  scale=7.52  Ti_after=110
+T 208  B  HARVESTER  pos=(8, 21)  cost=150  scale=7.57  Ti_after=90
+T 209  B  HARVESTER  pos=(19, 12)  cost=151  scale=7.62  Ti_after=59
+T 210  B  HARVESTER  pos=(1, 16)  cost=152  scale=7.67  Ti_after=27
+T 212  B  HARVESTER  pos=(15, 16)  cost=153  scale=7.72  Ti_after=124
+T 213  B  HARVESTER  pos=(2, 17)  cost=154  scale=7.77  Ti_after=90
+T 214  B  HARVESTER  pos=(5, 20)  cost=155  scale=7.82  Ti_after=55
+T 215  B  HARVESTER  pos=(11, 20)  cost=156  scale=7.87  Ti_after=59
+T 216  B  HARVESTER  pos=(16, 17)  cost=157  scale=7.92  Ti_after=72
+T 217  B  HARVESTER  pos=(3, 20)  cost=158  scale=7.97  Ti_after=74
+T 218  B  HARVESTER  pos=(13, 20)  cost=159  scale=8.02  Ti_after=75
+T 219  B  HARVESTER  pos=(12, 21)  cost=160  scale=8.07  Ti_after=75
+T 220  B  HARVESTER  pos=(19, 16)  cost=161  scale=8.12  Ti_after=124
+T 221  B  HARVESTER  pos=(18, 17)  cost=162  scale=8.17  Ti_after=162
+T 222  B  HARVESTER  pos=(1, 20)  cost=163  scale=8.22  Ti_after=199
+T 222  B  HARVESTER  pos=(15, 20)  cost=164  scale=8.27  Ti_after=35
+T 223  B  HARVESTER  pos=(17, 20)  cost=165  scale=8.32  Ti_after=70
+T 224  B  HARVESTER  pos=(19, 20)  cost=166  scale=8.37  Ti_after=114
+T 224  B  CONVEYOR   pos=(10, 8)  cost= 25  scale=8.38  Ti_after=89
+T 225  B  CONVEYOR   pos=(11, 8)  cost= 25  scale=8.39  Ti_after=304
+T 225  B  CONVEYOR   pos=(10, 9)  cost= 25  scale=8.40  Ti_after=279
+T 226  B  CONVEYOR   pos=(10, 6)  cost= 25  scale=8.41  Ti_after=494
+T 226  B  CONVEYOR   pos=(11, 9)  cost= 25  scale=8.42  Ti_after=469
+T 227  B  CONVEYOR   pos=(10, 10)  cost= 25  scale=8.43  Ti_after=684
+T 227  B  CONVEYOR   pos=(11, 6)  cost= 25  scale=8.44  Ti_after=659
+T 228  B  CONVEYOR   pos=(13, 8)  cost= 25  scale=8.45  Ti_after=884
+T 228  B  CONVEYOR   pos=(11, 10)  cost= 25  scale=8.46  Ti_after=859
+T 229  B  CONVEYOR   pos=(10, 11)  cost= 25  scale=8.47  Ti_after=1074
+T 229  B  CONVEYOR   pos=(12, 6)  cost= 25  scale=8.48  Ti_after=1049
+T 230  B  CONVEYOR   pos=(13, 7)  cost= 25  scale=8.49  Ti_after=1264
+T 230  B  CONVEYOR   pos=(13, 9)  cost= 25  scale=8.50  Ti_after=1239
+T 231  B  CONVEYOR   pos=(11, 11)  cost= 25  scale=8.51  Ti_after=1454
+T 231  B  CONVEYOR   pos=(6, 3)  cost= 25  scale=8.52  Ti_after=1429
+T 232  B  CONVEYOR   pos=(13, 6)  cost= 25  scale=8.53  Ti_after=1654
+T 232  B  CONVEYOR   pos=(13, 10)  cost= 25  scale=8.54  Ti_after=1629
+T 233  B  CONVEYOR   pos=(5, 3)  cost= 25  scale=8.55  Ti_after=1844
+T 233  B  CONVEYOR   pos=(0, 8)  cost= 25  scale=8.56  Ti_after=1819
+T 234  B  CONVEYOR   pos=(1, 9)  cost= 25  scale=8.57  Ti_after=2034
+T 234  B  CONVEYOR   pos=(2, 10)  cost= 25  scale=8.58  Ti_after=2009
+T 235  B  CONVEYOR   pos=(13, 11)  cost= 25  scale=8.59  Ti_after=2224
+T 235  B  CONVEYOR   pos=(0, 7)  cost= 25  scale=8.60  Ti_after=2199
+T 236  B  CONVEYOR   pos=(0, 9)  cost= 25  scale=8.61  Ti_after=2424
+T 236  B  CONVEYOR   pos=(2, 11)  cost= 25  scale=8.62  Ti_after=2399
+T 237  B  CONVEYOR   pos=(14, 11)  cost= 25  scale=8.63  Ti_after=2614
+T 237  B  CONVEYOR   pos=(10, 15)  cost= 25  scale=8.64  Ti_after=2589
+T 238  B  CONVEYOR   pos=(9, 16)  cost= 25  scale=8.65  Ti_after=2804
+T 238  B  CONVEYOR   pos=(0, 6)  cost= 25  scale=8.66  Ti_after=2779
+T 239  B  CONVEYOR   pos=(15, 11)  cost= 25  scale=8.67  Ti_after=2994
+T 239  B  CONVEYOR   pos=(2, 12)  cost= 26  scale=8.68  Ti_after=2968
+T 240  B  CONVEYOR   pos=(12, 14)  cost= 26  scale=8.69  Ti_after=3192
+T 240  B  CONVEYOR   pos=(16, 11)  cost= 26  scale=8.70  Ti_after=3166
+T 241  B  CONVEYOR   pos=(13, 14)  cost= 26  scale=8.71  Ti_after=3380
+T 241  B  CONVEYOR   pos=(11, 16)  cost= 26  scale=8.72  Ti_after=3354
+T 242  B  CONVEYOR   pos=(17, 11)  cost= 26  scale=8.73  Ti_after=3568
+T 242  B  CONVEYOR   pos=(14, 14)  cost= 26  scale=8.74  Ti_after=3542
+T 243  B  CONVEYOR   pos=(4, 16)  cost= 26  scale=8.75  Ti_after=3756
+T 243  B  CONVEYOR   pos=(7, 19)  cost= 26  scale=8.76  Ti_after=3730
+T 244  B  CONVEYOR   pos=(18, 11)  cost= 26  scale=8.77  Ti_after=3954
+T 244  B  CONVEYOR   pos=(15, 14)  cost= 26  scale=8.78  Ti_after=3928
+T 245  B  CONVEYOR   pos=(6, 19)  cost= 26  scale=8.79  Ti_after=4142
+T 245  B  CONVEYOR   pos=(19, 11)  cost= 26  scale=8.80  Ti_after=4116
+T 246  B  CONVEYOR   pos=(0, 14)  cost= 26  scale=8.81  Ti_after=4330
+T 246  B  CONVEYOR   pos=(16, 14)  cost= 26  scale=8.82  Ti_after=4304
+T 247  B  CONVEYOR   pos=(2, 16)  cost= 26  scale=8.83  Ti_after=4518
+T 247  B  CONVEYOR   pos=(5, 19)  cost= 26  scale=8.84  Ti_after=4492
+T 248  B  CONVEYOR   pos=(10, 20)  cost= 26  scale=8.85  Ti_after=4716
+T 248  B  CONVEYOR   pos=(9, 21)  cost= 26  scale=8.86  Ti_after=4690
+T 249  B  CONVEYOR   pos=(17, 14)  cost= 26  scale=8.87  Ti_after=4904
+T 249  B  CONVEYOR   pos=(0, 15)  cost= 26  scale=8.88  Ti_after=4878
+T 250  B  CONVEYOR   pos=(4, 19)  cost= 26  scale=8.89  Ti_after=5092
+T 250  B  CONVEYOR   pos=(10, 21)  cost= 26  scale=8.90  Ti_after=5066
+T 251  B  CONVEYOR   pos=(17, 15)  cost= 26  scale=8.91  Ti_after=5280
+T 251  B  CONVEYOR   pos=(16, 16)  cost= 26  scale=8.92  Ti_after=5254
+T 252  B  CONVEYOR   pos=(13, 19)  cost= 26  scale=8.93  Ti_after=5478
+T 252  B  CONVEYOR   pos=(11, 21)  cost= 26  scale=8.94  Ti_after=5452
+T 253  B  CONVEYOR   pos=(2, 19)  cost= 26  scale=8.95  Ti_after=5666
+T 253  B  CONVEYOR   pos=(14, 19)  cost= 26  scale=8.96  Ti_after=5640
+T 254  B  CONVEYOR   pos=(18, 16)  cost= 26  scale=8.97  Ti_after=5854
+T 254  B  CONVEYOR   pos=(1, 19)  cost= 26  scale=8.98  Ti_after=5828
+T 255  B  CONVEYOR   pos=(15, 19)  cost= 26  scale=8.99  Ti_after=6042
+T 255  B  CONVEYOR   pos=(16, 19)  cost= 26  scale=9.00  Ti_after=6016
+T 256  B  CONVEYOR   pos=(18, 19)  cost= 26  scale=9.01  Ti_after=6240
+T 256  B  CONVEYOR   pos=(19, 19)  cost= 27  scale=9.02  Ti_after=6213
