@@ -10,16 +10,8 @@ turn; rejects if no candidate in vision is buildable right now.
 from __future__ import annotations
 
 from cambc import Environment
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
 
 
 def deny_enemy_ore(self_, ct):

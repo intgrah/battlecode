@@ -6,22 +6,19 @@ Guard work around our Ti harvesters / claimed-but-unbuilt ore tiles.
 
 from __future__ import annotations
 
-from cambc import EntityType, Environment
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position
-if TYPE_CHECKING:
-    from builder import Builder
-from builder.harvest import needs_harvester_guard, place_harvester_guard
-from builder.helpers import can_afford, harvester_feed_cardinal, harvester_io_cardinals
-from builder.tasks.rejected import TaskRejected
+from cambc import EntityType, Environment
 
 if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
+    from cambc import Position
 from util.debug import debug as log
 from util.directions import DIR4
 from util.visualiser import auto_wrap_position
+
+from builder.harvest import needs_harvester_guard, place_harvester_guard
+from builder.helpers import can_afford, harvester_feed_cardinal, harvester_io_cardinals
+from builder.tasks.rejected import TaskRejected
 
 
 def guard_harvester_neighbours(self_, ct):
@@ -36,7 +33,7 @@ def guard_harvester_neighbours(self_, ct):
     my_pos = self_.my_pos
     for tgt_opt in [self_.ore_target, self_.ax_ore_target]:
         tgt = tgt_opt
-        if tgt is not None and (my_pos == tgt) and (not (tgt in targets)):
+        if tgt is not None and (my_pos == tgt) and (tgt not in targets):
             targets.append(tgt)
     if not targets:
         return TaskRejected("nothing to guard around any visible harvester / claim")
@@ -60,7 +57,7 @@ def guard_harvester_neighbours(self_, ct):
             and ct.can_build_road(feed)
         ):
             args = {}
-            args[str("feed")] = auto_wrap_position(feed)
+            args["feed"] = auto_wrap_position(feed)
             log("guard_harvester_neighbours: ROAD on feed {feed} (prep step-off)", args)
             ct.build_road(feed)
             return None
@@ -68,7 +65,7 @@ def guard_harvester_neighbours(self_, ct):
             continue
         for d in DIR4:
             pos = target.add(d)
-            if not (pos in near):
+            if pos not in near:
                 continue
             if pos in no_guard:
                 continue

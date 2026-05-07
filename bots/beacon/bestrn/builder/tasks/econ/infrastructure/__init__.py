@@ -10,12 +10,15 @@ from __future__ import annotations
 
 from typing import Final
 
-from . import build_foundry
-from . import fix_enemy_conveyor
-from . import guard_harvester_neighbours
-from . import place_gunner
-from . import resolve_congestion
-from builder.tasks._policy import Policy, TaskGroup, PolicyGroup, PolicyLeaf
+from builder.tasks._policy import Policy, PolicyGroup, PolicyLeaf, TaskGroup
+
+from . import (
+    build_foundry,
+    fix_enemy_conveyor,
+    guard_harvester_neighbours,
+    place_gunner,
+    resolve_congestion,
+)
 
 ECON_INFRASTRUCTURE_CHILDREN: Final[list[Policy]] = [
     PolicyLeaf(name="build_foundry", fn_=build_foundry.build_foundry),

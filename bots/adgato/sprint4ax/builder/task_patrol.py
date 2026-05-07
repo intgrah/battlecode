@@ -3,10 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from cambc import Controller, EntityType
-
-from .helpers import make_move, make_multi_move
-
 from util import DIR8
+
+from .helpers import make_move
 
 if TYPE_CHECKING:
     from builder import Builder, PosInt

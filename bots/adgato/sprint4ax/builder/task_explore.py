@@ -94,7 +94,7 @@ def initial_explore(self: Builder, ct: Controller, vertical: int = 0) -> None:
             theta = self.rng.random() * math.pi / 2
             if not vertical:
                 theta = theta + up_down * math.pi + math.pi / 4
-            elif vertical is 1:
+            elif vertical == 1:
                 theta = theta + up_down * math.pi - math.pi / 4
             else:
                 theta = self.rng.random() * math.pi * 2

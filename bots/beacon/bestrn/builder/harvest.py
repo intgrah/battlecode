@@ -19,13 +19,16 @@ empty / friendly-road / marker cardinals.
 
 from __future__ import annotations
 
-from cambc import Direction, EntityType, Environment
 from typing import TYPE_CHECKING
 
+from cambc import Direction, EntityType, Environment
+
 if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position, Team
-if TYPE_CHECKING:
-    from builder import Builder
+    from cambc import Position
+from util.debug import debug as log
+from util.directions import DIR4, delta_to_dir
+from util.visualiser import auto_wrap_position
+
 from builder.helpers import (
     can_afford,
     harvester_feed_cardinal,
@@ -35,9 +38,6 @@ from builder.helpers import (
     ore_available,
     try_move_with_road,
 )
-from util.debug import debug as log
-from util.directions import DIR4, delta_to_dir
-from util.visualiser import auto_wrap_position
 
 
 def find_contest_target(builder, pos, my_team):
@@ -56,17 +56,17 @@ def find_contest_target(builder, pos, my_team):
         kind, team = __opt_tuple
         if team == my_team:
             continue
-        if (
-            kind == EntityType.ROAD
-            or kind == EntityType.CONVEYOR
-            or kind == EntityType.SPLITTER
-            or kind == EntityType.BRIDGE
+        if kind in (
+            EntityType.ROAD,
+            EntityType.CONVEYOR,
+            EntityType.SPLITTER,
+            EntityType.BRIDGE,
         ):
             return n
     return None
 
 
-def is_guarded_cardinal(builder, pos):
+def is_guarded_cardinal(builder, pos) -> bool:
     """
     A cardinal is "already guarded" — no inward conveyor needed —
     when an enemy can't easily place a parasitic conveyor there. That
@@ -78,7 +78,7 @@ def is_guarded_cardinal(builder, pos):
     kind = builder.building_kind[builder.idx(pos)]
     if kind is None:
         return False
-    return not (kind == EntityType.ROAD or kind == EntityType.MARKER)
+    return kind not in (EntityType.ROAD, EntityType.MARKER)
 
 
 def walk_to_ore_claim(builder, ct, target_pos):
@@ -93,7 +93,7 @@ def walk_to_ore_claim(builder, ct, target_pos):
     if builder.state.my_pos == target_pos:
         if not ore_available(builder, target_pos):
             args = {}
-            args[str("target")] = auto_wrap_position(target_pos)
+            args["target"] = auto_wrap_position(target_pos)
             log("walk_to_ore_claim: ore {target} no longer available", args)
             return False
         return True
@@ -101,8 +101,8 @@ def walk_to_ore_claim(builder, ct, target_pos):
     contest_pos = contest_pos
     if contest_pos is not None:
         args = {}
-        args[str("contest")] = auto_wrap_position(contest_pos)
-        args[str("target")] = auto_wrap_position(target_pos)
+        args["contest"] = auto_wrap_position(contest_pos)
+        args["target"] = auto_wrap_position(target_pos)
         log("walk_to_ore_claim: CONTEST enemy at {contest} adj to ore {target}", args)
         if builder.state.my_pos == contest_pos:
             if builder.state.ti >= 2 and ct.can_fire(builder.state.my_pos):
@@ -130,20 +130,20 @@ def walk_to_ore_claim(builder, ct, target_pos):
         and ct.can_destroy(target_pos)
     ):
         args = {}
-        args[str("target")] = auto_wrap_position(target_pos)
+        args["target"] = auto_wrap_position(target_pos)
         log("walk_to_ore_claim: destroying friendly guard on ore {target}", args)
         ct.destroy(target_pos)
         builder.apply_local_destroy(target_pos)
     args = {}
-    args[str("target")] = auto_wrap_position(target_pos)
-    args[str("d")] = builder.state.my_pos.distance_squared(target_pos)
+    args["target"] = auto_wrap_position(target_pos)
+    args["d"] = builder.state.my_pos.distance_squared(target_pos)
     log("walk_to_ore_claim: walking toward ore {target} dist²={d}", args)
     return try_move_with_road(builder, ct, target_pos) or make_move_or_adjacent(
         builder, ct, target_pos
     )
 
 
-def needs_harvester_guard(builder, cardinal, target, io_reserved):
+def needs_harvester_guard(builder, cardinal, target, io_reserved) -> bool:
     """
     Whether `cardinal` (a tile cardinal to harvester/claimed-ore
     `target`) needs a guard (barrier or inward conveyor) placed.
@@ -157,20 +157,18 @@ def needs_harvester_guard(builder, cardinal, target, io_reserved):
     ci = builder.idx(cardinal)
     kind = builder.building_kind[ci]
     team = builder.building_team[ci]
-    if (
+    return not (
         (
-            (kind is not None)
-            and (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR)
+            kind is not None
+            and (kind in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR))
         )
         and team == builder.state.my_team
-        and not (not builder.out_edges[ci])
+        and builder.out_edges[ci]
         and builder.out_edges[ci][0] == target
-    ):
-        return False
-    return True
+    )
 
 
-def place_harvester_guard(builder, ct, cardinal, target):
+def place_harvester_guard(builder, ct, cardinal, target) -> bool:
     """Place a guard at `cardinal` of `target` (a harvester / claim)."""
     use_barrier = _should_use_barrier(builder, cardinal, target)
     etype = EntityType.BARRIER if use_barrier else EntityType.CONVEYOR
@@ -186,7 +184,7 @@ def place_harvester_guard(builder, ct, cardinal, target):
     if use_barrier:
         if ct.can_build_barrier(cardinal):
             args = {}
-            args[str("at")] = auto_wrap_position(cardinal)
+            args["at"] = auto_wrap_position(cardinal)
             log("place_harvester_guard: BARRIER at {at} (>=3 walkable cardinals)", args)
             ct.build_barrier(cardinal)
             return True
@@ -198,16 +196,16 @@ def place_harvester_guard(builder, ct, cardinal, target):
         return False
     if ct.can_build_conveyor(cardinal, inward):
         args = {}
-        args[str("at")] = auto_wrap_position(cardinal)
-        args[str("dir")] = f"{inward}"
-        args[str("target")] = auto_wrap_position(target)
+        args["at"] = auto_wrap_position(cardinal)
+        args["dir"] = f"{inward}"
+        args["target"] = auto_wrap_position(target)
         log("place_harvester_guard: CONVEYOR at {at} facing {dir} into {target}", args)
         ct.build_conveyor(cardinal, inward)
         return True
     return False
 
 
-def _should_use_barrier(builder, guard_pos, target):
+def _should_use_barrier(builder, guard_pos, target) -> bool:
     """U-shape local-connectivity check."""
     dx = guard_pos.x - target.x
     dy = guard_pos.y - target.y
@@ -219,9 +217,10 @@ def _should_use_barrier(builder, guard_pos, target):
     right_perp = rotate_right(rotate_right(d))
     left_diag = rotate_left(d)
     right_diag = rotate_right(d)
-    passable = lambda p: (
-        builder.in_bounds(p) and builder.cost_grid[builder.idx(p)] != 1000000
-    )
+
+    def passable(p):
+        return builder.in_bounds(p) and builder.cost_grid[builder.idx(p)] != 1000000
+
     top_p = passable(top)
     left_p = passable(guard_pos.add(left_perp)) or passable(guard_pos.add(left_diag))
     right_p = passable(guard_pos.add(right_perp)) or passable(guard_pos.add(right_diag))
@@ -229,7 +228,7 @@ def _should_use_barrier(builder, guard_pos, target):
     return not must_use_conveyor
 
 
-def clear_barriered_feed(builder, ct, target_pos):
+def clear_barriered_feed(builder, ct, target_pos) -> bool:
     """
     Last-resort: when `harvester_feed_cardinal(target_pos)` returns
     None because every cardinal is blocked, look for a friendly
@@ -265,8 +264,8 @@ def clear_barriered_feed(builder, ct, target_pos):
         min(candidates, key=lambda c: c.distance_squared(sink)) if candidates else None
     )
     args = {}
-    args[str("pos")] = auto_wrap_position(chosen)
-    args[str("target")] = auto_wrap_position(target_pos)
+    args["pos"] = auto_wrap_position(chosen)
+    args["target"] = auto_wrap_position(target_pos)
     log(
         "clear_barriered_feed: destroy friendly BARRIER on {pos} (last-resort feed clear for {target})",
         args,
@@ -276,7 +275,7 @@ def clear_barriered_feed(builder, ct, target_pos):
     return True
 
 
-def step_off_and_build_harvester(builder, ct, target_pos):
+def step_off_and_build_harvester(builder, ct, target_pos) -> bool:
     """
     Standing on the ore, step off ONTO THE FEED CARDINAL (the
     harvester's chosen output tile) and place the harvester in the
@@ -297,7 +296,7 @@ def step_off_and_build_harvester(builder, ct, target_pos):
         and ct.can_build_road(feed)
     ):
         args = {}
-        args[str("feed")] = auto_wrap_position(feed)
+        args["feed"] = auto_wrap_position(feed)
         log("step_off_and_build_harvester: paving feed {feed} for step-off", args)
         ct.build_road(feed)
         return True
@@ -306,12 +305,12 @@ def step_off_and_build_harvester(builder, ct, target_pos):
     ] == EntityType.ROAD and ct.can_destroy(builder.state.my_pos):
         if not ct.can_move(d):
             args = {}
-            args[str("feed")] = auto_wrap_position(feed)
+            args["feed"] = auto_wrap_position(feed)
             log("step_off_and_build_harvester: feed {feed} blocked; waiting", args)
             return True
         args = {}
-        args[str("at")] = auto_wrap_position(builder.state.my_pos)
-        args[str("feed")] = auto_wrap_position(feed)
+        args["at"] = auto_wrap_position(builder.state.my_pos)
+        args["feed"] = auto_wrap_position(feed)
         log(
             "step_off_and_build_harvester: destroy own ROAD at {at}, step to feed {feed}",
             args,
@@ -321,29 +320,29 @@ def step_off_and_build_harvester(builder, ct, target_pos):
         builder.apply_local_destroy(p)
     if ct.can_move(d):
         args = {}
-        args[str("d")] = f"{d}"
-        args[str("feed")] = auto_wrap_position(feed)
+        args["d"] = f"{d}"
+        args["feed"] = auto_wrap_position(feed)
         log("step_off_and_build_harvester: step {d} to feed {feed}", args)
         ct.move(d)
         if ct.can_build_harvester(target_pos):
             args = {}
-            args[str("target")] = auto_wrap_position(target_pos)
+            args["target"] = auto_wrap_position(target_pos)
             log("step_off_and_build_harvester: HARVESTER placed on {target}", args)
             ct.build_harvester(target_pos)
             builder.ore_target = None
         else:
             kind = builder.building_kind[builder.idx(target_pos)]
             args = {}
-            args[str("feed")] = auto_wrap_position(feed)
-            args[str("target")] = auto_wrap_position(target_pos)
-            args[str("bld")] = f"{k!r}" if (k := kind) is not None else str("None")
+            args["feed"] = auto_wrap_position(feed)
+            args["target"] = auto_wrap_position(target_pos)
+            args["bld"] = f"{k!r}" if (k := kind) is not None else "None"
             log(
                 "step_off_and_build_harvester: stepped to {feed} but can_build_harvester({target}) is False — building at {bld}",
                 args,
             )
         return True
     args = {}
-    args[str("feed")] = auto_wrap_position(feed)
+    args["feed"] = auto_wrap_position(feed)
     log("step_off_and_build_harvester: cannot move to feed {feed}; waiting", args)
     return True
 

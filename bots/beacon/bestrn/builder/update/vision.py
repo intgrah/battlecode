@@ -1,25 +1,23 @@
 from __future__ import annotations
 
-from cambc import EntityType, Environment, GameConstants
 from typing import TYPE_CHECKING
 
+from cambc import EntityType, Environment, GameConstants
+
 if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position
-if TYPE_CHECKING:
-    from builder import Builder
+    from cambc import Position
 from building import edge_targets, make_building
-from util.constants import FLOW_HISTORY_LEN, INF, MAX_WIDTH, ROAD_COST
 from util.directions import DIR8
 
 if TYPE_CHECKING:
     from util.symmetry import Symmetry
 
 
-def _remove_topology(builder, pos, i):
+def _remove_topology(builder, pos, i) -> None:
     old_kind = builder.building_kind[i]
     old_team = builder.building_team[i]
     my_team = builder.state.my_team
-    if old_team == my_team and not (not builder.out_edges[i]):
+    if old_team == my_team and builder.out_edges[i]:
         outs: list[Position] = list(builder.out_edges[i])
         for t in outs:
             if not builder.in_bounds(t):
@@ -50,14 +48,14 @@ def _remove_topology(builder, pos, i):
             pass
 
 
-def _add_topology(builder, ct, pos, bid, kind, team):
+def _add_topology(builder, ct, pos, bid, kind, team) -> None:
     i = int(pos.y) * 50 + int(pos.x)
     if builder.reach_parent[i] == -1:
         builder.reach_parent[i] = int(i)
         builder.reach_frontier.append(int(i))
     if team == builder.state.my_team:
         targets = edge_targets(ct, pos, bid, kind)
-        if not (not targets):
+        if targets:
             outs: list[Position] = []
             for t in targets:
                 if builder.in_bounds(t):
@@ -99,7 +97,7 @@ def _add_topology(builder, ct, pos, bid, kind, team):
             pass
 
 
-def _apply_post_transition(builder, pos, i, env, trigger):
+def _apply_post_transition(builder, pos, i, env, trigger) -> None:
     """
     Shared post-transition fix-up after a tile's building changes
     (added, removed, or replaced). Refreshes cost grid, precomputed
@@ -121,7 +119,7 @@ def _apply_post_transition(builder, pos, i, env, trigger):
                     builder._check_dangling(sib, "splitter_sibling")
 
 
-def apply_local_destroy(builder, pos):
+def apply_local_destroy(builder, pos) -> None:
     """Mid-turn invariant fix-up after `ct.destroy(pos)`."""
     i = builder.idx(pos)
     _remove_topology(builder, pos, i)
@@ -134,7 +132,7 @@ def apply_local_destroy(builder, pos):
     _refresh_ore_set(builder, pos, env)
 
 
-def _refresh_ore_set(builder, pos, env):
+def _refresh_ore_set(builder, pos, env) -> None:
     """
     Maintain the incremental `visible_{ti,ax}_ores` sets: a tile is in
     the matching set iff its env is the corresponding ore type AND it
@@ -160,7 +158,7 @@ def _refresh_ore_set(builder, pos, env):
         builder.visible_ax_ores.discard(pos)
 
 
-def _update_cost(builder, i, terrain, kind, team):
+def _update_cost(builder, i, terrain, kind, team) -> None:
     routing_extra: int = 0
     if terrain == Environment.WALL:
         cost = 1000000
@@ -207,7 +205,7 @@ def _update_cost(builder, i, terrain, kind, team):
         builder.ax_routable[i] = buildable and not builder.ax_leakage[i]
 
 
-def _update_turret_rays(builder, ct, pos, bid, kind, team):
+def _update_turret_rays(builder, ct, pos, bid, kind, team) -> None:
     my_team = builder.state.my_team
     enemy = team != my_team
     match kind:
@@ -219,7 +217,7 @@ def _update_turret_rays(builder, ct, pos, bid, kind, team):
         case EntityType.GUNNER if enemy:
             d = ct.get_direction(bid)
             ray = pos
-            for _ in range(0, 3):
+            for _ in range(3):
                 ray = ray.add(d)
                 if pos.distance_squared(ray) > GameConstants.GUNNER_VISION_RADIUS_SQ:
                     break
@@ -232,7 +230,7 @@ def _update_turret_rays(builder, ct, pos, bid, kind, team):
         case EntityType.GUNNER:
             d = ct.get_direction(bid)
             ray = pos
-            for _ in range(0, 3):
+            for _ in range(3):
                 ray = ray.add(d)
                 if pos.distance_squared(ray) > GameConstants.GUNNER_VISION_RADIUS_SQ:
                     break
@@ -246,7 +244,7 @@ def _update_turret_rays(builder, ct, pos, bid, kind, team):
         case EntityType.SENTINEL:
             d = ct.get_direction(bid)
             ray = pos
-            for _ in range(0, 6):
+            for _ in range(6):
                 ray = ray.add(d)
                 if pos.distance_squared(ray) > 32:
                     break
@@ -265,7 +263,7 @@ def _update_turret_rays(builder, ct, pos, bid, kind, team):
             pass
 
 
-def update_vision(builder, ct):
+def update_vision(builder, ct) -> None:
     new_observations: list[tuple[Position, Environment, bool]] = []
     nearby = list(builder.state.nearby_tiles)
     for pos in nearby:
@@ -290,8 +288,8 @@ def update_vision(builder, ct):
                             continue
                         nx = px + dx
                         ny = py + dy
-                        if not (nx in range(0, builder.state.width)) or not (
-                            ny in range(0, builder.state.height)
+                        if nx not in range(builder.state.width) or ny not in range(
+                            builder.state.height
                         ):
                             continue
                         ni = int(ny) * 50 + int(nx)
@@ -328,10 +326,13 @@ def update_vision(builder, ct):
             if builder.hp[i] < builder.max_hp[i] and team == builder.state.my_team:
                 builder.healable_buildings.append(pos)
             if (kind is not None) and (
-                kind == EntityType.CONVEYOR
-                or kind == EntityType.ARMOURED_CONVEYOR
-                or kind == EntityType.BRIDGE
-                or kind == EntityType.SPLITTER
+                kind
+                in (
+                    EntityType.CONVEYOR,
+                    EntityType.ARMOURED_CONVEYOR,
+                    EntityType.BRIDGE,
+                    EntityType.SPLITTER,
+                )
             ):
                 bid_v = bid
                 r = ct.get_stored_resource(bid_v)
@@ -347,7 +348,7 @@ def update_vision(builder, ct):
         _narrow_symmetry(builder, new_observations)
 
 
-def _narrow_symmetry(builder, new_observations):
+def _narrow_symmetry(builder, new_observations) -> None:
     invalid: set[Symmetry] = set()
     candidates: list[Symmetry] = list(builder.state.symmetry_candidates)
     w = builder.state.width

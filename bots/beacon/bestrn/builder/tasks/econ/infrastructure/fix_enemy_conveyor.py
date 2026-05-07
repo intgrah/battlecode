@@ -9,16 +9,7 @@ First tile in vision that qualifies wins.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
 
 
 def fix_enemy_conveyor(self_, ct):

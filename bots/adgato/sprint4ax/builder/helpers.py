@@ -8,8 +8,8 @@ from building import (
     BuildingConveyor,
     BuildingSplitter,
 )
-from cambc import Controller, EntityType, Position, Direction
-from util import DIR4, DIR8, DELTA_TO_DIR, Symmetry, can_afford, try_move
+from cambc import Controller, Direction, EntityType, Position
+from util import DELTA_TO_DIR, DIR4, DIR8, Symmetry, can_afford, try_move
 
 from .algorithms.fallback_nav import fallback_nav
 

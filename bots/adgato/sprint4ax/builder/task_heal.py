@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from cambc import Controller, EntityType, Position
-from util import DIR8, DELTA_TO_DIR
+from util import DELTA_TO_DIR, DIR8
 
 from .helpers import make_move, move_random, try_heal
 

@@ -10,18 +10,10 @@ offensive chain toward enemy lines. Requires symmetry to be resolved so
 from __future__ import annotations
 
 from cambc import ResourceType
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from cambc import Controller
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.chain_routing import extend_step, resource_at
 from builder.helpers import on_enemy_side
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
 
 
 def push_extend(self_, ct):

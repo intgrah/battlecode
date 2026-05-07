@@ -19,7 +19,6 @@ leaf rejection — move on to the next sibling.
 from __future__ import annotations
 
 from dataclasses import dataclass
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -28,7 +27,8 @@ if TYPE_CHECKING:
     from builder import Builder
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
-from util.debug import Scope, debug as log
+from util.debug import Scope
+from util.debug import debug as log
 
 type LeafFn = Callable[[Builder, Controller], TaskResult]
 type Gate = Callable[[Builder, Controller], bool]
@@ -45,7 +45,7 @@ class TaskGroup:
     children: list[Policy]
     gate: Gate | None
 
-    def __init__(self, name: str, children: list[Policy], gate: Gate | None):
+    def __init__(self, name: str, children: list[Policy], gate: Gate | None) -> None:
         self.name = name
         self.children = children
         self.gate = gate
@@ -65,20 +65,17 @@ class PolicyLeaf:
 type Policy = PolicyGroup | PolicyLeaf
 
 
-def run_policy(self_, ct, policy):
+def run_policy(self_, ct, policy) -> bool | None:
     match policy:
         case PolicyGroup(_0=group):
             gate = group.gate
             if gate is not None and (not gate(self_, ct)):
                 args = {}
-                args[str("name")] = str(group.name)
+                args["name"] = str(group.name)
                 log("{name}: gated off", args)
                 return False
             with Scope.new_timed(group.name) as _scope:
-                for child in group.children:
-                    if run_policy(self_, ct, child):
-                        return True
-                return False
+                return any(run_policy(self_, ct, child) for child in group.children)
         case PolicyLeaf(name=name, fn_=fn_):
             scope_label = f"task={name}"
             with Scope.new_timed(scope_label) as _scope:
@@ -87,7 +84,7 @@ def run_policy(self_, ct, policy):
                         return True
                     case rej if rej is not None:
                         args = {}
-                        args[str("name")] = str(name)
-                        args[str("reason")] = rej.reason
+                        args["name"] = str(name)
+                        args["reason"] = rej.reason
                         log("{name}: {reason}", args)
                         return False

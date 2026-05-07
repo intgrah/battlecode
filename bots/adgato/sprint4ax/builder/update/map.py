@@ -18,7 +18,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position
-from util import DIR4, DIR8, INF, Symmetry, DELTA_TO_DIR, DIR_TO_DELTA
+from util import DELTA_TO_DIR, DIR4, DIR8, DIR_TO_DELTA, INF, Symmetry
 
 if TYPE_CHECKING:
     from builder import Builder, PosInt
@@ -94,14 +94,13 @@ def can_place_junction(self: Builder, ct: Controller, i: PosInt) -> bool:
 
 
 def update_map(self: Builder, ct: Controller) -> None:
-    w = self.w
-    stride = self.dist_stride
     nearby_positions = [self._idx(p) for p in ct.get_nearby_tiles()]
     rnd = ct.get_current_round()
     self.nearby_positions = nearby_positions
     self.nearby_buildings = []
 
-    in_vision = lambda x: ct.is_in_vision(self.pos(x))
+    def in_vision(x):
+        return ct.is_in_vision(self.pos(x))
 
     self.healable_buildings = [p for p in self.healable_buildings if not in_vision(p)]
     self.adjacent_to_enemy_launcher = {
@@ -279,10 +278,7 @@ def update_map(self: Builder, ct: Controller) -> None:
                     | BuildingSplitter(team=t)
                     | BuildingBridge(team=t)
                 ):
-                    if t == my_team:
-                        conveyor_cost = 1
-                    else:
-                        conveyor_cost = 1 if self.has_flow(i) else 10
+                    conveyor_cost = 1 if t == my_team else 1 if self.has_flow(i) else 10
                 case BuildingCore(team=t) if t == self.my_team:
                     conveyor_cost = 1
                 case _:
@@ -391,7 +387,7 @@ def update_splittable_locations(self: Builder, ct: Controller) -> None:
     }
     for i in self.nearby_positions:
         pos = self.pos(i)
-        pi = (pos.y + pad) * pw + (pos.x + pad)
+        (pos.y + pad) * pw + (pos.x + pad)
         bld = self.get_building(self._idx(pos))
         match bld:
             case BuildingHarvester():
@@ -556,5 +552,5 @@ def _eliminate_symmetries(
 
     self.symmetry_candidates -= invalid
 
-    if self.symmetry is None and len(self.symmetry_candidates) is 1:
+    if self.symmetry is None and len(self.symmetry_candidates) == 1:
         self.symmetry = next(iter(self.symmetry_candidates))

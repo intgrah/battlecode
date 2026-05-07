@@ -1,21 +1,16 @@
 from __future__ import annotations
 
 from cambc import EntityType, Environment
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from builder import Builder
-from util.constants import INF, MAX_WIDTH
 from util.directions import DIR4, DIR8
 
 
-def update_ore_denial(builder):
+def update_ore_denial(builder) -> None:
     builder.deny_ore_neighbours = set()
     nearby = list(builder.state.nearby_tiles)
     my_team = builder.state.my_team
     for pos in nearby:
         env = builder.env[int(pos.y) * 50 + int(pos.x)]
-        if env != Environment.ORE_TITANIUM and env != Environment.ORE_AXIONITE:
+        if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             continue
         has_enemy = False
         for d in DIR8:
@@ -37,7 +32,7 @@ def update_ore_denial(builder):
                     builder.deny_ore_neighbours.add(n)
 
 
-def update_enemy_turrets(builder):
+def update_enemy_turrets(builder) -> None:
     my_team = builder.state.my_team
     t = builder.nearest_enemy_turret
     if t is not None:

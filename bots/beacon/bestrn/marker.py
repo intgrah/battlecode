@@ -10,14 +10,10 @@ order (matching Python's `_registry` ordering — `MarkerSymmetry` is tag 0).
 
 from __future__ import annotations
 
-from typing import Final
 from dataclasses import dataclass
+from typing import Final
 
 from cambc import EntityType
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position, Team
 from util.symmetry import Symmetry
 
 KEY: Final[int] = 3735928559
@@ -71,8 +67,7 @@ class MarkerSymmetry:
                 case _:
                     return None
             return MarkerSymmetry(symmetry=sym)
-        else:
-            return None
+        return None
 
 
 Marker = MarkerSymmetry

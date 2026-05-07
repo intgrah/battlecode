@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def quadrant(p):
+def quadrant(p) -> str:
     match p:
         case (0, 0):
             return "origin"

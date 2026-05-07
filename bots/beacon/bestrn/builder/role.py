@@ -15,4 +15,4 @@ class Role(IntEnum):
     EconReactive = 6
 
     def is_offensive(self):
-        return self == Role.Push or self == Role.Parasitic
+        return self in (Role.Push, Role.Parasitic)

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from util.constants import INF
-
 
 def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
     """
@@ -154,7 +152,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
     gateway68: int = -1
     best_idx = min_idx
     best_fs: int = -1
-    if 4 <= px and px < w - 4 and 4 <= py and py < h - 4:
+    if px >= 4 and px < w - 4 and py >= 4 and py < h - 4:
         cell = int(pos - w - 1)
         if cost[cell] != 1000000:
             reach1 = True
@@ -942,7 +940,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
     else:
         nx = px - 1
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 reach1 = True
@@ -953,7 +951,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                     best_fs = gateway1
         nx = px - 1
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 reach2 = True
@@ -964,7 +962,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                     best_fs = gateway2
         nx = px + 1
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 reach3 = True
@@ -975,7 +973,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                     best_fs = gateway3
         nx = px + 1
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 reach4 = True
@@ -986,7 +984,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                     best_fs = gateway4
         nx = px - 1
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 reach5 = True
@@ -997,7 +995,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                     best_fs = gateway5
         nx = px
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 reach6 = True
@@ -1008,7 +1006,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                     best_fs = gateway6
         nx = px
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 reach7 = True
@@ -1019,7 +1017,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                     best_fs = gateway7
         nx = px + 1
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 reach8 = True
@@ -1030,7 +1028,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                     best_fs = gateway8
         nx = px - 2
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach5:
@@ -1043,7 +1041,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway9
         nx = px
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach6:
@@ -1056,7 +1054,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway10
         nx = px
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach7:
@@ -1069,7 +1067,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway11
         nx = px + 2
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach8:
@@ -1082,7 +1080,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway12
         nx = px - 2
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach1:
@@ -1098,7 +1096,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway13
         nx = px - 2
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach2:
@@ -1114,7 +1112,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway14
         nx = px - 1
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach1:
@@ -1130,7 +1128,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway15
         nx = px - 1
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach2:
@@ -1146,7 +1144,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway16
         nx = px + 1
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach3:
@@ -1162,7 +1160,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway17
         nx = px + 1
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach4:
@@ -1178,7 +1176,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway18
         nx = px + 2
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach3:
@@ -1194,7 +1192,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway19
         nx = px + 2
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach4:
@@ -1210,7 +1208,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway20
         nx = px - 2
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach1:
@@ -1223,7 +1221,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway21
         nx = px - 2
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach2:
@@ -1236,7 +1234,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway22
         nx = px + 2
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach3:
@@ -1249,7 +1247,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway23
         nx = px + 2
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach4:
@@ -1262,7 +1260,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway24
         nx = px - 3
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach9:
@@ -1275,7 +1273,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway25
         nx = px
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach10:
@@ -1288,7 +1286,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway26
         nx = px
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach11:
@@ -1301,7 +1299,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway27
         nx = px + 3
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach12:
@@ -1314,7 +1312,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway28
         nx = px - 3
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach13:
@@ -1330,7 +1328,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway29
         nx = px - 3
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach14:
@@ -1346,7 +1344,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway30
         nx = px - 1
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach15:
@@ -1362,7 +1360,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway31
         nx = px - 1
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach16:
@@ -1378,7 +1376,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway32
         nx = px + 1
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach17:
@@ -1394,7 +1392,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway33
         nx = px + 1
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach18:
@@ -1410,7 +1408,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway34
         nx = px + 3
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach19:
@@ -1426,7 +1424,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway35
         nx = px + 3
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach20:
@@ -1442,7 +1440,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway36
         nx = px - 3
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach21:
@@ -1458,7 +1456,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway37
         nx = px - 3
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach22:
@@ -1474,7 +1472,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway38
         nx = px - 2
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach21:
@@ -1490,7 +1488,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway39
         nx = px - 2
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach22:
@@ -1506,7 +1504,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway40
         nx = px + 2
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach23:
@@ -1522,7 +1520,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway41
         nx = px + 2
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach24:
@@ -1538,7 +1536,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway42
         nx = px + 3
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach23:
@@ -1554,7 +1552,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway43
         nx = px + 3
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach24:
@@ -1570,7 +1568,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway44
         nx = px - 4
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach25:
@@ -1583,7 +1581,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway45
         nx = px
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach26:
@@ -1596,7 +1594,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway46
         nx = px
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach27:
@@ -1609,7 +1607,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway47
         nx = px + 4
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach28:
@@ -1622,7 +1620,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway48
         nx = px - 4
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach29:
@@ -1638,7 +1636,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway49
         nx = px - 4
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach30:
@@ -1654,7 +1652,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway50
         nx = px - 1
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach31:
@@ -1670,7 +1668,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway51
         nx = px - 1
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach32:
@@ -1686,7 +1684,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway52
         nx = px + 1
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach33:
@@ -1702,7 +1700,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway53
         nx = px + 1
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach34:
@@ -1718,7 +1716,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway54
         nx = px + 4
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach35:
@@ -1734,7 +1732,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway55
         nx = px + 4
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach36:
@@ -1750,7 +1748,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway56
         nx = px - 3
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach21:
@@ -1763,7 +1761,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway57
         nx = px - 3
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach22:
@@ -1776,7 +1774,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway58
         nx = px + 3
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach23:
@@ -1789,7 +1787,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway59
         nx = px + 3
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach24:
@@ -1802,7 +1800,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway60
         nx = px - 4
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach37:
@@ -1818,7 +1816,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway61
         nx = px - 4
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach38:
@@ -1834,7 +1832,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway62
         nx = px - 2
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach39:
@@ -1850,7 +1848,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway63
         nx = px - 2
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach40:
@@ -1866,7 +1864,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway64
         nx = px + 2
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach41:
@@ -1882,7 +1880,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway65
         nx = px + 2
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach42:
@@ -1898,7 +1896,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway66
         nx = px + 4
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach43:
@@ -1914,7 +1912,7 @@ def dp_step_hop(w, cost, h, pos, path_idx, min_idx):
                         best_fs = gateway67
         nx = px + 4
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             if cost[cell] != 1000000:
                 if reach44:
@@ -2044,13 +2042,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
     best_idx = min_idx
     best_dist = 1000000
     best_fs: int = -1
-    if 4 <= px and px < w - 4 and 4 <= py and py < h - 4:
+    if px >= 4 and px < w - 4 and py >= 4 and py < h - 4:
         cell = int(pos - w - 1)
         c = cost[cell]
         if c != 1000000:
             dist1 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 1
@@ -2059,7 +2057,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist2 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 2
@@ -2068,7 +2066,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist3 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 3
@@ -2077,7 +2075,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist4 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 4
@@ -2086,7 +2084,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist5 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 5
@@ -2095,7 +2093,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist6 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 6
@@ -2104,7 +2102,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist7 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 7
@@ -2113,7 +2111,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist8 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 8
@@ -2127,7 +2125,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway9 = 5
             if dist9 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist9 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist9 < best_dist):
                     best_idx = pi
                     best_dist = dist9
                     best_fs = gateway9
@@ -2141,7 +2139,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway10 = 6
             if dist10 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist10 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist10 < best_dist):
                     best_idx = pi
                     best_dist = dist10
                     best_fs = gateway10
@@ -2155,7 +2153,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway11 = 7
             if dist11 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist11 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist11 < best_dist):
                     best_idx = pi
                     best_dist = dist11
                     best_fs = gateway11
@@ -2169,7 +2167,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway12 = 8
             if dist12 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist12 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist12 < best_dist):
                     best_idx = pi
                     best_dist = dist12
                     best_fs = gateway12
@@ -2188,7 +2186,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway13 = 5
             if dist13 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist13 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist13 < best_dist):
                     best_idx = pi
                     best_dist = dist13
                     best_fs = gateway13
@@ -2207,7 +2205,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway14 = 5
             if dist14 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist14 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist14 < best_dist):
                     best_idx = pi
                     best_dist = dist14
                     best_fs = gateway14
@@ -2226,7 +2224,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway15 = 6
             if dist15 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist15 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist15 < best_dist):
                     best_idx = pi
                     best_dist = dist15
                     best_fs = gateway15
@@ -2245,7 +2243,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway16 = 7
             if dist16 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist16 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist16 < best_dist):
                     best_idx = pi
                     best_dist = dist16
                     best_fs = gateway16
@@ -2264,7 +2262,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway17 = 6
             if dist17 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist17 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist17 < best_dist):
                     best_idx = pi
                     best_dist = dist17
                     best_fs = gateway17
@@ -2283,7 +2281,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway18 = 7
             if dist18 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist18 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist18 < best_dist):
                     best_idx = pi
                     best_dist = dist18
                     best_fs = gateway18
@@ -2302,7 +2300,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway19 = 8
             if dist19 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist19 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist19 < best_dist):
                     best_idx = pi
                     best_dist = dist19
                     best_fs = gateway19
@@ -2321,7 +2319,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway20 = 8
             if dist20 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist20 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist20 < best_dist):
                     best_idx = pi
                     best_dist = dist20
                     best_fs = gateway20
@@ -2335,7 +2333,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway21 = 1
             if dist21 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist21 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist21 < best_dist):
                     best_idx = pi
                     best_dist = dist21
                     best_fs = gateway21
@@ -2349,7 +2347,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway22 = 2
             if dist22 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist22 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist22 < best_dist):
                     best_idx = pi
                     best_dist = dist22
                     best_fs = gateway22
@@ -2363,7 +2361,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway23 = 3
             if dist23 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist23 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist23 < best_dist):
                     best_idx = pi
                     best_dist = dist23
                     best_fs = gateway23
@@ -2377,7 +2375,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway24 = 4
             if dist24 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist24 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist24 < best_dist):
                     best_idx = pi
                     best_dist = dist24
                     best_fs = gateway24
@@ -2391,7 +2389,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway25 = gateway9
             if dist25 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist25 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist25 < best_dist):
                     best_idx = pi
                     best_dist = dist25
                     best_fs = gateway25
@@ -2405,7 +2403,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway26 = gateway10
             if dist26 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist26 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist26 < best_dist):
                     best_idx = pi
                     best_dist = dist26
                     best_fs = gateway26
@@ -2419,7 +2417,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway27 = gateway11
             if dist27 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist27 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist27 < best_dist):
                     best_idx = pi
                     best_dist = dist27
                     best_fs = gateway27
@@ -2433,7 +2431,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway28 = gateway12
             if dist28 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist28 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist28 < best_dist):
                     best_idx = pi
                     best_dist = dist28
                     best_fs = gateway28
@@ -2452,7 +2450,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway29 = gateway9
             if dist29 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist29 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist29 < best_dist):
                     best_idx = pi
                     best_dist = dist29
                     best_fs = gateway29
@@ -2471,7 +2469,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway30 = gateway9
             if dist30 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist30 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist30 < best_dist):
                     best_idx = pi
                     best_dist = dist30
                     best_fs = gateway30
@@ -2490,7 +2488,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway31 = gateway10
             if dist31 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist31 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist31 < best_dist):
                     best_idx = pi
                     best_dist = dist31
                     best_fs = gateway31
@@ -2509,7 +2507,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway32 = gateway11
             if dist32 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist32 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist32 < best_dist):
                     best_idx = pi
                     best_dist = dist32
                     best_fs = gateway32
@@ -2528,7 +2526,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway33 = gateway10
             if dist33 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist33 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist33 < best_dist):
                     best_idx = pi
                     best_dist = dist33
                     best_fs = gateway33
@@ -2547,7 +2545,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway34 = gateway11
             if dist34 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist34 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist34 < best_dist):
                     best_idx = pi
                     best_dist = dist34
                     best_fs = gateway34
@@ -2566,7 +2564,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway35 = gateway12
             if dist35 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist35 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist35 < best_dist):
                     best_idx = pi
                     best_dist = dist35
                     best_fs = gateway35
@@ -2585,7 +2583,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway36 = gateway12
             if dist36 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist36 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist36 < best_dist):
                     best_idx = pi
                     best_dist = dist36
                     best_fs = gateway36
@@ -2604,7 +2602,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway37 = gateway13
             if dist37 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist37 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist37 < best_dist):
                     best_idx = pi
                     best_dist = dist37
                     best_fs = gateway37
@@ -2623,7 +2621,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway38 = gateway14
             if dist38 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist38 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist38 < best_dist):
                     best_idx = pi
                     best_dist = dist38
                     best_fs = gateway38
@@ -2642,7 +2640,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway39 = gateway15
             if dist39 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist39 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist39 < best_dist):
                     best_idx = pi
                     best_dist = dist39
                     best_fs = gateway39
@@ -2661,7 +2659,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway40 = gateway16
             if dist40 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist40 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist40 < best_dist):
                     best_idx = pi
                     best_dist = dist40
                     best_fs = gateway40
@@ -2680,7 +2678,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway41 = gateway17
             if dist41 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist41 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist41 < best_dist):
                     best_idx = pi
                     best_dist = dist41
                     best_fs = gateway41
@@ -2699,7 +2697,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway42 = gateway18
             if dist42 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist42 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist42 < best_dist):
                     best_idx = pi
                     best_dist = dist42
                     best_fs = gateway42
@@ -2718,7 +2716,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway43 = gateway19
             if dist43 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist43 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist43 < best_dist):
                     best_idx = pi
                     best_dist = dist43
                     best_fs = gateway43
@@ -2737,7 +2735,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway44 = gateway20
             if dist44 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist44 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist44 < best_dist):
                     best_idx = pi
                     best_dist = dist44
                     best_fs = gateway44
@@ -2746,7 +2744,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist25 != 1000000:
             nd = dist25 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway25
@@ -2755,7 +2753,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist26 != 1000000:
             nd = dist26 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway26
@@ -2764,7 +2762,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist27 != 1000000:
             nd = dist27 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway27
@@ -2773,7 +2771,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist28 != 1000000:
             nd = dist28 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway28
@@ -2792,7 +2790,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway25
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -2811,7 +2809,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway25
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -2830,7 +2828,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway26
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -2849,7 +2847,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway27
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -2868,7 +2866,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway26
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -2887,7 +2885,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway27
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -2906,7 +2904,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway28
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -2925,7 +2923,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway28
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -2934,7 +2932,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist21 != 1000000:
             nd = dist21 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway21
@@ -2943,7 +2941,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist22 != 1000000:
             nd = dist22 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway22
@@ -2952,7 +2950,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist23 != 1000000:
             nd = dist23 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway23
@@ -2961,7 +2959,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist24 != 1000000:
             nd = dist24 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway24
@@ -2980,7 +2978,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway29
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -2999,7 +2997,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway30
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -3018,7 +3016,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway31
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -3037,7 +3035,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway32
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -3056,7 +3054,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway33
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -3075,7 +3073,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway34
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -3094,7 +3092,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway35
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
@@ -3113,17 +3111,17 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gw_local = gateway36
             if nd != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gw_local
-    elif 3 <= px and px < w - 3 and 3 <= py and py < h - 3:
+    elif px >= 3 and px < w - 3 and py >= 3 and py < h - 3:
         cell = int(pos - w - 1)
         c = cost[cell]
         if c != 1000000:
             dist1 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 1
@@ -3132,7 +3130,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist2 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 2
@@ -3141,7 +3139,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist3 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 3
@@ -3150,7 +3148,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist4 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 4
@@ -3159,7 +3157,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist5 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 5
@@ -3168,7 +3166,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist6 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 6
@@ -3177,7 +3175,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist7 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 7
@@ -3186,7 +3184,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000:
             dist8 = c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and c < best_dist:
+            if pi > best_idx or (pi == best_idx and c < best_dist):
                 best_idx = pi
                 best_dist = c
                 best_fs = 8
@@ -3200,7 +3198,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway9 = 5
             if dist9 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist9 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist9 < best_dist):
                     best_idx = pi
                     best_dist = dist9
                     best_fs = gateway9
@@ -3214,7 +3212,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway10 = 6
             if dist10 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist10 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist10 < best_dist):
                     best_idx = pi
                     best_dist = dist10
                     best_fs = gateway10
@@ -3228,7 +3226,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway11 = 7
             if dist11 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist11 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist11 < best_dist):
                     best_idx = pi
                     best_dist = dist11
                     best_fs = gateway11
@@ -3242,7 +3240,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway12 = 8
             if dist12 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist12 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist12 < best_dist):
                     best_idx = pi
                     best_dist = dist12
                     best_fs = gateway12
@@ -3261,7 +3259,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway13 = 5
             if dist13 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist13 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist13 < best_dist):
                     best_idx = pi
                     best_dist = dist13
                     best_fs = gateway13
@@ -3280,7 +3278,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway14 = 5
             if dist14 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist14 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist14 < best_dist):
                     best_idx = pi
                     best_dist = dist14
                     best_fs = gateway14
@@ -3299,7 +3297,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway15 = 6
             if dist15 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist15 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist15 < best_dist):
                     best_idx = pi
                     best_dist = dist15
                     best_fs = gateway15
@@ -3318,7 +3316,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway16 = 7
             if dist16 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist16 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist16 < best_dist):
                     best_idx = pi
                     best_dist = dist16
                     best_fs = gateway16
@@ -3337,7 +3335,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway17 = 6
             if dist17 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist17 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist17 < best_dist):
                     best_idx = pi
                     best_dist = dist17
                     best_fs = gateway17
@@ -3356,7 +3354,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway18 = 7
             if dist18 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist18 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist18 < best_dist):
                     best_idx = pi
                     best_dist = dist18
                     best_fs = gateway18
@@ -3375,7 +3373,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway19 = 8
             if dist19 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist19 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist19 < best_dist):
                     best_idx = pi
                     best_dist = dist19
                     best_fs = gateway19
@@ -3394,7 +3392,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway20 = 8
             if dist20 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist20 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist20 < best_dist):
                     best_idx = pi
                     best_dist = dist20
                     best_fs = gateway20
@@ -3408,7 +3406,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway21 = 1
             if dist21 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist21 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist21 < best_dist):
                     best_idx = pi
                     best_dist = dist21
                     best_fs = gateway21
@@ -3422,7 +3420,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway22 = 2
             if dist22 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist22 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist22 < best_dist):
                     best_idx = pi
                     best_dist = dist22
                     best_fs = gateway22
@@ -3436,7 +3434,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway23 = 3
             if dist23 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist23 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist23 < best_dist):
                     best_idx = pi
                     best_dist = dist23
                     best_fs = gateway23
@@ -3450,7 +3448,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway24 = 4
             if dist24 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist24 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist24 < best_dist):
                     best_idx = pi
                     best_dist = dist24
                     best_fs = gateway24
@@ -3464,7 +3462,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway25 = gateway9
             if dist25 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist25 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist25 < best_dist):
                     best_idx = pi
                     best_dist = dist25
                     best_fs = gateway25
@@ -3478,7 +3476,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway26 = gateway10
             if dist26 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist26 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist26 < best_dist):
                     best_idx = pi
                     best_dist = dist26
                     best_fs = gateway26
@@ -3492,7 +3490,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway27 = gateway11
             if dist27 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist27 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist27 < best_dist):
                     best_idx = pi
                     best_dist = dist27
                     best_fs = gateway27
@@ -3506,7 +3504,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway28 = gateway12
             if dist28 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist28 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist28 < best_dist):
                     best_idx = pi
                     best_dist = dist28
                     best_fs = gateway28
@@ -3525,7 +3523,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway29 = gateway9
             if dist29 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist29 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist29 < best_dist):
                     best_idx = pi
                     best_dist = dist29
                     best_fs = gateway29
@@ -3544,7 +3542,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway30 = gateway9
             if dist30 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist30 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist30 < best_dist):
                     best_idx = pi
                     best_dist = dist30
                     best_fs = gateway30
@@ -3563,7 +3561,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway31 = gateway10
             if dist31 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist31 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist31 < best_dist):
                     best_idx = pi
                     best_dist = dist31
                     best_fs = gateway31
@@ -3582,7 +3580,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway32 = gateway11
             if dist32 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist32 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist32 < best_dist):
                     best_idx = pi
                     best_dist = dist32
                     best_fs = gateway32
@@ -3601,7 +3599,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway33 = gateway10
             if dist33 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist33 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist33 < best_dist):
                     best_idx = pi
                     best_dist = dist33
                     best_fs = gateway33
@@ -3620,7 +3618,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway34 = gateway11
             if dist34 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist34 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist34 < best_dist):
                     best_idx = pi
                     best_dist = dist34
                     best_fs = gateway34
@@ -3639,7 +3637,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway35 = gateway12
             if dist35 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist35 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist35 < best_dist):
                     best_idx = pi
                     best_dist = dist35
                     best_fs = gateway35
@@ -3658,7 +3656,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway36 = gateway12
             if dist36 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist36 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist36 < best_dist):
                     best_idx = pi
                     best_dist = dist36
                     best_fs = gateway36
@@ -3677,7 +3675,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway37 = gateway13
             if dist37 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist37 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist37 < best_dist):
                     best_idx = pi
                     best_dist = dist37
                     best_fs = gateway37
@@ -3696,7 +3694,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway38 = gateway14
             if dist38 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist38 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist38 < best_dist):
                     best_idx = pi
                     best_dist = dist38
                     best_fs = gateway38
@@ -3715,7 +3713,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway39 = gateway15
             if dist39 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist39 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist39 < best_dist):
                     best_idx = pi
                     best_dist = dist39
                     best_fs = gateway39
@@ -3734,7 +3732,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway40 = gateway16
             if dist40 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist40 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist40 < best_dist):
                     best_idx = pi
                     best_dist = dist40
                     best_fs = gateway40
@@ -3753,7 +3751,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway41 = gateway17
             if dist41 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist41 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist41 < best_dist):
                     best_idx = pi
                     best_dist = dist41
                     best_fs = gateway41
@@ -3772,7 +3770,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway42 = gateway18
             if dist42 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist42 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist42 < best_dist):
                     best_idx = pi
                     best_dist = dist42
                     best_fs = gateway42
@@ -3791,7 +3789,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway43 = gateway19
             if dist43 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist43 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist43 < best_dist):
                     best_idx = pi
                     best_dist = dist43
                     best_fs = gateway43
@@ -3810,61 +3808,61 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                     gateway44 = gateway20
             if dist44 != 1000000:
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and dist44 < best_dist:
+                if pi > best_idx or (pi == best_idx and dist44 < best_dist):
                     best_idx = pi
                     best_dist = dist44
                     best_fs = gateway44
         nx = px - 4
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist25 != 1000000:
                 nd = dist25 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway25
         nx = px
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist26 != 1000000:
                 nd = dist26 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway26
         nx = px
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist27 != 1000000:
                 nd = dist27 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway27
         nx = px + 4
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist28 != 1000000:
                 nd = dist28 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway28
         nx = px - 4
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -3880,13 +3878,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway25
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 4
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -3902,13 +3900,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway25
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 1
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -3924,13 +3922,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway26
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 1
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -3946,13 +3944,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway27
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 1
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -3968,13 +3966,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway26
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 1
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -3990,13 +3988,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway27
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 4
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4012,13 +4010,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway28
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 4
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4034,7 +4032,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway28
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
@@ -4043,7 +4041,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist21 != 1000000:
             nd = dist21 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway21
@@ -4052,7 +4050,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist22 != 1000000:
             nd = dist22 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway22
@@ -4061,7 +4059,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist23 != 1000000:
             nd = dist23 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway23
@@ -4070,13 +4068,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
         if c != 1000000 and dist24 != 1000000:
             nd = dist24 + c
             pi = path_idx[cell]
-            if pi > best_idx or pi == best_idx and nd < best_dist:
+            if pi > best_idx or (pi == best_idx and nd < best_dist):
                 best_idx = pi
                 best_dist = nd
                 best_fs = gateway24
         nx = px - 4
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4092,13 +4090,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway29
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 4
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4114,13 +4112,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway30
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 2
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4136,13 +4134,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway31
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 2
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4158,13 +4156,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway32
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 2
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4180,13 +4178,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway33
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 2
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4202,13 +4200,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway34
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 4
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4224,13 +4222,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway35
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 4
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4246,110 +4244,110 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway36
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
     else:
         nx = px - 1
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
                 dist1 = c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and c < best_dist:
+                if pi > best_idx or (pi == best_idx and c < best_dist):
                     best_idx = pi
                     best_dist = c
                     best_fs = 1
         nx = px - 1
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
                 dist2 = c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and c < best_dist:
+                if pi > best_idx or (pi == best_idx and c < best_dist):
                     best_idx = pi
                     best_dist = c
                     best_fs = 2
         nx = px + 1
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
                 dist3 = c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and c < best_dist:
+                if pi > best_idx or (pi == best_idx and c < best_dist):
                     best_idx = pi
                     best_dist = c
                     best_fs = 3
         nx = px + 1
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
                 dist4 = c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and c < best_dist:
+                if pi > best_idx or (pi == best_idx and c < best_dist):
                     best_idx = pi
                     best_dist = c
                     best_fs = 4
         nx = px - 1
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
                 dist5 = c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and c < best_dist:
+                if pi > best_idx or (pi == best_idx and c < best_dist):
                     best_idx = pi
                     best_dist = c
                     best_fs = 5
         nx = px
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
                 dist6 = c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and c < best_dist:
+                if pi > best_idx or (pi == best_idx and c < best_dist):
                     best_idx = pi
                     best_dist = c
                     best_fs = 6
         nx = px
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
                 dist7 = c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and c < best_dist:
+                if pi > best_idx or (pi == best_idx and c < best_dist):
                     best_idx = pi
                     best_dist = c
                     best_fs = 7
         nx = px + 1
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
                 dist8 = c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and c < best_dist:
+                if pi > best_idx or (pi == best_idx and c < best_dist):
                     best_idx = pi
                     best_dist = c
                     best_fs = 8
         nx = px - 2
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4360,13 +4358,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway9 = 5
                 if dist9 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist9 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist9 < best_dist):
                         best_idx = pi
                         best_dist = dist9
                         best_fs = gateway9
         nx = px
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4377,13 +4375,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway10 = 6
                 if dist10 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist10 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist10 < best_dist):
                         best_idx = pi
                         best_dist = dist10
                         best_fs = gateway10
         nx = px
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4394,13 +4392,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway11 = 7
                 if dist11 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist11 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist11 < best_dist):
                         best_idx = pi
                         best_dist = dist11
                         best_fs = gateway11
         nx = px + 2
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4411,13 +4409,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway12 = 8
                 if dist12 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist12 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist12 < best_dist):
                         best_idx = pi
                         best_dist = dist12
                         best_fs = gateway12
         nx = px - 2
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4433,13 +4431,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway13 = 5
                 if dist13 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist13 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist13 < best_dist):
                         best_idx = pi
                         best_dist = dist13
                         best_fs = gateway13
         nx = px - 2
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4455,13 +4453,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway14 = 5
                 if dist14 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist14 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist14 < best_dist):
                         best_idx = pi
                         best_dist = dist14
                         best_fs = gateway14
         nx = px - 1
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4477,13 +4475,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway15 = 6
                 if dist15 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist15 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist15 < best_dist):
                         best_idx = pi
                         best_dist = dist15
                         best_fs = gateway15
         nx = px - 1
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4499,13 +4497,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway16 = 7
                 if dist16 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist16 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist16 < best_dist):
                         best_idx = pi
                         best_dist = dist16
                         best_fs = gateway16
         nx = px + 1
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4521,13 +4519,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway17 = 6
                 if dist17 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist17 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist17 < best_dist):
                         best_idx = pi
                         best_dist = dist17
                         best_fs = gateway17
         nx = px + 1
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4543,13 +4541,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway18 = 7
                 if dist18 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist18 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist18 < best_dist):
                         best_idx = pi
                         best_dist = dist18
                         best_fs = gateway18
         nx = px + 2
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4565,13 +4563,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway19 = 8
                 if dist19 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist19 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist19 < best_dist):
                         best_idx = pi
                         best_dist = dist19
                         best_fs = gateway19
         nx = px + 2
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4587,13 +4585,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway20 = 8
                 if dist20 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist20 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist20 < best_dist):
                         best_idx = pi
                         best_dist = dist20
                         best_fs = gateway20
         nx = px - 2
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4604,13 +4602,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway21 = 1
                 if dist21 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist21 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist21 < best_dist):
                         best_idx = pi
                         best_dist = dist21
                         best_fs = gateway21
         nx = px - 2
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4621,13 +4619,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway22 = 2
                 if dist22 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist22 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist22 < best_dist):
                         best_idx = pi
                         best_dist = dist22
                         best_fs = gateway22
         nx = px + 2
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4638,13 +4636,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway23 = 3
                 if dist23 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist23 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist23 < best_dist):
                         best_idx = pi
                         best_dist = dist23
                         best_fs = gateway23
         nx = px + 2
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4655,13 +4653,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway24 = 4
                 if dist24 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist24 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist24 < best_dist):
                         best_idx = pi
                         best_dist = dist24
                         best_fs = gateway24
         nx = px - 3
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4672,13 +4670,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway25 = gateway9
                 if dist25 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist25 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist25 < best_dist):
                         best_idx = pi
                         best_dist = dist25
                         best_fs = gateway25
         nx = px
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4689,13 +4687,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway26 = gateway10
                 if dist26 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist26 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist26 < best_dist):
                         best_idx = pi
                         best_dist = dist26
                         best_fs = gateway26
         nx = px
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4706,13 +4704,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway27 = gateway11
                 if dist27 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist27 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist27 < best_dist):
                         best_idx = pi
                         best_dist = dist27
                         best_fs = gateway27
         nx = px + 3
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4723,13 +4721,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway28 = gateway12
                 if dist28 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist28 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist28 < best_dist):
                         best_idx = pi
                         best_dist = dist28
                         best_fs = gateway28
         nx = px - 3
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4745,13 +4743,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway29 = gateway9
                 if dist29 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist29 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist29 < best_dist):
                         best_idx = pi
                         best_dist = dist29
                         best_fs = gateway29
         nx = px - 3
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4767,13 +4765,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway30 = gateway9
                 if dist30 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist30 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist30 < best_dist):
                         best_idx = pi
                         best_dist = dist30
                         best_fs = gateway30
         nx = px - 1
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4789,13 +4787,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway31 = gateway10
                 if dist31 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist31 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist31 < best_dist):
                         best_idx = pi
                         best_dist = dist31
                         best_fs = gateway31
         nx = px - 1
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4811,13 +4809,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway32 = gateway11
                 if dist32 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist32 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist32 < best_dist):
                         best_idx = pi
                         best_dist = dist32
                         best_fs = gateway32
         nx = px + 1
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4833,13 +4831,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway33 = gateway10
                 if dist33 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist33 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist33 < best_dist):
                         best_idx = pi
                         best_dist = dist33
                         best_fs = gateway33
         nx = px + 1
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4855,13 +4853,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway34 = gateway11
                 if dist34 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist34 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist34 < best_dist):
                         best_idx = pi
                         best_dist = dist34
                         best_fs = gateway34
         nx = px + 3
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4877,13 +4875,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway35 = gateway12
                 if dist35 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist35 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist35 < best_dist):
                         best_idx = pi
                         best_dist = dist35
                         best_fs = gateway35
         nx = px + 3
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4899,13 +4897,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway36 = gateway12
                 if dist36 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist36 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist36 < best_dist):
                         best_idx = pi
                         best_dist = dist36
                         best_fs = gateway36
         nx = px - 3
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4921,13 +4919,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway37 = gateway13
                 if dist37 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist37 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist37 < best_dist):
                         best_idx = pi
                         best_dist = dist37
                         best_fs = gateway37
         nx = px - 3
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4943,13 +4941,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway38 = gateway14
                 if dist38 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist38 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist38 < best_dist):
                         best_idx = pi
                         best_dist = dist38
                         best_fs = gateway38
         nx = px - 2
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4965,13 +4963,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway39 = gateway15
                 if dist39 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist39 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist39 < best_dist):
                         best_idx = pi
                         best_dist = dist39
                         best_fs = gateway39
         nx = px - 2
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -4987,13 +4985,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway40 = gateway16
                 if dist40 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist40 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist40 < best_dist):
                         best_idx = pi
                         best_dist = dist40
                         best_fs = gateway40
         nx = px + 2
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5009,13 +5007,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway41 = gateway17
                 if dist41 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist41 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist41 < best_dist):
                         best_idx = pi
                         best_dist = dist41
                         best_fs = gateway41
         nx = px + 2
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5031,13 +5029,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway42 = gateway18
                 if dist42 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist42 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist42 < best_dist):
                         best_idx = pi
                         best_dist = dist42
                         best_fs = gateway42
         nx = px + 3
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5053,13 +5051,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway43 = gateway19
                 if dist43 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist43 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist43 < best_dist):
                         best_idx = pi
                         best_dist = dist43
                         best_fs = gateway43
         nx = px + 3
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5075,61 +5073,61 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gateway44 = gateway20
                 if dist44 != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and dist44 < best_dist:
+                    if pi > best_idx or (pi == best_idx and dist44 < best_dist):
                         best_idx = pi
                         best_dist = dist44
                         best_fs = gateway44
         nx = px - 4
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist25 != 1000000:
                 nd = dist25 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway25
         nx = px
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist26 != 1000000:
                 nd = dist26 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway26
         nx = px
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist27 != 1000000:
                 nd = dist27 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway27
         nx = px + 4
         ny = py
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist28 != 1000000:
                 nd = dist28 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway28
         nx = px - 4
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5145,13 +5143,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway25
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 4
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5167,13 +5165,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway25
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 1
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5189,13 +5187,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway26
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 1
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5211,13 +5209,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway27
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 1
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5233,13 +5231,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway26
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 1
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5255,13 +5253,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway27
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 4
         ny = py - 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5277,13 +5275,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway28
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 4
         ny = py + 1
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5299,61 +5297,61 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway28
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 3
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist21 != 1000000:
                 nd = dist21 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway21
         nx = px - 3
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist22 != 1000000:
                 nd = dist22 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway22
         nx = px + 3
         ny = py - 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist23 != 1000000:
                 nd = dist23 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway23
         nx = px + 3
         ny = py + 3
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000 and dist24 != 1000000:
                 nd = dist24 + c
                 pi = path_idx[cell]
-                if pi > best_idx or pi == best_idx and nd < best_dist:
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
                     best_idx = pi
                     best_dist = nd
                     best_fs = gateway24
         nx = px - 4
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5369,13 +5367,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway29
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 4
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5391,13 +5389,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway30
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 2
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5413,13 +5411,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway31
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px - 2
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5435,13 +5433,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway32
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 2
         ny = py - 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5457,13 +5455,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway33
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 2
         ny = py + 4
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5479,13 +5477,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway34
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 4
         ny = py - 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5501,13 +5499,13 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway35
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local
         nx = px + 4
         ny = py + 2
-        if 0 <= nx and nx < w and 0 <= ny and ny < h:
+        if nx >= 0 and nx < w and ny >= 0 and ny < h:
             cell = int(ny * w + nx)
             c = cost[cell]
             if c != 1000000:
@@ -5523,7 +5521,7 @@ def dp_step(w, cost, h, pos, path_idx, min_idx):
                         gw_local = gateway36
                 if nd != 1000000:
                     pi = path_idx[cell]
-                    if pi > best_idx or pi == best_idx and nd < best_dist:
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
                         best_idx = pi
                         best_dist = nd
                         best_fs = gw_local

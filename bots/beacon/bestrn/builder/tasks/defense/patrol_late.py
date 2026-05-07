@@ -9,17 +9,8 @@ variant gates on "broke", this one gates on "have something to guard".
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.patrol import run_patrol
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
 
 
 def patrol_late(self_, ct):

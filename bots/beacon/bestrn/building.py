@@ -10,10 +10,6 @@ These free functions handle reading from `ct` at `_add_topology` time
 from __future__ import annotations
 
 from cambc import Direction, EntityType, Position
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Team
 
 
 def make_building(ct, bid):
@@ -24,7 +20,8 @@ def make_building(ct, bid):
     kind = ct.get_entity_type(bid)
     team = ct.get_team(bid)
     if kind == EntityType.BUILDER_BOT:
-        raise Exception("BUILDER_BOT is not a building")
+        msg = "BUILDER_BOT is not a building"
+        raise Exception(msg)
     return (kind, team)
 
 
@@ -52,8 +49,8 @@ def splitter_back_input(pos, outputs):
     of the three outputs = `3*pos + d`, so `4*pos - sum = pos - d`.
     Order-independent.
     """
-    sum_x: int = sum((p.x for p in outputs))
-    sum_y: int = sum((p.y for p in outputs))
+    sum_x: int = sum(p.x for p in outputs)
+    sum_y: int = sum(p.y for p in outputs)
     return Position(x=4 * pos.x - sum_x, y=4 * pos.y - sum_y)
 
 

@@ -16,10 +16,7 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import Environment, Position
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi
 BIAS: Final[float] = 1.6306
 W_ECCENTRICITY: Final[float] = -0.5978
 W_EDGE_DIST: Final[float] = -0.0143
@@ -45,8 +42,8 @@ def compute_spawn_tempo(width, height, ct):
     w = width
     h = height
     centre_dist = max(abs(cx - w // 2), abs(cy - h // 2))
-    eccentricity = float(centre_dist) / float(max(max(w, h), 1))
-    edge_dist = min(min(min(cx, cy), w - 1 - cx), h - 1 - cy)
+    eccentricity = float(centre_dist) / float(max(w, h, 1))
+    edge_dist = min(cx, cy, w - 1 - cx, h - 1 - cy)
     cardinal_exits: int = 0
     for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
         x = cx + dx

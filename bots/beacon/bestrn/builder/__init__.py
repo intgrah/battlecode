@@ -10,36 +10,38 @@ task-policy tree (`tasks/`); this file wires them together.
 
 from __future__ import annotations
 
-from unit import in_bounds
-from cambc import EntityType, Environment, GameConstants, Position
 from typing import TYPE_CHECKING
+
+from cambc import EntityType, Environment, GameConstants, Position
+from unit import in_bounds
 
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, ResourceType
-from builder.algorithms.econ_astar import AStarSearch
-from builder.dump import dump
-from builder.algorithms.econ_astar import EconAstarCtx
+from builder.algorithms.econ_astar import AStarSearch, EconAstarCtx
 from builder.algorithms.nav import BugNav, NavCtx
 from builder.algorithms.reachability import find_ro, update_reachability
+from builder.dump import dump
 from builder.hooks.heal import end_of_turn_heal
 from builder.hooks.indicators import indicators
 from builder.hooks.propagate_symmetry import end_of_turn_propagate_symmetry
 
 if TYPE_CHECKING:
     from builder.role import Role
-from builder.tasks._policy import run_policy
-from builder.tasks.offense.helpers import begin_turn_offense
-from builder.tasks import policy_for_role
-from builder.update import update
-from builder.update.vision import apply_local_destroy as vision_apply_local_destroy
 from config import DEBUG_DUMP, HARDCODE
 from hardcode.identify import identify_map
+
+from builder.tasks import policy_for_role
+from builder.tasks._policy import run_policy
+from builder.tasks.offense.helpers import begin_turn_offense
+from builder.update import update
+from builder.update.vision import apply_local_destroy as vision_apply_local_destroy
 
 if TYPE_CHECKING:
     from hardcode.identify import KnownMap
 from unit import UnitState
 from util.constants import INF, MAX_N, MAX_WIDTH, ROAD_COST
-from util.debug import Scope, debug as log
+from util.debug import Scope
+from util.debug import debug as log
 from util.directions import DIR4, DIR8, DIR8_DELTA
 from util.symmetry import Symmetry
 from util.visualiser import auto_wrap_position
@@ -141,7 +143,7 @@ class Builder:
     known_map: KnownMap | None
     core_edges: list[Position]
 
-    def __init__(self):
+    def __init__(self) -> None:
         """ct-independent allocation. Mirrors Python `Builder.__init__`."""
         pnb = Builder.build_initial_pnb()
         flow_history: list[list[tuple[ResourceType | None, int | None]]] = [
@@ -153,7 +155,7 @@ class Builder:
         for dx in range(-4, (4) + 1):
             for dy in range(-4, (4) + 1):
                 if dx * dx + dy * dy <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ:
-                    vision_offsets.append((dx, dy, dy * int(50) + dx))
+                    vision_offsets.append((dx, dy, dy * 50 + dx))
         self.state = UnitState()
         self.my_core = Position(x=0, y=0)
         self.en_core_guess = Position(x=0, y=0)
@@ -250,29 +252,29 @@ class Builder:
     @staticmethod
     def build_initial_pnb():
         pnb: list[list[int]] = [[] for _ in range(MAX_N)]
-        stride = int(50)
-        offsets: list[int] = list((t[1] * stride + t[0] for t in DIR8_DELTA))
-        for cy in range(1, int(50) - 1):
+        stride = 50
+        offsets: list[int] = [t[1] * stride + t[0] for t in DIR8_DELTA]
+        for cy in range(1, 50 - 1):
             row = cy * stride
-            for cx in range(1, int(50) - 1):
+            for cx in range(1, 50 - 1):
                 i = int(row + cx)
-                pnb[i] = list((int(i) + o for o in offsets))
-        for cy in range(0, int(50)):
+                pnb[i] = [int(i) + o for o in offsets]
+        for cy in range(50):
             row = cy * stride
-            for cx in range(0, int(50)):
-                if (cx in range(1, int(50) - 1)) and (cy in range(1, int(50) - 1)):
+            for cx in range(50):
+                if (cx in range(1, 50 - 1)) and (cy in range(1, 50 - 1)):
                     continue
                 i = int(row + cx)
                 nbs: list[int] = []
                 for dx, dy in DIR8_DELTA:
                     nx = cx + dx
                     ny = cy + dy
-                    if (nx in range(0, int(50))) and (ny in range(0, int(50))):
+                    if (nx in range(50)) and (ny in range(50)):
                         nbs.append(ny * stride + nx)
                 pnb[i] = nbs
         return pnb
 
-    def update_pnb(self, i):
+    def update_pnb(self, i) -> None:
         """
         Recompute `pnb[i]` and the relevant entries of every neighbour after
         tile i's passability changed. Mirrors Python `Builder.update_pnb`.
@@ -287,21 +289,21 @@ class Builder:
             for dx, dy in DIR8_DELTA:
                 nx = cx + dx
                 ny = cy + dy
-                if (nx in range(0, w)) and (ny in range(0, h)):
+                if (nx in range(w)) and (ny in range(h)):
                     ni = int(ny) * 50 + int(nx)
                     if self.cost_grid[ni] != 1000000:
                         self.pnb[i].append(int(ni))
         for dx, dy in DIR8_DELTA:
             nx = cx + dx
             ny = cy + dy
-            if not ((nx in range(0, w)) and (ny in range(0, h))):
+            if not ((nx in range(w)) and (ny in range(h))):
                 continue
             ni = int(ny) * 50 + int(nx)
             if self.cost_grid[ni] == 1000000:
                 continue
             nb_list = self.pnb[ni]
             if passable:
-                if not (int(i) in nb_list):
+                if int(i) not in nb_list:
                     nb_list.append(int(i))
             else:
                 p = next((__i for __i, x in enumerate(nb_list) if x == int(i)), None)
@@ -355,13 +357,13 @@ class Builder:
 
     def is_reachable(self, pos):
         i = int(self.idx(pos))
-        my_i = self.state.my_pos.y * int(50) + self.state.my_pos.x
+        my_i = self.state.my_pos.y * 50 + self.state.my_pos.x
         if self.reach_parent[int(i)] == -1 or self.reach_parent[int(my_i)] == -1:
             return False
         return find_ro(self.reach_parent, i) == find_ro(self.reach_parent, my_i)
 
     def is_walkable(self, pos):
-        if not self.cost_grid[self.idx(pos)] != 1000000:
+        if self.cost_grid[self.idx(pos)] == 1000000:
             return False
         return (self.building_kind[self.idx(pos)] is not None) and (
             self.building_kind[self.idx(pos)] == EntityType.CONVEYOR
@@ -389,12 +391,12 @@ class Builder:
         kind = self.building_kind[i]
         if kind is None:
             return False
-        if (
-            kind == EntityType.CONVEYOR
-            or kind == EntityType.ROAD
-            or kind == EntityType.SPLITTER
-            or kind == EntityType.ARMOURED_CONVEYOR
-            or kind == EntityType.BRIDGE
+        if kind in (
+            EntityType.CONVEYOR,
+            EntityType.ROAD,
+            EntityType.SPLITTER,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.BRIDGE,
         ):
             return False
         return self.building_team[i] == self.state.my_team
@@ -415,9 +417,12 @@ class Builder:
         if not (
             (kind is not None)
             and (
-                kind == EntityType.CONVEYOR
-                or kind == EntityType.ARMOURED_CONVEYOR
-                or kind == EntityType.BRIDGE
+                kind
+                in (
+                    EntityType.CONVEYOR,
+                    EntityType.ARMOURED_CONVEYOR,
+                    EntityType.BRIDGE,
+                )
             )
         ):
             return False
@@ -428,7 +433,7 @@ class Builder:
             return False
         return self.is_enemy_building(output_location)
 
-    def update_reachability(self):
+    def update_reachability(self) -> None:
         """
         Drain the reachability frontier, expanding admitted tiles into their
         8-connected non-WALL neighbours up to `K_PER_TURN` pops.
@@ -441,7 +446,7 @@ class Builder:
             self.state.height,
         )
 
-    def apply_local_destroy(self, pos):
+    def apply_local_destroy(self, pos) -> None:
         """Mid-turn invariant fix-up after `ct.destroy(pos)`."""
         vision_apply_local_destroy(self, pos)
 
@@ -476,7 +481,7 @@ class Builder:
             all_bots=list(self.state.all_bots),
         )
 
-    def absorb_econ_ctx(self, ctx):
+    def absorb_econ_ctx(self, ctx) -> None:
         self.reach_parent = ctx.reach_parent
 
     def bugnav_step(self, target):
@@ -499,19 +504,19 @@ class Builder:
         )
         return bugnav.step(ctx, target)
 
-    def _refresh_ti_leakage(self, i):
+    def _refresh_ti_leakage(self, i) -> None:
         new = self._ax_harv_at[i] > 0 or self._foundry_at[i] > 0
         if new != self.ti_leakage[i]:
             self.ti_leakage[i] = new
             self.ti_routable[i] = self.buildable[i] and not new
 
-    def _refresh_ax_leakage(self, i):
+    def _refresh_ax_leakage(self, i) -> None:
         new = self._ti_harv_at[i] > 0
         if new != self.ax_leakage[i]:
             self.ax_leakage[i] = new
             self.ax_routable[i] = self.buildable[i] and not new
 
-    def _bump_ti_harv(self, pos, delta):
+    def _bump_ti_harv(self, pos, delta) -> None:
         for d in DIR4:
             n = pos.add(d)
             if not self.in_bounds(n):
@@ -528,7 +533,7 @@ class Builder:
                 self.ti_harvester_adjacent.discard(n)
                 self._reeval_ti_upstream(n)
 
-    def _bump_ax_harv(self, pos, delta):
+    def _bump_ax_harv(self, pos, delta) -> None:
         for d in DIR4:
             n = pos.add(d)
             if not self.in_bounds(n):
@@ -545,19 +550,19 @@ class Builder:
                 self.ax_harvester_adjacent.discard(n)
                 self._reeval_ax_upstream(n)
 
-    def _reeval_ti_upstream(self, t):
+    def _reeval_ti_upstream(self, t) -> None:
         i = self.idx(t)
-        has_seed = self._ti_harv_at[i] > 0 and not (not self.out_edges[i])
+        has_seed = self._ti_harv_at[i] > 0 and bool(self.out_edges[i])
         target = has_seed or self._ti_in_count[i] > 0
         self._set_ti_upstream(t, target)
 
-    def _reeval_ax_upstream(self, t):
+    def _reeval_ax_upstream(self, t) -> None:
         i = self.idx(t)
-        has_seed = self._ax_harv_at[i] > 0 and not (not self.out_edges[i])
+        has_seed = self._ax_harv_at[i] > 0 and bool(self.out_edges[i])
         target = has_seed or self._ax_in_count[i] > 0
         self._set_ax_upstream(t, target)
 
-    def _set_ti_upstream(self, t, want):
+    def _set_ti_upstream(self, t, want) -> None:
         is_in = t in self.ti_upstream
         if want == is_in:
             return
@@ -576,7 +581,7 @@ class Builder:
         for out in outs:
             self._check_dangling(out, "ti_upstream_change")
 
-    def _set_ax_upstream(self, t, want):
+    def _set_ax_upstream(self, t, want) -> None:
         is_in = t in self.ax_upstream
         if want == is_in:
             return
@@ -595,7 +600,7 @@ class Builder:
         for out in outs:
             self._check_dangling(out, "ax_upstream_change")
 
-    def _on_in_edge_added(self, t, f):
+    def _on_in_edge_added(self, t, f) -> None:
         i = self.idx(t)
         if f in self.ti_upstream:
             self._ti_in_count[i] += 1
@@ -604,7 +609,7 @@ class Builder:
             self._ax_in_count[i] += 1
             self._reeval_ax_upstream(t)
 
-    def _on_in_edge_removed(self, t, f):
+    def _on_in_edge_removed(self, t, f) -> None:
         i = self.idx(t)
         if f in self.ti_upstream:
             self._ti_in_count[i] -= 1
@@ -613,11 +618,11 @@ class Builder:
             self._ax_in_count[i] -= 1
             self._reeval_ax_upstream(t)
 
-    def _on_out_edges_changed(self, pos):
+    def _on_out_edges_changed(self, pos) -> None:
         self._reeval_ti_upstream(pos)
         self._reeval_ax_upstream(pos)
 
-    def _bump_foundry(self, pos, delta):
+    def _bump_foundry(self, pos, delta) -> None:
         for d in DIR4:
             n = pos.add(d)
             if self.in_bounds(n):
@@ -625,7 +630,7 @@ class Builder:
                 self._foundry_at[ni] += delta
                 self._refresh_ti_leakage(ni)
 
-    def _check_multi_input(self, t):
+    def _check_multi_input(self, t) -> None:
         idx = self.idx(t)
         if len(self.in_edges[idx]) >= 2:
             self.is_multi_input.add(t)
@@ -639,20 +644,20 @@ class Builder:
             return False
         if self.building_team[i] != self.state.my_team:
             return False
-        return (
-            kind == EntityType.CONVEYOR
-            or kind == EntityType.ARMOURED_CONVEYOR
-            or kind == EntityType.BRIDGE
-            or kind == EntityType.SPLITTER
-            or kind == EntityType.FOUNDRY
-            or kind == EntityType.CORE
-            or kind == EntityType.GUNNER
-            or kind == EntityType.SENTINEL
-            or kind == EntityType.BREACH
-            or kind == EntityType.LAUNCHER
+        return kind in (
+            EntityType.CONVEYOR,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.BRIDGE,
+            EntityType.SPLITTER,
+            EntityType.FOUNDRY,
+            EntityType.CORE,
+            EntityType.GUNNER,
+            EntityType.SENTINEL,
+            EntityType.BREACH,
+            EntityType.LAUNCHER,
         )
 
-    def _splitter_satisfied(self, splitter_pos):
+    def _splitter_satisfied(self, splitter_pos) -> bool:
         count = 0
         for out in self.out_edges[self.idx(splitter_pos)]:
             if self._is_flow_consumer(out):
@@ -661,7 +666,7 @@ class Builder:
                     return True
         return False
 
-    def _check_dangling(self, t, _trigger):
+    def _check_dangling(self, t, _trigger) -> None:
         i = self.idx(t)
         kind = self.building_kind[i]
         team = self.building_team[i]
@@ -697,28 +702,28 @@ class Builder:
                 break
         is_dangling = unconn_adj or feeders_unsatisfied
         if is_dangling:
-            if not (t in self.unreachable_dangling):
+            if t not in self.unreachable_dangling:
                 self.dangling_set.add(t)
         else:
             self.dangling_set.discard(t)
             self.unreachable_dangling.discard(t)
 
-    def pnb_fix_boundary(self, cx, cy, w, h):
+    def pnb_fix_boundary(self, cx, cy, w, h) -> None:
         """
         Set `pnb[(cy, cx)]` to its 8-king-move neighbours within `(w, h)`.
         Pulled out of `post_init` so the body is a single statement and the
         translator doesn't need multi-statement-closure support.
         """
-        stride = int(50)
+        stride = 50
         nbs: list[int] = []
         for dx, dy in DIR8_DELTA:
             nx = cx + dx
             ny = cy + dy
-            if (nx in range(0, w)) and (ny in range(0, h)):
+            if (nx in range(w)) and (ny in range(h)):
                 nbs.append(ny * stride + nx)
         self.pnb[int(cy * stride + cx)] = nbs
 
-    def refresh_symmetry_cache(self):
+    def refresh_symmetry_cache(self) -> None:
         """Mirror `my_core` under `symmetry_guess`."""
         count = len(self.state.symmetry_candidates)
         self.symmetry = (
@@ -735,19 +740,19 @@ class Builder:
     def unit_state_mut(self):
         return self.state
 
-    def post_init(self, ct):
+    def post_init(self, ct) -> None:
         self.state.init_static_state(ct)
         core = self.resolve_my_core(ct)
         self.set_my_core(core)
         r = self.state.rng.random()
         self.opportunistic = r < 0.5
         s = float(max(self.state.width, self.state.height))
-        self.econ_radius_sq = int(round(0.7 * s * (0.7 * s)))
+        self.econ_radius_sq = round(0.7 * s * (0.7 * s))
         w = self.state.width
         h = self.state.height
-        for y in range(0, int(50)):
+        for y in range(50):
             base = int(y) * 50
-            for x in range(0, int(50)):
+            for x in range(50):
                 if x >= w or y >= h:
                     self.cost_grid[base + int(x)] = 1000000
         self.known_map = (
@@ -758,21 +763,21 @@ class Builder:
         for i, d in enumerate(DIR8):
             self.core_edges[i] = self.my_core.add(d)
         with Scope.new_timed("pnb") as _scope:
-            for cx in range(0, w):
+            for cx in range(w):
                 self.pnb_fix_boundary(cx, h - 1, w, h)
-            for cy in range(0, h - 1):
+            for cy in range(h - 1):
                 self.pnb_fix_boundary(w - 1, cy, w, h)
         self.refresh_symmetry_cache()
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         self.state.cache_per_turn_state(ct)
         self.state.check_symmetry_marker(ct)
         self.refresh_symmetry_cache()
         with Scope.new_timed("body") as _g:
             args = {}
-            args[str("id")] = self.state.my_id
-            args[str("pos")] = auto_wrap_position(self.state.my_pos)
-            args[str("round")] = self.state.round
+            args["id"] = self.state.my_id
+            args["pos"] = auto_wrap_position(self.state.my_pos)
+            args["round"] = self.state.round
             log("Builder {id} pos={pos} round={round}", args)
             update(self, ct)
             begin_turn_offense(self, ct)
@@ -794,7 +799,7 @@ class Builder:
     def my_core_pos(self):
         return self.my_core
 
-    def set_my_core(self, pos):
+    def set_my_core(self, pos) -> None:
         self.my_core = pos
 
     def resolve_my_core(self, ct):
@@ -807,7 +812,7 @@ class Builder:
                 return ct.get_position(bid)
         return ct.get_position(None)
 
-    def post_init_core_aware(self, ct):
+    def post_init_core_aware(self, ct) -> None:
         """
         Override `Unit::post_init` chain for core-aware units. Concrete
         `Unit::post_init` impls on `CoreAwareUnit` types should delegate here.

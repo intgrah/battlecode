@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def answer():
+def answer() -> int:
     return 42
 
 

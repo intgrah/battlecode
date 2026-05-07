@@ -12,38 +12,36 @@ step-off.
 from __future__ import annotations
 
 from cambc import Direction, EntityType, GameConstants
-from typing import TYPE_CHECKING
+from util.directions import DIR4, DIR8
 
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position, Team
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.helpers import move_random, try_place
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
-from util.directions import DIR4, DIR8
 
 
 def is_turret(kind):
     return (kind is not None) and (
-        kind == EntityType.GUNNER
-        or kind == EntityType.SENTINEL
-        or kind == EntityType.BREACH
-        or kind == EntityType.LAUNCHER
+        kind
+        in (
+            EntityType.GUNNER,
+            EntityType.SENTINEL,
+            EntityType.BREACH,
+            EntityType.LAUNCHER,
+        )
     )
 
 
 def is_turret_or_transport(kind):
     return (kind is not None) and (
-        kind == EntityType.GUNNER
-        or kind == EntityType.SENTINEL
-        or kind == EntityType.BREACH
-        or kind == EntityType.LAUNCHER
-        or kind == EntityType.CONVEYOR
-        or kind == EntityType.ARMOURED_CONVEYOR
-        or kind == EntityType.SPLITTER
+        kind
+        in (
+            EntityType.GUNNER,
+            EntityType.SENTINEL,
+            EntityType.BREACH,
+            EntityType.LAUNCHER,
+            EntityType.CONVEYOR,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.SPLITTER,
+        )
     )
 
 
@@ -55,9 +53,7 @@ def is_precious_friendly(kind, bteam, team):
     if bteam != team:
         return False
     return (kind is not None) and (
-        kind == EntityType.HARVESTER
-        or kind == EntityType.FOUNDRY
-        or kind == EntityType.LAUNCHER
+        kind in (EntityType.HARVESTER, EntityType.FOUNDRY, EntityType.LAUNCHER)
     )
 
 
@@ -87,7 +83,7 @@ def direction_to(src, dst):
 
 
 def gunner_facing(self_, position):
-    if not (position in self_.adjacent_to_harvester):
+    if position not in self_.adjacent_to_harvester:
         return None
     if not self_.is_buildable(position):
         return None
@@ -107,10 +103,7 @@ def gunner_facing(self_, position):
         nk = self_.building_kind[self_.idx(n)]
         nt = self_.building_team[self_.idx(n)]
         is_enemy_gunner_or_sentinel = (
-            (
-                (nk is not None)
-                and (nk == EntityType.GUNNER or nk == EntityType.SENTINEL)
-            )
+            ((nk is not None) and (nk in (EntityType.GUNNER, EntityType.SENTINEL)))
             and (nt is not None)
             and nt != self_.my_team
         )
@@ -133,7 +126,7 @@ def sentinel_facing(self_, ct, position):
     if (
         (nearest is None)
         or position.distance_squared(nearest) > GameConstants.SENTINEL_VISION_RADIUS_SQ
-        or not (position in self_.adjacent_to_harvester)
+        or position not in self_.adjacent_to_harvester
         or not self_.is_buildable(position)
         or is_turret_or_transport(kind)
         or is_precious_friendly(kind, team, self_.my_team)

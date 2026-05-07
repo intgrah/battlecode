@@ -11,12 +11,15 @@ from __future__ import annotations
 
 from typing import Final
 
-from . import build_offensive_harvester
-from . import claim_offensive_ore
-from . import place_offensive_sentinel
-from . import push_extend
-from . import split_before_sentinel
-from builder.tasks._policy import Policy, TaskGroup, PolicyGroup, PolicyLeaf
+from builder.tasks._policy import Policy, PolicyGroup, PolicyLeaf, TaskGroup
+
+from . import (
+    build_offensive_harvester,
+    claim_offensive_ore,
+    place_offensive_sentinel,
+    push_extend,
+    split_before_sentinel,
+)
 
 OFFENSE_PUSH_CHILDREN: Final[list[Policy]] = [
     PolicyLeaf(name="claim_offensive_ore", fn_=claim_offensive_ore.claim_offensive_ore),

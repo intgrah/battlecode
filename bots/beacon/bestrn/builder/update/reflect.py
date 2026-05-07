@@ -3,16 +3,11 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import Environment, Position
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from builder import Builder
-from util.constants import INF, MAX_WIDTH, ROAD_COST
 
 _REFLECT_BUDGET: Final[int] = 25
 
 
-def update_reflect(builder):
+def update_reflect(builder) -> None:
     """
     Drain the reflect queue. No-op if symmetry isn't resolved yet —
     `update_vision` still enqueues new observations, they just sit until
@@ -28,7 +23,7 @@ def update_reflect(builder):
     w = builder.state.width
     h = builder.state.height
     n = min(len(builder.reflect_queue), 25)
-    for _ in range(0, n):
+    for _ in range(n):
         i = builder.reflect_queue.pop(0) if builder.reflect_queue else None
         t = Position(x=int(i % 50), y=int(i // 50))
         m = sym.action(t, w, h)

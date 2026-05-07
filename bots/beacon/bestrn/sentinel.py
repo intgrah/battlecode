@@ -2,39 +2,38 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
-from unit import in_bounds
 from cambc import Direction, EntityType, GameConstants
-from typing import TYPE_CHECKING
+from unit import in_bounds
 
 if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position, Team
+    from cambc import Position
 from unit import UnitState
 
 SELF_DESTRUCT_THRESHOLD: Final[int] = 16
 
 
 def is_enemy_combat(et):
-    return (
-        et == EntityType.CORE
-        or et == EntityType.BREACH
-        or et == EntityType.SENTINEL
-        or et == EntityType.GUNNER
-        or et == EntityType.LAUNCHER
+    return et in (
+        EntityType.CORE,
+        EntityType.BREACH,
+        EntityType.SENTINEL,
+        EntityType.GUNNER,
+        EntityType.LAUNCHER,
     )
 
 
 def is_transport(et):
-    return (
-        et == EntityType.CONVEYOR
-        or et == EntityType.ARMOURED_CONVEYOR
-        or et == EntityType.SPLITTER
-        or et == EntityType.BRIDGE
+    return et in (
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
     )
 
 
-def priority(et):
+def priority(et) -> int:
     match et:
         case EntityType.SPLITTER:
             return 9
@@ -102,7 +101,7 @@ def rotate_left(d):
             return Direction.CENTRE
 
 
-def _builder_score(hp):
+def _builder_score(hp) -> int:
     if hp <= GameConstants.SENTINEL_DAMAGE:
         return 15
     if hp < GameConstants.BUILDER_BOT_MAX_HP:
@@ -123,7 +122,7 @@ def _transport_outputs(ct, bid, pos, etype):
     return [pos.add(d)]
 
 
-def _feeds_enemy_combat(ct, my_team, outputs):
+def _feeds_enemy_combat(ct, my_team, outputs) -> bool:
     for out in outputs:
         if not ct.is_in_vision(out):
             continue
@@ -141,11 +140,11 @@ class Sentinel:
     state: UnitState
     idle_turns: int
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.state = UnitState()
         self.idle_turns = 0
 
-    def try_self_destruct(self, ct):
+    def try_self_destruct(self, ct) -> None:
         my_team = self.state.my_team
         has_ally = False
         for uid in ct.get_nearby_units(None):
@@ -162,7 +161,7 @@ class Sentinel:
     def unit_state_mut(self):
         return self.state
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         self.state.cache_per_turn_state(ct)
         self.state.check_symmetry_marker(ct)
         if ct.get_action_cooldown() > 0:
@@ -189,7 +188,7 @@ class Sentinel:
             if ct.get_team(bid) == my_team:
                 continue
             etype = ct.get_entity_type(bid)
-            if etype == EntityType.MARKER or etype == EntityType.HARVESTER:
+            if etype in (EntityType.MARKER, EntityType.HARVESTER):
                 continue
             score = priority(etype)
             if is_transport(etype):
@@ -210,7 +209,7 @@ class Sentinel:
             if self.idle_turns > 16:
                 self.try_self_destruct(ct)
 
-    def post_init(self, ct):
+    def post_init(self, ct) -> None:
         """
         ct-dependent init. Runs once on first turn for this unit. Mirrors
         Python `Unit.post_init`.

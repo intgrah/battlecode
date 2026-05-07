@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def classify(n):
+def classify(n) -> int:
     if n < 0:
         return -1
     if n == 0:

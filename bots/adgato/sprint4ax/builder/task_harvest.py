@@ -10,10 +10,10 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment
-from util import DIR4, DELTA_TO_DIR, DIR_TO_DELTA, INF, can_afford, get_direction_object
+from util import DELTA_TO_DIR, DIR4, DIR_TO_DELTA, INF, can_afford, get_direction_object
 
-from .extra import pave
 from .algorithms.pathfind import conv_pathfind
+from .extra import pave
 from .helpers import make_move, try_move_with_road
 
 if TYPE_CHECKING:
@@ -68,7 +68,7 @@ def pick_ore_target(self: Builder, ct: Controller) -> PosInt:
     for pos in self.nearby_positions:
         terrain = self.get_env(pos)
 
-        if terrain == Environment.ORE_TITANIUM or terrain == Environment.ORE_AXIONITE:
+        if terrain in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             match self.get_building(pos):
                 case BuildingHarvester():
                     continue

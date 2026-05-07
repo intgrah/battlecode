@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Position
-
 
 def manhattan(p1, p2):
     """L-1 distance."""
@@ -24,7 +19,7 @@ def chebyshev(p1, p2):
     """L-infinity distance."""
     dx = abs(p1.x - p2.x)
     dy = abs(p1.y - p2.y)
-    return dx if dx > dy else dy
+    return max(dy, dx)
 
 
 def reachable_path_end(path, current_pos, max_range):
@@ -54,7 +49,7 @@ def closest(target, positions):
     )
 
 
-def claims_by_proximity(my_pos, my_id, target, friendlies):
+def claims_by_proximity(my_pos, my_id, target, friendlies) -> bool:
     """
     Returns `true` iff `my_id` at `my_pos` is the rightful claimant of `target`
     over all `friendlies` (by Chebyshev distance, with smaller id as tiebreak).
@@ -65,6 +60,6 @@ def claims_by_proximity(my_pos, my_id, target, friendlies):
     my_d = chebyshev(my_pos, target)
     for fb_pos, fb_id in friendlies:
         fb_d = chebyshev(fb_pos, target)
-        if fb_d < my_d or fb_d == my_d and fb_id < my_id:
+        if fb_d < my_d or (fb_d == my_d and fb_id < my_id):
             return False
     return True

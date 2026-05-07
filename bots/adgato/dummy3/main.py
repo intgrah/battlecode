@@ -2,9 +2,8 @@ import struct
 import sys
 from typing import Final
 
-from cambc import Controller, Position
-
 import astar
+from cambc import Controller, Position
 
 
 def _read(path: str) -> bytes:
@@ -216,7 +215,7 @@ class Player:
                 best_ti = best_ax = -1
                 for y, row in enumerate(grid):
                     for x, env in enumerate(row):
-                        if env == 2 or env == 3:
+                        if env in {2, 3}:
                             d = (x - ref_x) ** 2 + (y - ref_y) ** 2
                             if env == 2 and (best_ti < 0 or d < best_ti):
                                 best_ti = d
@@ -321,7 +320,7 @@ class Player:
             read_u64(game_ptr + rec_off + 8) if rec_off is not None else None
         )
 
-        empty_row = bytes(w)  # w zero bytes
+        bytes(w)  # w zero bytes
 
         def write_env(tx: int, ty: int, env: int) -> None:
             if not (0 <= tx < w and 0 <= ty < h):

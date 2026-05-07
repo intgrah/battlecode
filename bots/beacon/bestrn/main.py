@@ -8,13 +8,9 @@ FFI symbols the engine looks for.
 
 from __future__ import annotations
 
-from cambc import EntityType
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi
 from breach import Breach
 from builder import Builder
+from cambc import EntityType
 from core import Core
 from gunner import Gunner
 from launcher import Launcher
@@ -38,7 +34,7 @@ class Player:
     launcher: Launcher
     breach: Breach
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.unit = None
         self.builder = Builder()
         self.core = Core()
@@ -47,7 +43,7 @@ class Player:
         self.launcher = Launcher()
         self.breach = Breach()
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         with Scope("turn") as _turn:
             if self.unit is None:
                 kind = ct.get_entity_type(None)

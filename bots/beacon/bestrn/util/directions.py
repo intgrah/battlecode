@@ -5,10 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import Direction
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from cambc import Position
 DIR8: Final[list[Direction]] = [
     Direction.NORTH,
     Direction.NORTHEAST,
@@ -38,12 +35,7 @@ def is_cardinal(d):
     `Direction::is_cardinal()` helper from `libre-engine`, which has no
     Python counterpart on `cambc.Direction`.
     """
-    return (
-        d == Direction.NORTH
-        or d == Direction.EAST
-        or d == Direction.SOUTH
-        or d == Direction.WEST
-    )
+    return d in (Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST)
 
 
 DIR8_DELTA: Final[list[tuple[int, int]]] = [

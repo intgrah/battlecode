@@ -2,16 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller
-if TYPE_CHECKING:
-    from builder import Builder
 from util.debug import dot
 
 
-def indicators(builder, ct):
+def indicators(builder, ct) -> None:
     """
     Paint per-builder economy state into the replay: ore targets,
     foundry target, chain endpoints. Only has effect when `DEBUG_LOG` is set

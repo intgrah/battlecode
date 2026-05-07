@@ -8,10 +8,8 @@ use to emit a per-turn JSON tree of named dump nodes.
 
 from __future__ import annotations
 
-from typing import Final
 from dataclasses import dataclass
-
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
     from cambc import Position
@@ -23,7 +21,7 @@ class Colour:
     b: int
     a: int
 
-    def __init__(self, r, g, b, a):
+    def __init__(self, r, g, b, a) -> None:
         self.r = r
         self.g = g
         self.b = b
@@ -42,7 +40,7 @@ class PaletteStop:
     t: T
     colour: Colour
 
-    def __init__(self, t: T, colour: Colour):
+    def __init__(self, t: T, colour: Colour) -> None:
         self.t = t
         self.colour = colour
 
@@ -53,7 +51,7 @@ class Palette:
     stops: list[PaletteStop]
     special: list[tuple[T, Colour]]
 
-    def __init__(self, stops, special):
+    def __init__(self, stops, special) -> None:
         self.stops = stops
         self.special = special
 
@@ -223,18 +221,16 @@ type Dump = (
 
 
 def serialise_palette_t(p):
-    stops: list[Value] = list(
-        (
-            [
-                s.t,
-                s.colour.as_array()[0],
-                s.colour.as_array()[1],
-                s.colour.as_array()[2],
-                s.colour.as_array()[3],
-            ]
-            for s in p.stops
-        )
-    )
+    stops: list[Value] = [
+        [
+            s.t,
+            s.colour.as_array()[0],
+            s.colour.as_array()[1],
+            s.colour.as_array()[2],
+            s.colour.as_array()[3],
+        ]
+        for s in p.stops
+    ]
     special_obj = {}
     for k, c in p.special:
         key = str(k)
@@ -245,8 +241,8 @@ def serialise_palette_t(p):
             c.as_array()[3],
         ]
     obj = {}
-    obj[str("stops")] = stops
-    obj[str("special")] = special_obj
+    obj["stops"] = stops
+    obj["special"] = special_obj
     return obj
 
 
@@ -291,7 +287,7 @@ def serialise_dump(v):
                 "palette": serialise_palette_t(palette),
             }
         case DumpTiles(data=data):
-            return {"$type": "tiles", "v": list((pos_xy(__x) for __x in data))}
+            return {"$type": "tiles", "v": [pos_xy(__x) for __x in data]}
         case DumpTile(pos=pos):
             return (
                 {"$type": "tile", "x": p.x, "y": p.y}
@@ -310,16 +306,16 @@ def serialise_dump(v):
             arr = colour.as_array()
             return {
                 "$type": "path",
-                "v": list((pos_xy(__x) for __x in points)),
+                "v": [pos_xy(__x) for __x in points],
                 "colour": [arr[0], arr[1], arr[2], arr[3]],
             }
         case DumpVectorField(angles=angles, magnitudes=magnitudes):
             obj = {}
-            obj[str("$type")] = "vectorfield"
-            obj[str("angles")] = angles
+            obj["$type"] = "vectorfield"
+            obj["angles"] = angles
             m = magnitudes
             if m is not None:
-                obj[str("magnitudes")] = m
+                obj["magnitudes"] = m
             return obj
         case DumpScalar(value=value):
             match value:
@@ -369,10 +365,10 @@ class Dumper:
 
     same_cache: dict[str, Value]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.same_cache = {}
 
-    def dump(self, scope_children, name, value):
+    def dump(self, scope_children, name, value) -> None:
         """
         Append a vis node to `scope_children`. If the payload equals the last
         value emitted under `name`, write a `{"$type": "same"}` marker so the

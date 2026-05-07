@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import io
 import json
 import os
@@ -348,7 +349,7 @@ def _cmd_sync(args: argparse.Namespace) -> None:
     rsync = _rsync_cmd()
     user = "admin"
     identity = _ssh_identity()
-    rsh = f"ssh -o StrictHostKeyChecking=accept-new"
+    rsh = "ssh -o StrictHostKeyChecking=accept-new"
     if identity:
         rsh += f" -i {identity}"
     print(f"Syncing to {ip}...")
@@ -495,10 +496,8 @@ def _ping_daemon(
                 return True
         except (TimeoutError, OSError, json.JSONDecodeError):
             pass
-        try:
+        with contextlib.suppress(OSError):
             sock.settimeout(None)
-        except OSError:
-            pass
         time.sleep(1.0)
     return False
 
@@ -569,10 +568,8 @@ def _open_tunnel_with_retry(
         if _ping_daemon(sock, reader, timeout=90.0):
             return tunnel, sock, reader
         last_err = "daemon ping"
-        try:
+        with contextlib.suppress(OSError):
             sock.close()
-        except OSError:
-            pass
         tunnel.terminate()
         try:
             tunnel.wait(timeout=5)
@@ -592,10 +589,8 @@ def _open_tunnel_with_retry(
 
 
 def _close_conn(tunnel: subprocess.Popen[bytes], sock: socket.socket) -> None:
-    try:
+    with contextlib.suppress(OSError):
         sock.close()
-    except OSError:
-        pass
     tunnel.terminate()
     try:
         tunnel.wait(timeout=5)
@@ -614,7 +609,6 @@ def _cmd_ci(args: argparse.Namespace) -> None:
     replay_dir = _CHECKPOINT_DIR
     replay_dir.mkdir(parents=True, exist_ok=True)
 
-    job_id: str | None = resume_id
     received = 0  # count of result lines already printed
     errors = 0
     draws = 0
@@ -675,7 +669,7 @@ def _cmd_ci(args: argparse.Namespace) -> None:
                 },
             )
         else:
-            print(f"Resume not supported by current daemon; starting fresh.")
+            print("Resume not supported by current daemon; starting fresh.")
 
         # Simple streaming protocol: daemon sends one JSON line per game
         # completion (with `winner_side`, `error`, etc.), then a final

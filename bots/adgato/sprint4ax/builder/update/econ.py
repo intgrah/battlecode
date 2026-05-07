@@ -5,17 +5,17 @@ from typing import TYPE_CHECKING
 from building import (
     BuildingArmouredConveyor,
     BuildingConveyor,
-    BuildingHarvester,
     BuildingFoundry,
+    BuildingHarvester,
 )
 from cambc import Controller, Environment
 from config import DEBUG_TIMING
-from util import DIR8, DIR4
+from util import DIR4, DIR8
 
-from ..flow import FlowValue
-from ..role import Role
-from ..task_harvest import ore_available, pick_ore_target
-from ..task_repair import find_dangling, is_dangling
+from builder.flow import FlowValue
+from builder.role import Role
+from builder.task_harvest import ore_available, pick_ore_target
+from builder.task_repair import find_dangling, is_dangling
 
 if TYPE_CHECKING:
     from builder import Builder

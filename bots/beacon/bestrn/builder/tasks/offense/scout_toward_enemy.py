@@ -9,18 +9,8 @@ is available.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.tasks.offense.helpers import scout_toward_enemy as scout
 
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
 
-
-def scout_toward_enemy(self_, ct):
+def scout_toward_enemy(self_, ct) -> None:
     scout(self_, ct)
-    return None

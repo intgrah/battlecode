@@ -14,20 +14,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position
-if TYPE_CHECKING:
-    from builder import Builder
+    from cambc import Position
+from util.metrics import chebyshev
+
 from builder.helpers import make_move, try_heal
 from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
 from builder.tasks.shared.heal._helpers import (
     count_visible_attackers,
     deconflict_rank,
     healers_needed,
 )
-from util.metrics import chebyshev
 
 
 def best_healable_building(self_, ct):
@@ -68,13 +64,11 @@ def best_healable_building(self_, ct):
         if score > best_score:
             best = pos
             best_score = score
-    self_.healable_buildings = list(
-        (
-            p
-            for p in self_.healable_buildings
-            if self_.hp[self_.idx(p)] < self_.max_hp[self_.idx(p)]
-        )
-    )
+    self_.healable_buildings = [
+        p
+        for p in self_.healable_buildings
+        if self_.hp[self_.idx(p)] < self_.max_hp[self_.idx(p)]
+    ]
     return best
 
 
@@ -117,10 +111,8 @@ def heal_buildings(self_, ct):
             self_.repair_pos = None
     new_repair = best_healable_building(self_, ct)
     if (
-        (new_repair is not None)
-        and new_repair.distance_squared(self_.my_pos) <= 2
-        or (self_.repair_pos is None)
-    ):
+        (new_repair is not None) and new_repair.distance_squared(self_.my_pos) <= 2
+    ) or (self_.repair_pos is None):
         self_.repair_pos = new_repair
     repair_pos = self_.repair_pos
     if repair_pos is None:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from builder.tasks._policy import Policy, TaskGroup, PolicyGroup, PolicyLeaf
+from builder.tasks._policy import Policy, PolicyGroup, PolicyLeaf, TaskGroup
 from builder.tasks.econ.chains.extend_chain_approach import extend_chain_approach
 from builder.tasks.econ.chains.extend_chain_in_range import extend_chain_in_range
 from builder.tasks.econ.infrastructure import ECON_INFRASTRUCTURE_GROUP

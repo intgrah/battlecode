@@ -10,10 +10,9 @@ from __future__ import annotations
 
 from typing import Final
 
-from . import approach_harvester
-from . import chew_conveyor
-from . import walk_to_cached_target
-from builder.tasks._policy import Policy, TaskGroup, PolicyGroup, PolicyLeaf
+from builder.tasks._policy import Policy, PolicyGroup, PolicyLeaf, TaskGroup
+
+from . import approach_harvester, chew_conveyor, walk_to_cached_target
 
 OFFENSE_PARASITIC_CHILDREN: Final[list[Policy]] = [
     PolicyLeaf(name="approach_harvester", fn_=approach_harvester.approach_harvester),

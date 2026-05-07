@@ -9,14 +9,14 @@ moves, only locally affected vertices are re-expanded.
 """
 
 import heapq
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 INF = 1_000_000
 
 T = TypeVar("T")
 
 
-class DStarLite(Generic[T]):
+class DStarLite[T]:
     def __init__(self, source: T, goal: T) -> None:
         self.done = False
         self._source = source

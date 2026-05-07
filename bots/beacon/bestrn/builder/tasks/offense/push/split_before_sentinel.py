@@ -7,20 +7,16 @@ a splitter, forking the offensive chain into three outputs.
 
 from __future__ import annotations
 
-from cambc import Direction, EntityType
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from cambc import Controller, Position
-if TYPE_CHECKING:
-    from builder import Builder
-from builder.helpers import can_afford, make_move, try_place
-from builder.tasks.rejected import TaskRejected
+from cambc import Direction, EntityType
 
 if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
-from util.constants import MAX_WIDTH
+    from cambc import Position
 from util.directions import DIR4, delta_to_dir
+
+from builder.helpers import can_afford, make_move, try_place
+from builder.tasks.rejected import TaskRejected
 
 
 def feeder_delta(self_, pos):
@@ -37,7 +33,7 @@ def feeder_delta(self_, pos):
     dx = pos.x - feeder.x
     dy = pos.y - feeder.y
     d = delta_to_dir(dx, dy)
-    if not (d in DIR4):
+    if d not in DIR4:
         return None
     return d
 

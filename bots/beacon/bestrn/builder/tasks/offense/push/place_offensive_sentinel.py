@@ -8,20 +8,16 @@ existing conveyors).
 
 from __future__ import annotations
 
-from cambc import Direction, EntityType
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position
-if TYPE_CHECKING:
-    from builder import Builder
-from builder.helpers import can_afford, make_move, move_random, try_place
-from builder.tasks.rejected import TaskRejected
+from cambc import Direction, EntityType
 
 if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
-from util.constants import MAX_WIDTH
+    from cambc import Position
 from util.directions import DIR8
+
+from builder.helpers import can_afford, make_move, move_random, try_place
+from builder.tasks.rejected import TaskRejected
 
 
 def is_enemy_valuable(self_, pos):
@@ -34,16 +30,16 @@ def is_enemy_valuable(self_, pos):
         return False
     if kind == EntityType.HARVESTER:
         return False
-    return (
-        kind == EntityType.CONVEYOR
-        or kind == EntityType.ARMOURED_CONVEYOR
-        or kind == EntityType.SPLITTER
-        or kind == EntityType.BRIDGE
-        or kind == EntityType.CORE
-        or kind == EntityType.GUNNER
-        or kind == EntityType.SENTINEL
-        or kind == EntityType.BREACH
-        or kind == EntityType.LAUNCHER
+    return kind in (
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+        EntityType.CORE,
+        EntityType.GUNNER,
+        EntityType.SENTINEL,
+        EntityType.BREACH,
+        EntityType.LAUNCHER,
     )
 
 

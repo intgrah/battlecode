@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import EntityType, Environment, Position, ResourceType
-from typing import TYPE_CHECKING
+from util.constants import base_cost
+from util.debug import Scope
+from util.debug import debug as log
+from util.directions import DIR4
+from util.metrics import chebyshev, claims_by_proximity
+from util.visualiser import auto_wrap_position
 
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.algorithms.reachability import find
 from builder.helpers import (
     ax_feeds_target,
@@ -20,12 +21,6 @@ from builder.helpers import (
     pick_offensive_ti_ore_target,
     pick_ore_target,
 )
-from util.constants import FLOW_HISTORY_LEN, INF, MAX_WIDTH, base_cost
-from util.debug import Scope
-from util.debug import debug as log
-from util.directions import DIR4
-from util.metrics import chebyshev, claims_by_proximity
-from util.visualiser import auto_wrap_position
 
 
 def can_place_junction(builder, pos):
@@ -42,7 +37,7 @@ def can_place_junction(builder, pos):
     if not ok:
         return False
     conv = builder.get_in_edges(pos)
-    conv_adj: list[Position] = list((c for c in conv if c.distance_squared(pos) <= 2))
+    conv_adj: list[Position] = [c for c in conv if c.distance_squared(pos) <= 2]
     if len(conv_adj) >= 2 or (not conv):
         return False
     buildable_count = 0
@@ -66,14 +61,14 @@ def can_place_junction(builder, pos):
     return buildable_count >= 1
 
 
-def update_map_econ(builder, ct):
+def update_map_econ(builder, ct) -> None:
     prev_unconn = set(builder.adjacent_to_unconnected_harvester)
-    builder.adjacent_to_unconnected_harvester = set(
-        (p for p in builder.adjacent_to_unconnected_harvester if not ct.is_in_vision(p))
-    )
-    builder.adjacent_to_harvester = set(
-        (p for p in builder.adjacent_to_harvester if not ct.is_in_vision(p))
-    )
+    builder.adjacent_to_unconnected_harvester = {
+        p for p in builder.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
+    }
+    builder.adjacent_to_harvester = {
+        p for p in builder.adjacent_to_harvester if not ct.is_in_vision(p)
+    }
     nearby = list(builder.state.nearby_tiles)
     my_team = builder.state.my_team
     for pos in nearby:
@@ -93,14 +88,17 @@ def update_map_econ(builder, ct):
                     nt == my_team
                 ):
                     out = builder.out_edges[ni][0] if builder.out_edges[ni] else None
-                    if out is not None and (out != pos):
-                        if not (
+                    if (
+                        out is not None
+                        and (out != pos)
+                        and not (
                             builder.in_bounds(out)
                             and builder.building_kind[builder.idx(out)]
                             == EntityType.HARVESTER
-                        ):
-                            adjacent_conveyor = True
-                            break
+                        )
+                    ):
+                        adjacent_conveyor = True
+                        break
                 case (
                     EntityType.BRIDGE
                     | EntityType.SPLITTER
@@ -139,7 +137,7 @@ def update_map_econ(builder, ct):
         builder._check_dangling(p, "unconn_flip")
 
 
-def update_unreachable_dangling(builder):
+def update_unreachable_dangling(builder) -> None:
     """
     Migrate tiles between `dangling_set` and `unreachable_dangling`
     according to map-level reachability (incremental UF, not BFS).
@@ -157,7 +155,7 @@ def update_unreachable_dangling(builder):
             or find(builder.reach_parent, int(i)) != my_root
         ):
             args = {}
-            args[str("t")] = auto_wrap_position(t)
+            args["t"] = auto_wrap_position(t)
             log("DANGLING discard(unreachable) t={t}", args)
             builder.dangling_set.discard(t)
             builder.unreachable_dangling.add(t)
@@ -170,13 +168,13 @@ def update_unreachable_dangling(builder):
             and find(builder.reach_parent, int(i)) == my_root
         ):
             args = {}
-            args[str("t")] = auto_wrap_position(t)
+            args["t"] = auto_wrap_position(t)
             log("DANGLING add(reachable-migrate) t={t}", args)
             builder.unreachable_dangling.discard(t)
             builder.dangling_set.add(t)
 
 
-def update_dangling(builder):
+def update_dangling(builder) -> None:
     """
     Refresh the cached `dangling_output` once per turn — no
     stickiness. Tasks (`extend_chain_*`, `push_extend`) and update
@@ -227,22 +225,19 @@ def chebyshev_to_nearest_core_edge(builder, pos):
     best_d = 1000000
     for e in builder.core_edges:
         d = chebyshev(pos, e)
-        if d < best_d:
-            best_d = d
+        best_d = min(best_d, d)
     return chebyshev(pos, builder.my_core) if best_d == 1000000 else best_d
 
 
 def pick_dangling_output(builder, ct):
-    friendly: list[tuple[Position, int]] = list(
-        (
-            (t[0], t[1])
-            for t in (
-                t
-                for t in builder.state.all_bots.items()
-                if t[1] != builder.state.my_id and (t[0] in builder.state.friendly_bots)
-            )
+    friendly: list[tuple[Position, int]] = [
+        (t[0], t[1])
+        for t in (
+            t
+            for t in builder.state.all_bots.items()
+            if t[1] != builder.state.my_id and (t[0] in builder.state.friendly_bots)
         )
-    )
+    ]
     en_core = builder.en_core_guess if (builder.symmetry is not None) else None
     best: Position | None = None
     best_score: tuple[int, int, int, int] = (1 << 30, 1 << 30, 1 << 30, 1 << 30)
@@ -270,7 +265,7 @@ def pick_dangling_output(builder, ct):
     return best
 
 
-def update_ti_ore_target(builder):
+def update_ti_ore_target(builder) -> None:
     candidate_ore = pick_ore_target(builder)
     needs_pick = (
         (builder.ore_target is None)
@@ -286,12 +281,14 @@ def update_ti_ore_target(builder):
             builder.ore_target is not None
             and (lambda t: harvester_would_contaminate(builder, t))(builder.ore_target)
         )
-        or (candidate_ore is not None)
-        and candidate_ore.distance_squared(builder.state.my_pos) <= 2
-        and (
-            builder.ore_target is not None
-            and (lambda t: t.distance_squared(builder.state.my_pos) > 2)(
-                builder.ore_target
+        or (
+            (candidate_ore is not None)
+            and candidate_ore.distance_squared(builder.state.my_pos) <= 2
+            and (
+                builder.ore_target is not None
+                and (lambda t: t.distance_squared(builder.state.my_pos) > 2)(
+                    builder.ore_target
+                )
             )
         )
     )
@@ -303,7 +300,7 @@ def update_ti_ore_target(builder):
         builder.ore_target = candidate_ore
 
 
-def update_offensive_ore_target(builder):
+def update_offensive_ore_target(builder) -> None:
     """
     Enemy-side Ti ore claim. Same re-evaluation semantics as
     `update_ore_target`: keep the current pick if still valid and not
@@ -326,12 +323,14 @@ def update_offensive_ore_target(builder):
                 builder.offensive_ore_target
             )
         )
-        or (candidate is not None)
-        and candidate.distance_squared(builder.state.my_pos) <= 2
-        and (
-            builder.offensive_ore_target is not None
-            and (lambda t: t.distance_squared(builder.state.my_pos) > 2)(
-                builder.offensive_ore_target
+        or (
+            (candidate is not None)
+            and candidate.distance_squared(builder.state.my_pos) <= 2
+            and (
+                builder.offensive_ore_target is not None
+                and (lambda t: t.distance_squared(builder.state.my_pos) > 2)(
+                    builder.offensive_ore_target
+                )
             )
         )
     )
@@ -391,7 +390,7 @@ def _foundry_local_ok(builder, pos):
     kind = builder.building_kind[i]
     team = builder.building_team[i]
     is_conv = (kind is not None) and (
-        kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR
+        kind in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR)
     )
     if not is_conv:
         return False
@@ -442,8 +441,8 @@ def _pure_ax_merge_ok(builder, pos):
         return False
     return (
         (pos in builder.ax_upstream)
-        and not (pos in builder.ti_upstream)
-        and not (pos in builder.upstream_of_dangling)
+        and pos not in builder.ti_upstream
+        and pos not in builder.upstream_of_dangling
     )
 
 
@@ -521,7 +520,7 @@ def _detect_saturated_tiles(builder):
     return result
 
 
-def update_economy_reachability(builder):
+def update_economy_reachability(builder) -> None:
     """
     Per-turn backward flood over the structural transport graph.
     Marks `reaches_core`, `reaches_foundry`, `upstream_of_dangling`,
@@ -535,26 +534,22 @@ def update_economy_reachability(builder):
     roots: list[Position] = [my_core]
     roots.extend(builder.core_edges)
     flood_back(builder.in_edges, roots, builder.reaches_core)
-    if not (not builder.my_foundries):
+    if builder.my_foundries:
         roots: list[Position] = list(builder.my_foundries)
         flood_back(builder.in_edges, roots, builder.reaches_foundry)
-    dangling_roots: list[Position] = list(
-        (
-            p
-            for p in builder.dangling_set
-            if not (not builder.in_edges[int(p.y) * 50 + int(p.x)])
-        )
-    )
+    dangling_roots: list[Position] = [
+        p for p in builder.dangling_set if builder.in_edges[int(p.y) * 50 + int(p.x)]
+    ]
     flood_back(builder.in_edges, dangling_roots, builder.upstream_of_dangling)
     builder.congested_junctions = list(_detect_congested_junctions(builder))
     cong_roots: list[Position] = list(builder.congested_junctions)
     flood_back(builder.in_edges, cong_roots, builder.upstream_of_congestion)
 
 
-def flood_back(in_edges, roots, target):
+def flood_back(in_edges, roots, target) -> None:
     stack: list[Position] = []
     for r in roots:
-        if not (r in target):
+        if r not in target:
             target.add(r)
             stack.append(r)
     while (p := (stack.pop() if stack else None)) is not None:
@@ -566,7 +561,7 @@ def flood_back(in_edges, roots, target):
             stack.append(u)
 
 
-def check_invariants(builder):
+def check_invariants(builder) -> None:
     """
     Oracle: recompute the incrementally-maintained sets from scratch
     using the current `in_edges` / `out_edges` / harvester-adjacent state,
@@ -574,30 +569,18 @@ def check_invariants(builder):
     """
     out_edges = builder.out_edges
     in_edges = builder.in_edges
-    expected_ti_adj: set[Position] = list(
-        (
-            __v
-            for t in enumerate(builder._ti_harv_at)
-            if (
-                __v := Position(x=int(t[0] % 50), y=int(t[0] // 50))
-                if t[1] > 0
-                else None
-            )
-            is not None
-        )
-    )
-    expected_ax_adj: set[Position] = list(
-        (
-            __v
-            for t in enumerate(builder._ax_harv_at)
-            if (
-                __v := Position(x=int(t[0] % 50), y=int(t[0] // 50))
-                if t[1] > 0
-                else None
-            )
-            is not None
-        )
-    )
+    expected_ti_adj: set[Position] = [
+        __v
+        for t in enumerate(builder._ti_harv_at)
+        if (__v := Position(x=int(t[0] % 50), y=int(t[0] // 50)) if t[1] > 0 else None)
+        is not None
+    ]
+    expected_ax_adj: set[Position] = [
+        __v
+        for t in enumerate(builder._ax_harv_at)
+        if (__v := Position(x=int(t[0] % 50), y=int(t[0] // 50)) if t[1] > 0 else None)
+        is not None
+    ]
     if expected_ti_adj != builder.ti_harvester_adjacent:
         args = {}
         missing: list[Position] = list(
@@ -608,8 +591,8 @@ def check_invariants(builder):
             builder.ti_harvester_adjacent.difference(expected_ti_adj)
         )
         extra.sort()
-        args[str("missing")] = f"{missing!r}"
-        args[str("extra")] = f"{extra!r}"
+        args["missing"] = f"{missing!r}"
+        args["extra"] = f"{extra!r}"
         log(
             "INVARIANT_FAIL ti_harvester_adjacent missing={missing} extra={extra}", args
         )
@@ -623,8 +606,8 @@ def check_invariants(builder):
             builder.ax_harvester_adjacent.difference(expected_ax_adj)
         )
         extra.sort()
-        args[str("missing")] = f"{missing!r}"
-        args[str("extra")] = f"{extra!r}"
+        args["missing"] = f"{missing!r}"
+        args["extra"] = f"{extra!r}"
         log(
             "INVARIANT_FAIL ax_harvester_adjacent missing={missing} extra={extra}", args
         )
@@ -638,19 +621,19 @@ def check_invariants(builder):
         extra.sort()
         del extra[8:]
         args = {}
-        args[str("missing")] = f"{miss!r}"
-        args[str("extra")] = f"{extra!r}"
+        args["missing"] = f"{miss!r}"
+        args["extra"] = f"{extra!r}"
         log("INVARIANT_FAIL ti_upstream missing={missing} extra={extra}", args)
         for t in itertools.islice(miss, 4):
             i = int(t.y) * 50 + int(t.x)
-            feeders: list[tuple[Position, bool, bool]] = list(
-                ((f, (f in builder.ti_upstream), (f in oracle_ti)) for f in in_edges[i])
-            )
+            feeders: list[tuple[Position, bool, bool]] = [
+                (f, (f in builder.ti_upstream), (f in oracle_ti)) for f in in_edges[i]
+            ]
             args = {}
-            args[str("t")] = f"{t!r}"
-            args[str("ti_in_count")] = builder._ti_in_count[i]
-            args[str("ti_harv_at")] = builder._ti_harv_at[i]
-            args[str("feeders")] = f"{feeders!r}"
+            args["t"] = f"{t!r}"
+            args["ti_in_count"] = builder._ti_in_count[i]
+            args["ti_harv_at"] = builder._ti_harv_at[i]
+            args["feeders"] = f"{feeders!r}"
             log(
                 "  miss t={t} ti_in_count={ti_in_count} ti_harv_at={ti_harv_at} feeders={feeders}",
                 args,
@@ -663,31 +646,31 @@ def check_invariants(builder):
         extra.sort()
         del extra[8:]
         args = {}
-        args[str("missing")] = f"{miss!r}"
-        args[str("extra")] = f"{extra!r}"
+        args["missing"] = f"{miss!r}"
+        args["extra"] = f"{extra!r}"
         log("INVARIANT_FAIL ax_upstream missing={missing} extra={extra}", args)
         for t in itertools.islice(miss, 4):
             i = int(t.y) * 50 + int(t.x)
-            feeders: list[tuple[Position, bool, bool]] = list(
-                ((f, (f in builder.ax_upstream), (f in oracle_ax)) for f in in_edges[i])
-            )
+            feeders: list[tuple[Position, bool, bool]] = [
+                (f, (f in builder.ax_upstream), (f in oracle_ax)) for f in in_edges[i]
+            ]
             args = {}
-            args[str("t")] = f"{t!r}"
-            args[str("ax_in_count")] = builder._ax_in_count[i]
-            args[str("ax_harv_at")] = builder._ax_harv_at[i]
-            args[str("feeders")] = f"{feeders!r}"
+            args["t"] = f"{t!r}"
+            args["ax_in_count"] = builder._ax_in_count[i]
+            args["ax_harv_at"] = builder._ax_harv_at[i]
+            args["feeders"] = f"{feeders!r}"
             log(
                 "  miss t={t} ax_in_count={ax_in_count} ax_harv_at={ax_harv_at} feeders={feeders}",
                 args,
             )
-    for i in range(0, len(in_edges)):
+    for i in range(len(in_edges)):
         if not in_edges[i]:
             if builder._ti_in_count[i] != 0 or builder._ax_in_count[i] != 0:
                 t = Position(x=int(i % 50), y=int(i // 50))
                 args = {}
-                args[str("t")] = f"{t!r}"
-                args[str("ti")] = builder._ti_in_count[i]
-                args[str("ax")] = builder._ax_in_count[i]
+                args["t"] = f"{t!r}"
+                args["ti"] = builder._ti_in_count[i]
+                args["ax"] = builder._ax_in_count[i]
                 log(
                     "INVARIANT_FAIL in_count nonzero with empty in_edges t={t} ti={ti} ax={ax}",
                     args,
@@ -702,10 +685,10 @@ def check_invariants(builder):
         if ti_expected != builder._ti_in_count[i]:
             t = Position(x=int(i % 50), y=int(i // 50))
             args = {}
-            args[str("t")] = f"{t!r}"
-            args[str("have")] = builder._ti_in_count[i]
-            args[str("expected")] = ti_expected
-            args[str("in_edges")] = f"{in_edges[i]!r}"
+            args["t"] = f"{t!r}"
+            args["have"] = builder._ti_in_count[i]
+            args["expected"] = ti_expected
+            args["in_edges"] = f"{in_edges[i]!r}"
             log(
                 "INVARIANT_FAIL ti_in_count drift t={t} have={have} expected={expected} in_edges={in_edges}",
                 args,
@@ -713,17 +696,17 @@ def check_invariants(builder):
         if ax_expected != builder._ax_in_count[i]:
             t = Position(x=int(i % 50), y=int(i // 50))
             args = {}
-            args[str("t")] = f"{t!r}"
-            args[str("have")] = builder._ax_in_count[i]
-            args[str("expected")] = ax_expected
-            args[str("in_edges")] = f"{in_edges[i]!r}"
+            args["t"] = f"{t!r}"
+            args["have"] = builder._ax_in_count[i]
+            args["expected"] = ax_expected
+            args["in_edges"] = f"{in_edges[i]!r}"
             log(
                 "INVARIANT_FAIL ax_in_count drift t={t} have={have} expected={expected} in_edges={in_edges}",
                 args,
             )
 
 
-def _feeder_flow_kind(builder, f):
+def _feeder_flow_kind(builder, f) -> str | None:
     """
     Classify a feeder tile by its observed flow-history: 'ti' if only
     Ti stacks seen, 'ax' if only Ax stacks seen, None if no flow observed
@@ -758,7 +741,7 @@ def _is_junction(builder, pos):
     kind = builder.building_kind[i]
     team = builder.building_team[i]
     is_conv = (kind is not None) and (
-        kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR
+        kind in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR)
     )
     if not is_conv:
         return False
@@ -789,7 +772,7 @@ def _is_junction(builder, pos):
     return has_ti and has_ax
 
 
-def update_junctions(builder):
+def update_junctions(builder) -> None:
     """Derive `self.junctions` from `is_multi_input` using `_is_junction`."""
     builder.junctions.clear()
     candidates: list[Position] = list(builder.is_multi_input)
@@ -798,7 +781,7 @@ def update_junctions(builder):
             builder.junctions.add(pos)
 
 
-def update_foundry_target(builder):
+def update_foundry_target(builder) -> None:
     """Re-derive `ax_sink` every turn from three option classes."""
     if (builder.ax_ore_target is None) and (not builder.ax_harvester_adjacent):
         builder.ax_sink = None
@@ -898,7 +881,7 @@ def update_foundry_target(builder):
         still_valid_kind_c = (
             is_transport
             and (ft in builder.reaches_core)
-            and not (ft in builder.reaches_foundry)
+            and ft not in builder.reaches_foundry
         )
         if not (still_valid_junction or still_valid_kind_c):
             builder.foundry_target = None
@@ -908,8 +891,7 @@ def update_foundry_target(builder):
         and chosen is not None
         and (
             (chosen in builder.junctions)
-            or _foundry_local_ok(builder, chosen)
-            and ax_feeds_target(builder, chosen)
+            or (_foundry_local_ok(builder, chosen) and ax_feeds_target(builder, chosen))
         )
     ):
         builder.foundry_target = chosen
@@ -921,7 +903,7 @@ def _ti_sink_ok(builder, pos):
     kind = builder.building_kind[i]
     team = builder.building_team[i]
     is_conv = (kind is not None) and (
-        kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR
+        kind in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR)
     )
     if not is_conv:
         return False
@@ -959,7 +941,7 @@ def _near_core_saving_threshold(builder):
     return 1 + r // 20 if r < 100 else 6 + (r - 100) // 100
 
 
-def update_ti_sink(builder):
+def update_ti_sink(builder) -> None:
     """Pick where new Ti chains should terminate. Three-tier preference."""
     anchor = (
         builder.dangling_output
@@ -1009,11 +991,11 @@ def update_ti_sink(builder):
     )
     if best != builder.ti_sink:
         args = {}
-        args[str("from")] = f"{builder.ti_sink!r}"
-        args[str("to")] = f"{best!r}"
-        args[str("tier")] = tier
-        args[str("anchor")] = f"{anchor!r}"
-        args[str("dist_sq")] = best_d
+        args["from"] = f"{builder.ti_sink!r}"
+        args["to"] = f"{best!r}"
+        args["tier"] = tier
+        args["anchor"] = f"{anchor!r}"
+        args["dist_sq"] = best_d
         log(
             "update_ti_sink: ti_sink changed from {from} to {to} (tier {tier}, anchor={anchor}, dist_sq={dist_sq})",
             args,
@@ -1021,7 +1003,7 @@ def update_ti_sink(builder):
     builder.ti_sink = best
 
 
-def update_ax_ore_target(builder):
+def update_ax_ore_target(builder) -> None:
     """Pick the nearest unclaimed Ax-ore tile, gated on round AND Ti buffer."""
     if builder.state.round < 500:
         builder.ax_ore_target = None
@@ -1051,12 +1033,14 @@ def update_ax_ore_target(builder):
                 builder.ax_ore_target
             )
         )
-        or (candidate is not None)
-        and candidate.distance_squared(builder.state.my_pos) <= 2
-        and (
-            builder.ax_ore_target is not None
-            and (lambda t: t.distance_squared(builder.state.my_pos) > 2)(
-                builder.ax_ore_target
+        or (
+            (candidate is not None)
+            and candidate.distance_squared(builder.state.my_pos) <= 2
+            and (
+                builder.ax_ore_target is not None
+                and (lambda t: t.distance_squared(builder.state.my_pos) > 2)(
+                    builder.ax_ore_target
+                )
             )
         )
     )

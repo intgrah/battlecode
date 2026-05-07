@@ -2,5 +2,5 @@ def double(x):
     return x * 2
 
 
-def greet(name):
+def greet(name) -> None:
     print(name)

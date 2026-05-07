@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from builder.tasks._policy import Policy, TaskGroup, PolicyGroup, PolicyLeaf
+from builder.tasks._policy import Policy, PolicyGroup, PolicyLeaf, TaskGroup
 from builder.tasks.defense.patrol_cheap import patrol_cheap
 from builder.tasks.defense.patrol_late import patrol_late
 from builder.tasks.defense.stalk_enemy import stalk_enemy

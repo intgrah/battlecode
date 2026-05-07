@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def marker():
+def marker() -> None:
     print("debug")
 
 

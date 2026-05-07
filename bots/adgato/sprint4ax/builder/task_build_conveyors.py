@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from building import BuildingConveyor, BuildingSplitter
-from cambc import Controller, EntityType, Environment, Direction
+from cambc import Controller, Direction, EntityType, Environment
 from util import (
+    DELTA_TO_DIR,
     DIR4,
     DIR8,
-    DELTA_TO_DIR,
     DIR_TO_DELTA,
     get_direction_object,
     reachable_path_end,

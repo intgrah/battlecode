@@ -17,12 +17,11 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import Direction, EntityType, Position, ResourceType
-from typing import TYPE_CHECKING
+from util.debug import Scope, debug, line
+from util.directions import DIR4, DIR8, delta_to_dir, get_direction_object, is_cardinal
+from util.metrics import chebyshev, reachable_path_end
+from util.visualiser import auto_wrap_position
 
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.helpers import (
     make_move,
     on_enemy_side,
@@ -31,11 +30,6 @@ from builder.helpers import (
     try_place,
 )
 from builder.tasks.rejected import TaskRejected
-from util.constants import MAX_WIDTH
-from util.debug import Scope, debug, line
-from util.directions import DIR4, DIR8, delta_to_dir, get_direction_object, is_cardinal
-from util.metrics import chebyshev, reachable_path_end
-from util.visualiser import auto_wrap_position
 
 _UPSTREAM_MAX_NODES_RES: Final[int] = 80
 """Cap on upstream BFS size in `resource_at`."""
@@ -88,7 +82,7 @@ def resource_at(builder, pos):
     return None
 
 
-def _retarget_foundry_to_junction(builder, landing):
+def _retarget_foundry_to_junction(builder, landing) -> None:
     """
     If an Ax chain segment we just placed lands on a pre-existing friendly
     Ti conveyor with pure-Ti flow history, retarget `foundry_target` to that
@@ -100,7 +94,7 @@ def _retarget_foundry_to_junction(builder, landing):
     team = builder.building_team[builder.idx(landing)]
     if not (
         (kind is not None)
-        and (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR)
+        and (kind in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR))
     ):
         return
     if team != builder.state.my_team:
@@ -119,7 +113,7 @@ def _retarget_foundry_to_junction(builder, landing):
     if not saw_ti or has_ax:
         return
     args = {}
-    args[str("landing")] = auto_wrap_position(landing)
+    args["landing"] = auto_wrap_position(landing)
     debug("retarget foundry to junction at {landing}", args)
     builder.foundry_target = landing
 
@@ -156,7 +150,7 @@ def _lay_segment(builder, ct, start_pos, path):
         return False
     bid = ct.get_tile_building_id(start_pos)
     entity_type: EntityType | None = (
-        (lambda b: ct.get_entity_type(b))(bid) if bid is not None else None
+        (ct.get_entity_type)(bid) if bid is not None else None
     )
     b = bid
     if (
@@ -166,7 +160,7 @@ def _lay_segment(builder, ct, start_pos, path):
         and (ct.can_fire(start_pos))
     ):
         args = {}
-        args[str("pos")] = auto_wrap_position(start_pos)
+        args["pos"] = auto_wrap_position(start_pos)
         debug("chain: fire on enemy road at {pos}", args)
         ct.fire(start_pos)
         return True
@@ -196,7 +190,7 @@ def _lay_segment(builder, ct, start_pos, path):
         return try_place(builder, ct, EntityType.BRIDGE, start_pos, target, True)
     destination_building = ct.get_tile_building_id(next_pos)
     destination_team: object | None = (
-        (lambda b: ct.get_team(b))(destination_building)
+        (ct.get_team)(destination_building)
         if destination_building is not None
         else None
     )
@@ -242,17 +236,14 @@ def extend_step(builder, ct, start, target, resource):
     existing_path = trace_upstream(builder, start)
     if not existing_path:
         return TaskRejected.from_string(f"no upstream chain reaches {start!r}")
-    if not builder.cost_grid[builder.idx(start)] != 1000000:
+    if builder.cost_grid[builder.idx(start)] == 1000000:
         if len(existing_path) > 1:
             start = existing_path[len(existing_path) - 2]
         else:
             return TaskRejected.from_string(
                 f"{start!r} is unpassable and no upstream fallback"
             )
-    is_ax = (
-        resource == ResourceType.RAW_AXIONITE
-        or resource == ResourceType.REFINED_AXIONITE
-    )
+    is_ax = resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE)
     with Scope.new_timed("conv_astar") as _g:
         __block_value = (
             builder.ax_conv_astar(start, target, resource)
@@ -269,7 +260,7 @@ def extend_step(builder, ct, start, target, resource):
         )
         return TaskRejected.from_string(f"A* {resource} {start!r}->{target!r}: {fail}")
     colour: tuple[int, int, int] = (200, 0, 255) if is_ax else (80, 160, 255)
-    for i in range(0, len(path) - 1):
+    for i in range(len(path) - 1):
         line(ct, path[i], path[i + 1], colour[0], colour[1], colour[2])
     existing_set: set[Position] = list(existing_path)
     path_start_index: int = 0

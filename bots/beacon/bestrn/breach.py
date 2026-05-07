@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-from unit import in_bounds
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller
-from unit import UnitState
+from unit import UnitState, in_bounds
 
 
 class Breach:
     state: UnitState
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.state = UnitState()
 
     def unit_state(self):
@@ -25,9 +20,10 @@ class Breach:
     def run(self, ct):
         self.state.cache_per_turn_state(ct)
         self.state.check_symmetry_marker(ct)
-        raise NotImplementedError("Breach behaviour not implemented")
+        msg = "Breach behaviour not implemented"
+        raise NotImplementedError(msg)
 
-    def post_init(self, ct):
+    def post_init(self, ct) -> None:
         """
         ct-dependent init. Runs once on first turn for this unit. Mirrors
         Python `Unit.post_init`.

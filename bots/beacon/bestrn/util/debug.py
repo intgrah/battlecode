@@ -19,32 +19,14 @@ a `static mut` are fine on this single-threaded path.
 
 from __future__ import annotations
 
-from typing import Final
-import time
 import json
+import time
+from typing import Final
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position
 from config import DEBUG_LOG
+
 from util.visualiser import Dumper
 
-if TYPE_CHECKING:
-    from util.visualiser import (
-        Dump,
-        DumpBoolGrid,
-        DumpU8Grid,
-        DumpI16Grid,
-        DumpU16Grid,
-        DumpF32Grid,
-        DumpTiles,
-        DumpTile,
-        DumpDot,
-        DumpPath,
-        DumpVectorField,
-        DumpScalar,
-    )
 TYPE_KEY: Final[str] = "$type"
 """Discriminator key for typed JSON nodes (matches Python `_TYPE = "$type"`)."""
 
@@ -59,7 +41,7 @@ class Frame:
     parent_child_idx: int | None
     t0_ns: int | None
 
-    def __init__(self, parent_child_idx: int | None, t0_ns: int | None):
+    def __init__(self, parent_child_idx: int | None, t0_ns: int | None) -> None:
         self.parent_child_idx = parent_child_idx
         self.t0_ns = t0_ns
 
@@ -72,7 +54,7 @@ class DebugCtx:
     dumper: Dumper
     last_flush_us: int
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.root = None
         self.frames = []
         self.dumper = Dumper()
@@ -90,7 +72,7 @@ class DebugCtx:
             node = node["children"][idx]
         return node
 
-    def push_scope(self, label, timed):
+    def push_scope(self, label, timed) -> None:
         node = {"$type": "scope", "name": str(label), "children": []}
         t0_ns = time.perf_counter_ns() if timed else None
         if self.root is None:
@@ -103,7 +85,7 @@ class DebugCtx:
         children.append(node)
         self.frames.append(Frame(parent_child_idx=idx, t0_ns=t0_ns))
 
-    def pop_scope(self):
+    def pop_scope(self) -> None:
         frame = self.frames.pop() if self.frames else None
         t0_ns = frame.t0_ns
         if t0_ns is not None:
@@ -118,17 +100,17 @@ class DebugCtx:
         if not self.frames:
             self.root = None
 
-    def emit_child(self, node):
+    def emit_child(self, node) -> None:
         if not self.frames:
             return
         parent = self.current_scope_mut()
         parent["children"].append(node)
 
-    def debug(self, tmpl, args):
+    def debug(self, tmpl, args) -> None:
         node = {"$type": "msg", "tmpl": str(tmpl), "args": args}
         self.emit_child(node)
 
-    def vis(self, name, value):
+    def vis(self, name, value) -> None:
         if not self.frames:
             return
         root = self.root
@@ -139,7 +121,7 @@ class DebugCtx:
         children = node["children"]
         self.dumper.dump(children, name, value)
 
-    def flush(self):
+    def flush(self) -> None:
         prev_us = self.last_flush_us
         root = self.root
         root["prev_flush_us"] = prev_us
@@ -182,7 +164,7 @@ class Scope:
 
     label: str
 
-    def __init__(self, label):
+    def __init__(self, label) -> None:
         """Push an untimed scope onto the stack. The returned guard pops on drop."""
         if DEBUG_LOG:
             ctx().push_scope(label, False)
@@ -200,7 +182,7 @@ class Scope:
         __self.label = str(label)
         return __self
 
-    def drop(self):
+    def drop(self) -> None:
         if DEBUG_LOG:
             ctx().pop_scope()
 
@@ -211,7 +193,7 @@ class Scope:
         self.drop()
 
 
-def debug(tmpl, args):
+def debug(tmpl, args) -> None:
     """
     Append a `msg` node under the current scope. `tmpl` is a Python-style
     format-string fragment using `{name}` slots; `args` provide the values
@@ -222,7 +204,7 @@ def debug(tmpl, args):
     ctx().debug(tmpl, args)
 
 
-def vis(name, value):
+def vis(name, value) -> None:
     """
     Append a vis node under the current scope, routed through the per-unit
     `Dumper` for same-elision.
@@ -232,7 +214,7 @@ def vis(name, value):
     ctx().vis(name, value)
 
 
-def flush():
+def flush() -> None:
     """
     Print the root scope as one JSON line to stdout. MUST be called from
     inside the top-level `Scope::new("turn")` block, before that block's
@@ -243,7 +225,7 @@ def flush():
     ctx().flush()
 
 
-def dot(ct, pos, r, g, b):
+def dot(ct, pos, r, g, b) -> None:
     """
     Wrapper over `Controller::draw_indicator_dot`. Engine-side overlay,
     visible to all spectators, on/off globally per replay.
@@ -253,7 +235,7 @@ def dot(ct, pos, r, g, b):
     ct.draw_indicator_dot(pos, r, g, b)
 
 
-def line(ct, pos_a, pos_b, r, g, b):
+def line(ct, pos_a, pos_b, r, g, b) -> None:
     """Wrapper over `Controller::draw_indicator_line`."""
     if not DEBUG_LOG:
         return

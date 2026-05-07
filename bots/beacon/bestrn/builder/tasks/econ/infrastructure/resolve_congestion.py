@@ -13,17 +13,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cambc import Controller, ControllerApi, Position
-if TYPE_CHECKING:
-    from builder import Builder
-from builder.helpers import make_move
-from builder.tasks.rejected import TaskRejected
-
-if TYPE_CHECKING:
-    from builder.tasks.rejected import TaskResult
-from util.constants import MAX_WIDTH
+    from cambc import Position
 from util.debug import debug as log
 from util.metrics import chebyshev
+
+from builder.helpers import make_move
+from builder.tasks.rejected import TaskRejected
 
 
 def resolve_congestion(self_, ct):

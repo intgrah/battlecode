@@ -7,11 +7,6 @@ gate on `HARDCODE` and never reach these — they panic if invoked.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cambc import Controller, Position
-
 
 def find_core(_ct, _hint):
     """
@@ -21,13 +16,13 @@ def find_core(_ct, _hint):
     return (_ for _ in ()).throw(NotImplementedError())
 
 
-def identify_map(_w, _h, _my_core):
+def identify_map(_w, _h, _my_core) -> None:
     """
     Placeholder for `identify_map(w, h, my_core)`. Real impl returns a
     `KnownMap` describing the precomputed level. Returns `None` because
     the v55 default is `HARDCODE=false`.
     """
-    return None
+    return
 
 
 class KnownMap:
@@ -35,5 +30,3 @@ class KnownMap:
     Opaque placeholder for the hardcoded-map type. Phase E will define the
     real shape (level id, symmetry, tile encoding).
     """
-
-    pass

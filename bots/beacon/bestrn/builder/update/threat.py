@@ -10,12 +10,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from builder import Builder
 from builder.update.vision import _update_cost
-from util.constants import INF, MAX_WIDTH
 
 THREAT_PENALTY: Final[int] = 50
 """
@@ -25,7 +20,7 @@ walking through a turret ray.
 """
 
 
-def apply_threat_overlay(builder):
+def apply_threat_overlay(builder) -> None:
     bumped_indices: list[int] = list(builder._threat_bumped)
     for i in bumped_indices:
         env = builder.env[i]
@@ -36,12 +31,12 @@ def apply_threat_overlay(builder):
     enemy_tiles: list[object] = list(builder.enemy_turret_ray_tiles)
     for tile in enemy_tiles:
         i = int(tile.y) * 50 + int(tile.x)
-        if builder.cost_grid[i] != 1000000 and not (i in builder._threat_bumped):
+        if builder.cost_grid[i] != 1000000 and i not in builder._threat_bumped:
             builder.cost_grid[i] += 50
             builder._threat_bumped.add(i)
     launcher_tiles: list[object] = list(builder.adjacent_to_enemy_launcher)
     for tile in launcher_tiles:
         i = int(tile.y) * 50 + int(tile.x)
-        if builder.cost_grid[i] != 1000000 and not (i in builder._threat_bumped):
+        if builder.cost_grid[i] != 1000000 and i not in builder._threat_bumped:
             builder.cost_grid[i] += 50
             builder._threat_bumped.add(i)
