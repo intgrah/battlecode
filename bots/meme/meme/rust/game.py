@@ -18,7 +18,6 @@ _TEAM_TO_INT: dict[Team, int] = {t: i for i, t in enumerate(Team)}
 _POSITION_SIZE: Final = 8
 
 
-
 def _read_i32(raw: RawMem, addr: int) -> int:
     v = raw.read_u32(addr)
     return v - 0x1_0000_0000 if v & 0x8000_0000 else v
