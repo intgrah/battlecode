@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from cambc import EntityType, Environment, GameConstants
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position
 if TYPE_CHECKING:
@@ -9,8 +10,10 @@ if TYPE_CHECKING:
 from building import edge_targets, make_building
 from util.constants import FLOW_HISTORY_LEN, INF, MAX_WIDTH, ROAD_COST
 from util.directions import DIR8
+
 if TYPE_CHECKING:
     from util.symmetry import Symmetry
+
 
 def _remove_topology(builder, pos, i):
     old_kind = builder.building_kind[i]
@@ -22,8 +25,10 @@ def _remove_topology(builder, pos, i):
             if not builder.in_bounds(t):
                 continue
             ti = builder.idx(t)
-            if (pos in builder.in_edges[ti]):
-                builder.in_edges[ti].__setitem__(slice(None), [p for p in builder.in_edges[ti] if p != pos])
+            if pos in builder.in_edges[ti]:
+                builder.in_edges[ti].__setitem__(
+                    slice(None), [p for p in builder.in_edges[ti] if p != pos]
+                )
                 builder._on_in_edge_removed(t, pos)
                 builder._check_multi_input(t)
                 builder._check_dangling(t, f"edge_removed src={pos!r}")
@@ -44,6 +49,7 @@ def _remove_topology(builder, pos, i):
         case _:
             pass
 
+
 def _add_topology(builder, ct, pos, bid, kind, team):
     i = int(pos.y) * 50 + int(pos.x)
     if builder.reach_parent[i] == -1:
@@ -59,8 +65,8 @@ def _add_topology(builder, ct, pos, bid, kind, team):
                     builder.in_edges[ti].append(pos)
                     outs.append(t)
                     builder._check_multi_input(t)
-            was_ti_in = (pos in builder.ti_upstream)
-            was_ax_in = (pos in builder.ax_upstream)
+            was_ti_in = pos in builder.ti_upstream
+            was_ax_in = pos in builder.ax_upstream
             pi = int(pos.y) * 50 + int(pos.x)
             builder.out_edges[pi] = list(outs)
             builder._on_out_edges_changed(pos)
@@ -92,6 +98,7 @@ def _add_topology(builder, ct, pos, bid, kind, team):
         case _:
             pass
 
+
 def _apply_post_transition(builder, pos, i, env, trigger):
     """
     Shared post-transition fix-up after a tile's building changes
@@ -113,6 +120,7 @@ def _apply_post_transition(builder, pos, i, env, trigger):
                 if sib != pos:
                     builder._check_dangling(sib, "splitter_sibling")
 
+
 def apply_local_destroy(builder, pos):
     """Mid-turn invariant fix-up after `ct.destroy(pos)`."""
     i = builder.idx(pos)
@@ -124,6 +132,7 @@ def apply_local_destroy(builder, pos):
     env = builder.env[i]
     _apply_post_transition(builder, pos, i, env, "local_destroy")
     _refresh_ore_set(builder, pos, env)
+
 
 def _refresh_ore_set(builder, pos, env):
     """
@@ -150,6 +159,7 @@ def _refresh_ore_set(builder, pos, env):
         builder.visible_ti_ores.discard(pos)
         builder.visible_ax_ores.discard(pos)
 
+
 def _update_cost(builder, i, terrain, kind, team):
     routing_extra: int = 0
     if terrain == Environment.WALL:
@@ -169,7 +179,12 @@ def _update_cost(builder, i, terrain, kind, team):
                 case EntityType.MARKER:
                     cost = 3
                     buildable = True
-                case EntityType.CONVEYOR | EntityType.SPLITTER | EntityType.ARMOURED_CONVEYOR | EntityType.BRIDGE:
+                case (
+                    EntityType.CONVEYOR
+                    | EntityType.SPLITTER
+                    | EntityType.ARMOURED_CONVEYOR
+                    | EntityType.BRIDGE
+                ):
                     cost = 1
                     buildable = False
                 case EntityType.CORE if team == builder.state.my_team:
@@ -190,6 +205,7 @@ def _update_cost(builder, i, terrain, kind, team):
         builder.buildable[i] = buildable
         builder.ti_routable[i] = buildable and not builder.ti_leakage[i]
         builder.ax_routable[i] = buildable and not builder.ax_leakage[i]
+
 
 def _update_turret_rays(builder, ct, pos, bid, kind, team):
     my_team = builder.state.my_team
@@ -225,7 +241,7 @@ def _update_turret_rays(builder, ct, pos, bid, kind, team):
                 if builder.env[builder.idx(ray)] == Environment.WALL:
                     break
                 builder.friendly_turret_ray_tiles.add(ray)
-                if (builder.get_building(ray) is not None):
+                if builder.get_building(ray) is not None:
                     break
         case EntityType.SENTINEL:
             d = ct.get_direction(bid)
@@ -243,10 +259,11 @@ def _update_turret_rays(builder, ct, pos, bid, kind, team):
                     h = ray.add(hd)
                     if builder.in_bounds(h):
                         builder.friendly_turret_ray_tiles.add(h)
-                if (builder.get_building(ray) is not None):
+                if builder.get_building(ray) is not None:
                     break
         case _:
             pass
+
 
 def update_vision(builder, ct):
     new_observations: list[tuple[Position, Environment, bool]] = []
@@ -258,9 +275,11 @@ def update_vision(builder, ct):
         bid = ct.get_tile_building_id(pos)
         env_changed = builder.env[i] != env
         bld_changed = builder.building_ids[i] != bid
-        if (builder.env[i] is None):
+        if builder.env[i] is None:
             builder.reflect_queue.append(i)
-            is_core = (bid is not None and (lambda b: ct.get_entity_type(b) == EntityType.CORE)(bid))
+            is_core = bid is not None and (
+                lambda b: ct.get_entity_type(b) == EntityType.CORE
+            )(bid)
             new_observations.append((pos, env, is_core))
             if env != Environment.WALL:
                 py = pos.y
@@ -271,7 +290,9 @@ def update_vision(builder, ct):
                             continue
                         nx = px + dx
                         ny = py + dy
-                        if not (nx in range(0, builder.state.width)) or not (ny in range(0, builder.state.height)):
+                        if not (nx in range(0, builder.state.width)) or not (
+                            ny in range(0, builder.state.height)
+                        ):
                             continue
                         ni = int(ny) * 50 + int(nx)
                         if builder.reach_parent[ni] != -1:
@@ -279,7 +300,7 @@ def update_vision(builder, ct):
         builder.env[i] = env
         builder.building_ids[i] = bid
         if bld_changed or env_changed:
-            if (bid is None):
+            if bid is None:
                 apply_local_destroy(builder, pos)
             else:
                 _remove_topology(builder, pos, i)
@@ -296,25 +317,35 @@ def update_vision(builder, ct):
             team = builder.building_team[i]
             if bid_v is not None and kind is not None and team is not None:
                 _update_turret_rays(builder, ct, pos, bid_v, kind, team)
-        elif (bid is not None):
+        elif bid is not None:
             builder.hp[i] = ct.get_hp(bid)
             builder.max_hp[i] = ct.get_max_hp(bid)
         _refresh_ore_set(builder, pos, env)
-        if (bid is not None):
+        if bid is not None:
             kind = builder.building_kind[i]
             team = builder.building_team[i]
             builder.nearby_buildings.append(pos)
             if builder.hp[i] < builder.max_hp[i] and team == builder.state.my_team:
                 builder.healable_buildings.append(pos)
-            if ((kind is not None) and (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR or kind == EntityType.BRIDGE or kind == EntityType.SPLITTER)):
+            if (kind is not None) and (
+                kind == EntityType.CONVEYOR
+                or kind == EntityType.ARMOURED_CONVEYOR
+                or kind == EntityType.BRIDGE
+                or kind == EntityType.SPLITTER
+            ):
                 bid_v = bid
                 r = ct.get_stored_resource(bid_v)
                 rid = ct.get_stored_resource_id(bid_v)
                 builder.flow_history[i].append((r, rid))
                 while len(builder.flow_history[i]) > 8:
-                    (builder.flow_history[i].pop(0) if builder.flow_history[i] else None)
-    if (builder.symmetry is None):
+                    (
+                        builder.flow_history[i].pop(0)
+                        if builder.flow_history[i]
+                        else None
+                    )
+    if builder.symmetry is None:
         _narrow_symmetry(builder, new_observations)
+
 
 def _narrow_symmetry(builder, new_observations):
     invalid: set[Symmetry] = set()

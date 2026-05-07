@@ -5,14 +5,17 @@ friendly builder — chosen as the farthest visible friend, since its
 vision disc is maximally disjoint from ours and so contributes the
 most fresh information per offset enumerated.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from builder import Builder
 from util.constants import MAX_WIDTH
 from util.debug import debug as log
 from util.visualiser import auto_wrap_position
+
 
 def update_patrol(builder):
     rnd = builder.state.round
@@ -21,7 +24,7 @@ def update_patrol(builder):
     for pos in nearby:
         builder.last_seen[int(pos.y) * 50 + int(pos.x)] = rnd
         own_count += 1
-    if (not builder.state.friendly_bots):
+    if not builder.state.friendly_bots:
         args = {}
         args[str("n")] = own_count
         log("patrol: refreshed {n} own-vision tiles, no friends in vision", args)
@@ -70,4 +73,7 @@ def update_patrol(builder):
     args[str("friend")] = auto_wrap_position(best)
     args[str("d")] = best_d
     args[str("nf")] = nf
-    log("patrol: refreshed own={own} + transitive={trans} via farthest friend {friend} (d²={d}, total friends={nf})", args)
+    log(
+        "patrol: refreshed own={own} + transitive={trans} via farthest friend {friend} (d²={d}, total friends={nf})",
+        args,
+    )

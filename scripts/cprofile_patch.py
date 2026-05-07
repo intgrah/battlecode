@@ -7,6 +7,7 @@ Player has its own profiler, enabled around its own run() call.
 
 Usage: python3 /tmp/cprofile_patch.py path/to/main.py
 """
+
 from __future__ import annotations
 
 import sys

@@ -5,21 +5,25 @@ weighted tiebreak detours around them when an alternate tile of equal
 plan-progress exists. Reverted-and-reapplied each turn so the bump
 only persists while the threat set still contains the tile.
 """
+
 from __future__ import annotations
 
 from typing import Final
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from builder import Builder
 from builder.update.vision import _update_cost
 from util.constants import INF, MAX_WIDTH
+
 THREAT_PENALTY: Final[int] = 50
 """
 Additive penalty applied to threatened tiles. Sized so `dp_step`
 prefers a detour of up to ~16 extra `ROAD_COST` hops (50 / 3) over
 walking through a turret ray.
 """
+
 
 def apply_threat_overlay(builder):
     bumped_indices: list[int] = list(builder._threat_bumped)

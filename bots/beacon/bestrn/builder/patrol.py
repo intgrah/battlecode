@@ -1,7 +1,9 @@
 """Translation of `bots/intgrah/v54.7.9/builder/patrol.py`."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, Position
 if TYPE_CHECKING:
@@ -11,6 +13,7 @@ from util.constants import INF, MAX_WIDTH
 from util.debug import debug as log
 from util.directions import DIR4
 from util.visualiser import auto_wrap_position
+
 
 def _walkable_anchor(builder, pos):
     """
@@ -32,6 +35,7 @@ def _walkable_anchor(builder, pos):
             best = n
     return best
 
+
 def _candidate_iter(builder):
     """
     Important tiles to patrol: harvesters, foundries, the core, plus
@@ -46,6 +50,7 @@ def _candidate_iter(builder):
     out.extend(builder.ax_upstream)
     out.append(builder.my_core)
     return out
+
 
 def _pick_head(builder):
     last_seen = builder.last_seen
@@ -64,6 +69,7 @@ def _pick_head(builder):
             best_key = key
             best_pos = pos
     return best_pos
+
 
 def run_patrol(builder, ct):
     """
@@ -87,7 +93,7 @@ def run_patrol(builder, ct):
             args[str("head")] = auto_wrap_position(h)
             log("patrol: head {head} reached / refreshed, repicking", args)
             head = None
-    if (head is None):
+    if head is None:
         head = _pick_head(builder)
         h = head
         if h is not None:

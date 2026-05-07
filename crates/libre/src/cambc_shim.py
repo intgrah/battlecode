@@ -37,7 +37,11 @@ class ResourceType(Enum):
 
 _add_pascal_aliases(
     ResourceType,
-    {"Titanium": "TITANIUM", "RawAxionite": "RAW_AXIONITE", "RefinedAxionite": "REFINED_AXIONITE"},
+    {
+        "Titanium": "TITANIUM",
+        "RawAxionite": "RAW_AXIONITE",
+        "RefinedAxionite": "REFINED_AXIONITE",
+    },
 )
 
 
@@ -166,7 +170,6 @@ class GameConstants:
     LAUNCHER_FIRE_COOLDOWN = 1
 
 
-
 class Environment(Enum):
     __slots__ = ()
 
@@ -178,7 +181,12 @@ class Environment(Enum):
 
 _add_pascal_aliases(
     Environment,
-    {"Empty": "EMPTY", "Wall": "WALL", "OreTitanium": "ORE_TITANIUM", "OreAxionite": "ORE_AXIONITE"},
+    {
+        "Empty": "EMPTY",
+        "Wall": "WALL",
+        "OreTitanium": "ORE_TITANIUM",
+        "OreAxionite": "ORE_AXIONITE",
+    },
 )
 
 
@@ -291,6 +299,7 @@ class Position(NamedTuple):
             return Direction.CENTRE
         # atan2 gives angle in radians; map to one of 8 compass directions.
         import math
+
         # Use y-up convention for direction mapping: north is decreasing y.
         angle = math.atan2(-dy, dx)  # radians, x-east / y-north convention
         # Snap to nearest 45-degree sector (each sector is pi/4 wide).
@@ -323,9 +332,11 @@ class Position(NamedTuple):
 # The else branch must contain the stubs so they come last — PyCharm uses
 # "last definition wins" rather than properly evaluating TYPE_CHECKING.
 if not TYPE_CHECKING:
+
     class Controller:  # Placeholder — overwritten by Rust class before bot code runs.
         pass
 else:
+
     class Controller:
         # --- Info ---
 
@@ -541,7 +552,9 @@ else:
             target must be within distance_squared BRIDGE_TARGET_RADIUS_SQ of position."""
             ...
 
-        def can_build_armoured_conveyor(self, position: Position, direction: Direction) -> bool:
+        def can_build_armoured_conveyor(
+            self, position: Position, direction: Direction
+        ) -> bool:
             """Return True if an armoured conveyor facing direction can be built at position."""
             ...
 
@@ -593,7 +606,9 @@ else:
             """Build a bridge at position outputting to target. Raises GameError if not legal."""
             ...
 
-        def build_armoured_conveyor(self, position: Position, direction: Direction) -> int:
+        def build_armoured_conveyor(
+            self, position: Position, direction: Direction
+        ) -> int:
             """Build an armoured conveyor facing direction at position. Raises GameError if not legal."""
             ...
 
@@ -810,7 +825,9 @@ else:
 
         # --- Indicators ---
 
-        def draw_indicator_line(self, pos_a: Position, pos_b: Position, r: int, g: int, b: int) -> None:
+        def draw_indicator_line(
+            self, pos_a: Position, pos_b: Position, r: int, g: int, b: int
+        ) -> None:
             """Draw a debug line from pos_a to pos_b with RGB colour. Saved to the replay."""
             ...
 

@@ -400,7 +400,10 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
         if (
             isinstance(
                 b,
-                BuildingBridge | BuildingConveyor | BuildingArmouredConveyor | BuildingSplitter,
+                BuildingBridge
+                | BuildingConveyor
+                | BuildingArmouredConveyor
+                | BuildingSplitter,
             )
             and b.team != self.my_team
         ):

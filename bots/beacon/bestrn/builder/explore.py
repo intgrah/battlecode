@@ -17,6 +17,7 @@ to None when the bot didn't move last turn.
 No hard quadrants, no fixed landmarks. Map shape and other-bot positions
 shape the target selection reactively.
 """
+
 from __future__ import annotations
 
 from typing import Final
@@ -24,12 +25,14 @@ import math
 
 from cambc import Position
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller
 if TYPE_CHECKING:
     from builder import Builder
 from builder.helpers import make_move
 from util.constants import MAX_WIDTH
+
 _K_CANDIDATES: Final[int] = 20
 """Number of unobserved tiles to sample as candidate targets each replan."""
 _LINE_SAMPLES: Final[int] = 8
@@ -52,13 +55,17 @@ Friendly bots within this chebyshev radius of a candidate add the
 full γ penalty; falls off linearly to 0 at radius.
 """
 
+
 def explore(builder, ct):
-    if (builder.explore_target is None) or _target_invalid(builder, builder.explore_target):
+    if (builder.explore_target is None) or _target_invalid(
+        builder, builder.explore_target
+    ):
         builder.explore_target = _pick_target(builder)
     target = builder.explore_target
     if target is None:
         return
     make_move(builder, ct, target)
+
 
 def _target_invalid(builder, target):
     """
@@ -69,7 +76,8 @@ def _target_invalid(builder, target):
     would reject every fog tile by definition.
     """
     i = int(target.y) * 50 + int(target.x)
-    return (builder.env[i] is not None)
+    return builder.env[i] is not None
+
 
 def _pick_target(builder):
     """
@@ -85,7 +93,7 @@ def _pick_target(builder):
     """
     w = builder.state.width
     h = builder.state.height
-    is_offense = (builder.role is not None and (lambda r: r.is_offensive())(builder.role))
+    is_offense = builder.role is not None and (lambda r: r.is_offensive())(builder.role)
     cap: float = 1.0 if is_offense else 0.8
     frac = min(cap, 0.4 + (cap - 0.4) * float(builder.state.round) / 100.0)
     radius = int(float(max(w, h)) * frac)
@@ -101,9 +109,9 @@ def _pick_target(builder):
         if max(abs(x - cx), abs(y - cy)) > radius:
             continue
         i = int(y) * 50 + int(x)
-        if (builder.env[i] is None):
+        if builder.env[i] is None:
             candidates.append(Position(x=x, y=y))
-    if (not candidates):
+    if not candidates:
         return None
     heading = builder.explore_heading
     best: Position | None = None
@@ -114,6 +122,7 @@ def _pick_target(builder):
             best_score = score
             best = c
     return best
+
 
 def _score(builder, c, heading):
     pos = builder.state.my_pos
@@ -137,7 +146,13 @@ def _score(builder, c, heading):
         t = float(k) / float(8 + 1)
         sx = int(round(float(pos.x) + t * float(dx)))
         sy = int(round(float(pos.y) + t * float(dy)))
-        if 0 <= sx and sx < builder.state.width and 0 <= sy and sy < builder.state.height and (builder.env[int(sy) * 50 + int(sx)] is None):
+        if (
+            0 <= sx
+            and sx < builder.state.width
+            and 0 <= sy
+            and sy < builder.state.height
+            and (builder.env[int(sy) * 50 + int(sx)] is None)
+        ):
             unseen += 1
     score -= 6.0 * float(unseen) / float(8)
     friendlies: list[Position] = list(builder.state.friendly_bots)

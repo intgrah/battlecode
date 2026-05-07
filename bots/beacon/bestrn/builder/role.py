@@ -1,7 +1,9 @@
 """Translation of `bots/intgrah/v54.7.9/builder/role.py`."""
+
 from __future__ import annotations
 
 from enum import IntEnum
+
 
 class Role(IntEnum):
     Econ = 0
@@ -13,4 +15,4 @@ class Role(IntEnum):
     EconReactive = 6
 
     def is_offensive(self):
-        return (self == Role.Push or self == Role.Parasitic)
+        return self == Role.Push or self == Role.Parasitic

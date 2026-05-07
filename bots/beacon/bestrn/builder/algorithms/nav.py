@@ -14,6 +14,7 @@ Replaces A*/BFS for movement. Plan-incrementally-walk reactive style:
 - Then `dp_step(cost, pos, path_idx)` picks the next move: the visible
   cell with maximum `path_idx` (closest goalward, with cost-aware tiebreak).
 """
+
 from __future__ import annotations
 
 from typing import Final
@@ -22,13 +23,16 @@ from cambc import Position
 from builder.algorithms.bug2_planner import Bug2Planner, build_mline_seq
 from builder.algorithms.dp_step import dp_step
 from util.constants import INF, MAX_N, MAX_WIDTH
+
 PLAN_BUDGET: Final[int] = 25
+
 
 class NavCtx:
     """
     Subset of `Builder` state read by nav. Phase G6's `Builder` will populate
     this each turn from its own fields and pass `&mut` to `step`.
     """
+
     my_pos: Position
     cost_grid: list[int]
     w: int
@@ -36,7 +40,15 @@ class NavCtx:
     nearby_tiles: list[Position]
     all_bots: dict[Position, int]
 
-    def __init__(self, my_pos: Position, cost_grid: list[int], w: int, h: int, nearby_tiles: list[Position], all_bots: dict[Position, int]):
+    def __init__(
+        self,
+        my_pos: Position,
+        cost_grid: list[int],
+        w: int,
+        h: int,
+        nearby_tiles: list[Position],
+        all_bots: dict[Position, int],
+    ):
         self.my_pos = my_pos
         self.cost_grid = cost_grid
         self.w = w
@@ -44,8 +56,10 @@ class NavCtx:
         self.nearby_tiles = nearby_tiles
         self.all_bots = all_bots
 
+
 class BugNav:
     """Per-builder navigation state. One instance lives on each builder."""
+
     active_goal: Position | None
     active_start: Position | None
     planner: Bug2Planner | None
@@ -95,9 +109,13 @@ class BugNav:
         gi = goal.y * stride + goal.x
         for attempt in range(0, 2):
             force_replan = attempt == 1
-            replan = force_replan or goal != self.active_goal or not self.any_path_tile_visible(ctx.nearby_tiles)
+            replan = (
+                force_replan
+                or goal != self.active_goal
+                or not self.any_path_tile_visible(ctx.nearby_tiles)
+            )
             if replan:
-                planner = ((__t0 := self.planner), setattr(self, 'planner', None))[0]
+                planner = ((__t0 := self.planner), setattr(self, "planner", None))[0]
                 if planner is not None:
                     self.path_idx_storage = planner._path_idx
                 self.active_goal = goal
@@ -106,8 +124,13 @@ class BugNav:
                 self.path_idx_storage[int(si)] = 0
                 self.unreachable = False
                 self.committed = [si]
-                path_idx = ((__t1 := self.path_idx_storage), setattr(self, 'path_idx_storage', []))[0]
-                self.planner = Bug2Planner(ctx.cost_grid, ctx.w, ctx.h, si, gi, path_idx)
+                path_idx = (
+                    (__t1 := self.path_idx_storage),
+                    setattr(self, "path_idx_storage", []),
+                )[0]
+                self.planner = Bug2Planner(
+                    ctx.cost_grid, ctx.w, ctx.h, si, gi, path_idx
+                )
                 self.gen_done = False
             if self.unreachable:
                 return None
@@ -121,12 +144,18 @@ class BugNav:
                                 self.committed.append(yielded)
                         case True:
                             self.gen_done = True
-                            self.path_idx_storage = ((__t2 := self.planner), setattr(self, 'planner', None))[0]._path_idx
+                            self.path_idx_storage = (
+                                (__t2 := self.planner),
+                                setattr(self, "planner", None),
+                            )[0]._path_idx
                             break
                         case False:
                             self.gen_done = True
                             self.unreachable = True
-                            self.path_idx_storage = ((__t3 := self.planner), setattr(self, 'planner', None))[0]._path_idx
+                            self.path_idx_storage = (
+                                (__t3 := self.planner),
+                                setattr(self, "planner", None),
+                            )[0]._path_idx
                             break
                 if self.unreachable:
                     return None
@@ -137,7 +166,11 @@ class BugNav:
                 fi = int(fb_pos.y * stride + fb_pos.x)
                 saved.append((fi, ctx.cost_grid[fi]))
                 ctx.cost_grid[fi] = 1000000
-            path_idx_ref: list[int] = p.path_idx() if ((p := self.planner) is not None) else self.path_idx_storage
+            path_idx_ref: list[int] = (
+                p.path_idx()
+                if ((p := self.planner) is not None)
+                else self.path_idx_storage
+            )
             cur_min = path_idx_ref[int(si)]
             nxt = dp_step(int(50), ctx.cost_grid, ctx.h, si, path_idx_ref, cur_min)
             for fi, prev in saved:
@@ -179,4 +212,6 @@ class BugNav:
         g = self.active_goal
         if s is None or g is None:
             return []
-        return list((Position(x=t[0], y=t[1]) for t in build_mline_seq(s.x, s.y, g.x, g.y)))
+        return list(
+            (Position(x=t[0], y=t[1]) for t in build_mline_seq(s.x, s.y, g.x, g.y))
+        )

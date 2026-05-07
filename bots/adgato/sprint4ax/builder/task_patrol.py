@@ -30,10 +30,9 @@ PATROL_RANGE = 4
 
 def core_feeders(self: Builder) -> list[PosInt]:
     return self.get_conveyors_to_here(self.my_core) + [
-        pos
-        for d in DIR8
-        for pos in self.get_conveyors_to_here(self.my_core + d)
+        pos for d in DIR8 for pos in self.get_conveyors_to_here(self.my_core + d)
     ]
+
 
 def run_patrol(self: Builder, ct: Controller) -> bool:
     my_team = self.my_team
@@ -41,14 +40,22 @@ def run_patrol(self: Builder, ct: Controller) -> bool:
 
     if self.patrol_head >= 0 and ct.is_in_vision(self.pos(self.patrol_head)):
         for unit in ct.get_nearby_units():
-            if ct.get_entity_type(unit) != EntityType.BUILDER_BOT or ct.get_team(unit) != my_team:
+            if (
+                ct.get_entity_type(unit) != EntityType.BUILDER_BOT
+                or ct.get_team(unit) != my_team
+            ):
                 continue
-            if self.sq_dist(self._idx(ct.get_position(unit)), self.patrol_head) <= PATROL_RANGE:
+            if (
+                self.sq_dist(self._idx(ct.get_position(unit)), self.patrol_head)
+                <= PATROL_RANGE
+            ):
                 self.patrol_head = -1
                 break
-        
+
     if self.patrol_head < 0 and self.patrol_queue:
-        self.patrol_head = max(self.patrol_queue, key=lambda v: (c_rnd - v[1]) * v[2])[0]
+        self.patrol_head = max(self.patrol_queue, key=lambda v: (c_rnd - v[1]) * v[2])[
+            0
+        ]
 
     if self.patrol_head >= 0:
         make_move(self, ct, self.patrol_head)

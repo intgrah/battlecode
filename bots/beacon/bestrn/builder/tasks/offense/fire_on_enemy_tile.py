@@ -5,34 +5,48 @@ Standing on an enemy building cardinal to a vulnerable enemy
 harvester: fire on it (2 Ti for 2 dmg). Tracks `last_fire = (pos,
 expected_hp)` so a future visit can detect enemy heals.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi
 if TYPE_CHECKING:
     from builder import Builder
 from builder.helpers import make_move, try_attack
-from builder.tasks.offense.helpers import is_allied_transport, pick_attack_destination, pick_harvester_target, should_attack, vulnerable_harvesters
+from builder.tasks.offense.helpers import (
+    is_allied_transport,
+    pick_attack_destination,
+    pick_harvester_target,
+    should_attack,
+    vulnerable_harvesters,
+)
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
 
+
 def fire_on_enemy_tile(self_, ct):
     vulnerable = vulnerable_harvesters(self_)
-    if (not vulnerable):
+    if not vulnerable:
         return TaskRejected("not cardinally adjacent to a vulnerable harvester")
     target = pick_harvester_target(self_, vulnerable)
     if self_.my_pos.distance_squared(target) != 1:
         return TaskRejected("not cardinally adjacent to a vulnerable harvester")
     if is_allied_transport(self_, self_.my_pos):
-        return TaskRejected("standing on friendly transport — fire would break own chain")
+        return TaskRejected(
+            "standing on friendly transport — fire would break own chain"
+        )
     if not self_.is_enemy_building(self_.my_pos):
         return TaskRejected("not standing on an enemy building")
     being_healed = False
     __opt_pos_expected_hp = self_.last_fire
     pos = __opt_pos_expected_hp[0] if __opt_pos_expected_hp is not None else None
-    expected_hp = __opt_pos_expected_hp[1] if __opt_pos_expected_hp is not None else None
+    expected_hp = (
+        __opt_pos_expected_hp[1] if __opt_pos_expected_hp is not None else None
+    )
     if __opt_pos_expected_hp is not None and (pos == self_.my_pos):
         bid_here = ct.get_tile_building_id(self_.my_pos)
         bid = bid_here

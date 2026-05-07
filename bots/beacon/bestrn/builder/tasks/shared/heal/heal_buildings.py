@@ -8,19 +8,27 @@ and after the move. Mutates `self.repair_pos` and `self.repaired_prev`
 for cross-turn continuity. Buildings have explicit movement; bot-heal
 leaves do not.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position
 if TYPE_CHECKING:
     from builder import Builder
 from builder.helpers import make_move, try_heal
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
-from builder.tasks.shared.heal._helpers import count_visible_attackers, deconflict_rank, healers_needed
+from builder.tasks.shared.heal._helpers import (
+    count_visible_attackers,
+    deconflict_rank,
+    healers_needed,
+)
 from util.metrics import chebyshev
+
 
 def best_healable_building(self_, ct):
     """
@@ -50,14 +58,25 @@ def best_healable_building(self_, ct):
         dmg_per_turn = max(attackers * 2, 2)
         turns_to_die = max(hp // dmg_per_turn, 1)
         can_reach = turns_to_reach <= turns_to_die + 1
-        is_critical = (pos in self_.adjacent_to_harvester)
-        tier = 3 if is_critical and can_reach else (2 if damage >= 4 and can_reach else int(damage >= 4))
+        is_critical = pos in self_.adjacent_to_harvester
+        tier = (
+            3
+            if is_critical and can_reach
+            else (2 if damage >= 4 and can_reach else int(damage >= 4))
+        )
         score = (tier, damage, turns_to_die - turns_to_reach)
         if score > best_score:
             best = pos
             best_score = score
-    self_.healable_buildings = list((p for p in self_.healable_buildings if self_.hp[self_.idx(p)] < self_.max_hp[self_.idx(p)]))
+    self_.healable_buildings = list(
+        (
+            p
+            for p in self_.healable_buildings
+            if self_.hp[self_.idx(p)] < self_.max_hp[self_.idx(p)]
+        )
+    )
     return best
+
 
 def best_adjacent_healable_building(self_):
     """
@@ -80,6 +99,7 @@ def best_adjacent_healable_building(self_):
             best_score = score
     return best
 
+
 def heal_buildings(self_, ct):
     rp = self_.repair_pos
     if rp is not None and (ct.is_in_vision(rp)):
@@ -87,18 +107,26 @@ def heal_buildings(self_, ct):
         __opt__kind_team = self_.get_building(rp)
         _kind = __opt__kind_team[0] if __opt__kind_team is not None else None
         team = __opt__kind_team[1] if __opt__kind_team is not None else None
-        if __opt__kind_team is not None and (self_.hp[ti_idx] < self_.max_hp[ti_idx] - 2) and (team == self_.my_team):
+        if (
+            __opt__kind_team is not None
+            and (self_.hp[ti_idx] < self_.max_hp[ti_idx] - 2)
+            and (team == self_.my_team)
+        ):
             pass
         else:
             self_.repair_pos = None
     new_repair = best_healable_building(self_, ct)
-    if (new_repair is not None) and new_repair.distance_squared(self_.my_pos) <= 2 or (self_.repair_pos is None):
+    if (
+        (new_repair is not None)
+        and new_repair.distance_squared(self_.my_pos) <= 2
+        or (self_.repair_pos is None)
+    ):
         self_.repair_pos = new_repair
     repair_pos = self_.repair_pos
     if repair_pos is None:
         return TaskRejected("no damaged friendly building worth healing right now")
     heal_position = repair_pos
-    being_attacked = (heal_position in self_.enemy_bots)
+    being_attacked = heal_position in self_.enemy_bots
     building_to_heal = best_adjacent_healable_building(self_)
     save_money = being_attacked and self_.repaired_prev
     bpos = building_to_heal
@@ -110,5 +138,7 @@ def heal_buildings(self_, ct):
     building_to_heal = best_adjacent_healable_building(self_)
     bpos = building_to_heal
     if bpos is not None:
-        self_.repaired_prev = try_heal(self_, ct, bpos, save_money) or self_.repaired_prev
+        self_.repaired_prev = (
+            try_heal(self_, ct, bpos, save_money) or self_.repaired_prev
+        )
     return None

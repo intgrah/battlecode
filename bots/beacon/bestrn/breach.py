@@ -1,11 +1,14 @@
 """Translation of `bots/intgrah/v54.7.9/breach/__init__.py`."""
+
 from __future__ import annotations
 
 from unit import in_bounds
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller
 from unit import UnitState
+
 
 class Breach:
     state: UnitState

@@ -36,8 +36,10 @@ def _count_visible_attackers(ct: Controller, my_team, target: Position) -> int:
             n += 1
     return n
 
+
 def chebyshev(a: Position, b: Position) -> int:
     return max(abs(a.x - b.x), abs(a.y - b.y))
+
 
 def _deconflict_rank(
     ct: Controller, my_team, my_id: int, my_pos: Position, target: Position
@@ -137,9 +139,7 @@ def best_healable_building(self: Builder, ct: Controller) -> PosInt:
             best = pos
             best_score = score
     self.healable_buildings = [
-        p
-        for p in self.healable_buildings
-        if self.hp[p] < self.max_hp[p]
+        p for p in self.healable_buildings if self.hp[p] < self.max_hp[p]
     ]
     return best
 
@@ -162,9 +162,7 @@ def best_adjacent_healable_building(
     return best, best_score
 
 
-def healable_all_dirs(
-    self: Builder, tile: PosInt
-) -> tuple[PosInt, tuple[int, int]]:
+def healable_all_dirs(self: Builder, tile: PosInt) -> tuple[PosInt, tuple[int, int]]:
 
     best_spot, best_score = best_adjacent_healable_building(self, tile)
     total_a, total_b = best_score
@@ -211,9 +209,7 @@ def run_heal(self: Builder, ct: Controller) -> bool:
             self.repair_pos = -1
 
     repair_pos = best_healable_building(self, ct)
-    if (
-        repair_pos >= 0 and self.my_sq_dist(repair_pos) <= 2
-    ) or self.repair_pos < 0:
+    if (repair_pos >= 0 and self.my_sq_dist(repair_pos) <= 2) or self.repair_pos < 0:
         self.repair_pos = repair_pos
 
     being_attacked = False

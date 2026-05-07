@@ -92,10 +92,7 @@ def _pick_initial_role(self: Builder) -> Role:
 def update_role(self: Builder) -> None:
     if self.role is None:
         self.role = _pick_initial_role(self)
-    if (
-        self.role == Role.ECON_REACTIVE
-        and self.round > _ECON_REACTIVE_FLIP_ROUND
-    ):
+    if self.role == Role.ECON_REACTIVE and self.round > _ECON_REACTIVE_FLIP_ROUND:
         self.role = Role.DEFENSE
         self.role_age = 0
     if self.role_age > _REASSIGN_PERIOD and self.round > _REASSIGN_AFTER:

@@ -59,7 +59,10 @@ class Gunner(Unit):
         cur = self.my_pos
         for _ in range(3):
             cur = cur.add(direction)
-            if cur.distance_squared(self.my_pos) > GameConstants.GUNNER_VISION_RADIUS_SQ:
+            if (
+                cur.distance_squared(self.my_pos)
+                > GameConstants.GUNNER_VISION_RADIUS_SQ
+            ):
                 return None
             if not self.in_bounds(cur):
                 return None

@@ -9,6 +9,7 @@ import astar
 
 def _read(path: str) -> bytes:
     import posix
+
     fd = posix.open(path, posix.O_RDONLY)
     chunks = []
     while True:
@@ -23,7 +24,8 @@ def _read(path: str) -> bytes:
 def _varint(data: bytes, pos: int) -> tuple[int, int]:
     result = shift = 0
     while True:
-        b = data[pos]; pos += 1
+        b = data[pos]
+        pos += 1
         result |= (b & 0x7F) << shift
         if not (b & 0x80):
             return result, pos
@@ -37,10 +39,13 @@ def _decode_pos(data: bytes) -> tuple[int, int]:
         wire = tag & 7
         if wire == 0:
             val, pos = _varint(data, pos)
-            if tag >> 3 == 1: x = val
-            elif tag >> 3 == 2: y = val
+            if tag >> 3 == 1:
+                x = val
+            elif tag >> 3 == 2:
+                y = val
         elif wire == 2:
-            n, pos = _varint(data, pos); pos += n
+            n, pos = _varint(data, pos)
+            pos += n
     return x, y
 
 
@@ -49,15 +54,20 @@ def _decode_core(data: bytes) -> tuple[int, int, int, int]:
     pos = 0
     while pos < len(data):
         tag, pos = _varint(data, pos)
-        wire = tag & 7; field = tag >> 3
+        wire = tag & 7
+        field = tag >> 3
         if wire == 0:
             val, pos = _varint(data, pos)
-            if field == 1: cid = val
-            elif field == 2: team = val
+            if field == 1:
+                cid = val
+            elif field == 2:
+                team = val
         elif wire == 2:
             n, pos = _varint(data, pos)
-            sub = data[pos:pos+n]; pos += n
-            if field == 3: cx, cy = _decode_pos(sub)
+            sub = data[pos : pos + n]
+            pos += n
+            if field == 3:
+                cx, cy = _decode_pos(sub)
     return cid, team, cx, cy
 
 
@@ -80,11 +90,14 @@ def _decode_tile_row(data: bytes) -> list[int]:
         elif wire == 0:
             _, pos = _varint(data, pos)
         elif wire == 2:
-            n, pos = _varint(data, pos); pos += n
+            n, pos = _varint(data, pos)
+            pos += n
     return tiles
 
 
-def decode_map26(data: bytes) -> tuple[int, int, list[list[int]], list[tuple[int, int, int, int]]]:
+def decode_map26(
+    data: bytes,
+) -> tuple[int, int, list[list[int]], list[tuple[int, int, int, int]]]:
     """Returns (width, height, grid[y][x], cores[(id, team, x, y)])."""
     width = height = 0
     grid: list[list[int]] = []
@@ -92,17 +105,24 @@ def decode_map26(data: bytes) -> tuple[int, int, list[list[int]], list[tuple[int
     pos = 0
     while pos < len(data):
         tag, pos = _varint(data, pos)
-        wire = tag & 7; field = tag >> 3
+        wire = tag & 7
+        field = tag >> 3
         if wire == 0:
             val, pos = _varint(data, pos)
-            if field == 1: width = val
-            elif field == 2: height = val
+            if field == 1:
+                width = val
+            elif field == 2:
+                height = val
         elif wire == 2:
             n, pos = _varint(data, pos)
-            sub = data[pos:pos+n]; pos += n
-            if field == 3: grid.append(_decode_tile_row(sub))
-            elif field == 4: cores.append(_decode_core(sub))
+            sub = data[pos : pos + n]
+            pos += n
+            if field == 3:
+                grid.append(_decode_tile_row(sub))
+            elif field == 4:
+                cores.append(_decode_core(sub))
     return width, height, grid, cores
+
 
 # =============================================================================
 # Memory layout findings (CPython 3.12, aarch64, Rust release build)
@@ -154,8 +174,8 @@ def decode_map26(data: bytes) -> tuple[int, int, list[list[int]], list[tuple[int
 
 
 def _tile_ptr(obj: object, game_ptr: int, read_u64: object, px: int, py: int) -> int:
-    tiles_outer_ptr = read_u64(game_ptr + 8)          # Vec<Vec<Tile>>.ptr
-    row_data_ptr    = read_u64(tiles_outer_ptr + py * 24 + 8)  # Vec<Tile>[py].ptr
+    tiles_outer_ptr = read_u64(game_ptr + 8)  # Vec<Vec<Tile>>.ptr
+    row_data_ptr = read_u64(tiles_outer_ptr + py * 24 + 8)  # Vec<Tile>[py].ptr
     return row_data_ptr + px * 28
 
 
@@ -223,7 +243,7 @@ class Player:
                 print(self._log)
                 self._log = ""
             return
-        
+
         path = self._ti_path
         for i in range(len(path) - 1):
             ax, ay = path[i]
@@ -243,10 +263,15 @@ class Player:
         buf = bytearray(
             struct.pack(
                 "<QQQQQQqqq",
-                0, 0, 0x12345,
+                0,
+                0,
+                0x12345,
                 real_id(bytearray),
-                i64_max, i64_max,
-                0, 0, 0,
+                i64_max,
+                i64_max,
+                0,
+                0,
+                0,
             ),
         )
 
@@ -270,7 +295,9 @@ class Player:
         assert type(obj) is bytearray, f"type confusion failed: got {type(obj)}"
 
         obj_addr = real_id(obj)
-        obj[obj_addr + 8 : obj_addr + 16] = real_id(bytearray).to_bytes(8, sys.byteorder)
+        obj[obj_addr + 8 : obj_addr + 16] = real_id(bytearray).to_bytes(
+            8, sys.byteorder
+        )
 
         idv = real_id(Victim)
         rc = int.from_bytes(obj[idv : idv + 8], sys.byteorder)
@@ -282,7 +309,7 @@ class Player:
         def write_u32(addr: int, val: int) -> None:
             obj[addr : addr + 4] = (val & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
 
-        rc_ptr  = read_u64(real_id(c) + 16)
+        rc_ptr = read_u64(real_id(c) + 16)
         game_ptr = rc_ptr + 24
 
         w = c.get_map_width()
@@ -290,7 +317,9 @@ class Player:
 
         tiles_outer_ptr = read_u64(game_ptr + 8)
         rec_off = _find_env_recorder_offset(game_ptr, read_u64, h)
-        rec_outer_ptr = read_u64(game_ptr + rec_off + 8) if rec_off is not None else None
+        rec_outer_ptr = (
+            read_u64(game_ptr + rec_off + 8) if rec_off is not None else None
+        )
 
         empty_row = bytes(w)  # w zero bytes
 
@@ -304,7 +333,7 @@ class Player:
                 obj[rec_row_ptr + tx] = env
 
         # Clear all tiles to empty — one C-level slice op per row
-        #for ty in range(h):
+        # for ty in range(h):
         #    tile_row_ptr = read_u64(tiles_outer_ptr + ty * 24 + 8)
         #    # Extended slice hits every environment byte (stride=28, offset=24)
         #    obj[tile_row_ptr + 24 : tile_row_ptr + 24 + w * 28 : 28] = empty_row
@@ -318,11 +347,14 @@ class Player:
             "#.#.#.#",
             "###.###",
         )
-        pat_h = len(PATTERN)    # 4
-        pat_w = len(PATTERN[0]) # 7
+        pat_h = len(PATTERN)  # 4
+        pat_w = len(PATTERN[0])  # 7
 
         corners: tuple[tuple[int, int], ...] = (
-            (0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)
+            (0, 0),
+            (w - 1, 0),
+            (0, h - 1),
+            (w - 1, h - 1),
         )
         best_corner: tuple[int, int] = corners[0]
         best_score = -1

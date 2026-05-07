@@ -1,4 +1,5 @@
 """Translation of `bots/intgrah/v54.7.9/builder/update/`."""
+
 from __future__ import annotations
 
 from . import econ
@@ -10,12 +11,14 @@ from . import threat
 from . import turrets
 from . import vision
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller
 if TYPE_CHECKING:
     from builder import Builder
 from config import DEBUG_INVARIANTS
 from util.debug import Scope
+
 
 def update(builder, ct):
     with Scope.new_timed("update") as _g:

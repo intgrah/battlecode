@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 class Point:
     x: int
     y: int
@@ -14,6 +15,7 @@ class Point:
 
     def doubled(self):
         return Point.at(self.x * 2)
+
 
 p = Point.at(7)
 q = p.doubled()

@@ -1,8 +1,10 @@
 """Translation of `bots/intgrah/v54.7.9/builder/hooks/propagate_symmetry.py`."""
+
 from __future__ import annotations
 
 from cambc import Environment
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi
 if TYPE_CHECKING:
@@ -10,6 +12,7 @@ if TYPE_CHECKING:
 from marker import Marker, MarkerSymmetry
 from util.constants import MAX_WIDTH
 from util.directions import DIR8
+
 
 def end_of_turn_propagate_symmetry(builder, ct):
     """
@@ -30,7 +33,7 @@ def end_of_turn_propagate_symmetry(builder, ct):
         i = int(target.y) * 50 + int(target.x)
         if builder.env[i] == Environment.WALL:
             continue
-        if (builder.building_kind[i] is not None):
+        if builder.building_kind[i] is not None:
             continue
         if ct.can_place_marker(target):
             ct.place_marker(target, payload)

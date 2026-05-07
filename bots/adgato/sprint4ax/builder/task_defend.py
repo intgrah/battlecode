@@ -77,9 +77,7 @@ def gunner_facing(self: Builder, ct: Controller, position: PosInt) -> Direction 
         return None
     for d in DIR8:
         match self.get_building(position + d):
-            case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                t != self.my_team
-            ):
+            case BuildingGunner(team=t) | BuildingSentinel(team=t) if t != self.my_team:
                 for harvester_direction in DIR4:
                     if harvester_direction != d:
                         match self.get_building(position + harvester_direction):
@@ -118,7 +116,9 @@ def sentinel_facing(
     if not found_harvester:
         return None
 
-    shootable_tiles = ct.get_attackable_tiles_from(self.pos(position), d, EntityType.SENTINEL)
+    shootable_tiles = ct.get_attackable_tiles_from(
+        self.pos(position), d, EntityType.SENTINEL
+    )
     if self.nearest_enemy_turret in shootable_tiles:
         return d
     return None

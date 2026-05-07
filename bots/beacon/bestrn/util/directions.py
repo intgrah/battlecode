@@ -1,19 +1,36 @@
 """Translation of `bots/intgrah/v54.7.9/util/directions.py`."""
+
 from __future__ import annotations
 
 from typing import Final
 
 from cambc import Direction
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Position
-DIR8: Final[list[Direction]] = [Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTHWEST, Direction.WEST, Direction.NORTHWEST]
+DIR8: Final[list[Direction]] = [
+    Direction.NORTH,
+    Direction.NORTHEAST,
+    Direction.EAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTH,
+    Direction.SOUTHWEST,
+    Direction.WEST,
+    Direction.NORTHWEST,
+]
 """
 `N, NE, E, SE, S, SW, W, NW` — the eight non-CENTRE directions, in
 `EntityType` enum order (matches Python `[d for d in Direction if d != CENTRE]`).
 """
-DIR4: Final[list[Direction]] = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
+DIR4: Final[list[Direction]] = [
+    Direction.NORTH,
+    Direction.EAST,
+    Direction.SOUTH,
+    Direction.WEST,
+]
 """Cardinal directions only: `N, E, S, W`."""
+
 
 def is_cardinal(d):
     """
@@ -21,9 +38,26 @@ def is_cardinal(d):
     `Direction::is_cardinal()` helper from `libre-engine`, which has no
     Python counterpart on `cambc.Direction`.
     """
-    return (d == Direction.NORTH or d == Direction.EAST or d == Direction.SOUTH or d == Direction.WEST)
-DIR8_DELTA: Final[list[tuple[int, int]]] = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
+    return (
+        d == Direction.NORTH
+        or d == Direction.EAST
+        or d == Direction.SOUTH
+        or d == Direction.WEST
+    )
+
+
+DIR8_DELTA: Final[list[tuple[int, int]]] = [
+    (0, -1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
+    (0, 1),
+    (-1, 1),
+    (-1, 0),
+    (-1, -1),
+]
 """`(dx, dy)` offsets for `DIR8`, in the same order."""
+
 
 def delta_to_dir(dx, dy):
     """
@@ -49,6 +83,7 @@ def delta_to_dir(dx, dy):
             return Direction.NORTHWEST
         case _:
             return None
+
 
 def get_direction_object(from_pos, to_pos):
     """Direction from `from_pos` to `to_pos`, or `None` if not adjacent in king-move."""

@@ -7,6 +7,7 @@ variant in v54.7.9 is `MarkerSymmetry`, the Rust translation is a single
 enum: adding a new variant means adding a new arm here, in declaration
 order (matching Python's `_registry` ordering — `MarkerSymmetry` is tag 0).
 """
+
 from __future__ import annotations
 
 from typing import Final
@@ -14,9 +15,11 @@ from dataclasses import dataclass
 
 from cambc import EntityType
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position, Team
 from util.symmetry import Symmetry
+
 KEY: Final[int] = 3735928559
 """XOR key applied to the encoded `u32` to scramble the wire format."""
 TAG_SHIFT: Final[int] = 28
@@ -32,9 +35,12 @@ subclass to be declared).
 """
 
 """A marker payload exchanged between friendly units via on-tile markers."""
+
+
 @dataclass(frozen=True, slots=True)
 class MarkerSymmetry:
     """Sender has resolved (or is asserting) the map's symmetry."""
+
     symmetry: Symmetry
 
     def encode(self):
@@ -68,7 +74,9 @@ class MarkerSymmetry:
         else:
             return None
 
+
 Marker = MarkerSymmetry
+
 
 def find_symmetry_marker(ct, nearby_tiles, my_team):
     """
@@ -86,7 +94,11 @@ def find_symmetry_marker(ct, nearby_tiles, my_team):
             continue
         value = ct.get_marker_value(bid)
         __opt_MarkerSymmetry = Marker.decode(value)
-        symmetry = __opt_MarkerSymmetry.symmetry if isinstance(__opt_MarkerSymmetry, MarkerSymmetry) else None
+        symmetry = (
+            __opt_MarkerSymmetry.symmetry
+            if isinstance(__opt_MarkerSymmetry, MarkerSymmetry)
+            else None
+        )
         if isinstance(__opt_MarkerSymmetry, MarkerSymmetry):
             return symmetry
     return None

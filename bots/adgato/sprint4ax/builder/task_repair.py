@@ -53,8 +53,13 @@ def is_dangling(self: Builder, ct: Controller, pos: PosInt) -> bool:
             case _:
                 return False
 
-    
-    return any(self.conveyors_to_here[j] or j in self.adjacent_to_harvester for j in self.conveyors_to_here[i]) or pos in self.adjacent_to_unconnected_harvester
+    return (
+        any(
+            self.conveyors_to_here[j] or j in self.adjacent_to_harvester
+            for j in self.conveyors_to_here[i]
+        )
+        or pos in self.adjacent_to_unconnected_harvester
+    )
 
 
 def is_valid_loose_end_target(self: Builder, ct: Controller, pos: PosInt) -> bool:
@@ -83,7 +88,11 @@ def find_dangling(self: Builder, ct: Controller) -> PosInt:
 
     nearby = ct.get_nearby_tiles()
 
-    candidates = [self._idx(pos) for pos in nearby if is_valid_loose_end_target(self, ct, self._idx(pos))]
+    candidates = [
+        self._idx(pos)
+        for pos in nearby
+        if is_valid_loose_end_target(self, ct, self._idx(pos))
+    ]
 
     if not candidates:
         return -1

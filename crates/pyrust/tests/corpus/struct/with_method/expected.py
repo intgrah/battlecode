@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 class Counter:
     n: int
 
@@ -11,6 +12,7 @@ class Counter:
 
     def value(self):
         return self.n
+
 
 c = Counter(n=10)
 c.increment()

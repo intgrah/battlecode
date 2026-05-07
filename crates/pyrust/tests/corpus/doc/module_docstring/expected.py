@@ -5,6 +5,8 @@ A two-line module.
 
 Greets the world.
 """
+
+
 def greet(name):
     """
     Greets the named recipient.
@@ -12,5 +14,6 @@ def greet(name):
     The greeting is fixed; only the name varies.
     """
     print(name)
+
 
 greet("world")

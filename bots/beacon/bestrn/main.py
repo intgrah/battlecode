@@ -5,10 +5,12 @@ Cambridge Battlecode bot — Rust translation of `bots/intgrah/v54.7.9`.
 `run(ct)` on each turn the unit is alive. `cambc_bot!(Player)` exports the
 FFI symbols the engine looks for.
 """
+
 from __future__ import annotations
 
 from cambc import EntityType
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi
 from breach import Breach
@@ -19,6 +21,7 @@ from launcher import Launcher
 from sentinel import Sentinel
 from util.debug import Scope, flush
 
+
 class Player:
     """
     The bot. The engine constructs one `Player` per unit (the FFI entry
@@ -26,6 +29,7 @@ class Player:
     concrete subtypes this instance resolved to so subsequent turns skip
     the dispatch + `post_init`.
     """
+
     unit: EntityType | None
     builder: Builder
     core: Core
@@ -45,7 +49,7 @@ class Player:
 
     def run(self, ct):
         with Scope("turn") as _turn:
-            if (self.unit is None):
+            if self.unit is None:
                 kind = ct.get_entity_type(None)
                 self.unit = kind
                 with Scope.new_timed("post_init") as _scope:
@@ -63,7 +67,11 @@ class Player:
                         case EntityType.BREACH:
                             self.breach.post_init(ct)
                         case et:
-                            (_ for _ in ()).throw(Exception(f"Player::run on unsupported entity type: {et!r}"))
+                            (_ for _ in ()).throw(
+                                Exception(
+                                    f"Player::run on unsupported entity type: {et!r}"
+                                )
+                            )
             with Scope.new_timed("run") as _scope:
                 match self.unit:
                     case EntityType.BUILDER_BOT:

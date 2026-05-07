@@ -7,22 +7,26 @@ shadowed by ours can't safely commit to a build action without taking
 fire from our turret network, and any reposition the enemy makes is
 mirrored.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, Position
 if TYPE_CHECKING:
     from builder import Builder
 from builder.helpers import make_move
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
 from util.debug import debug as log
 from util.visualiser import auto_wrap_position
 
+
 def stalk_enemy(self_, ct):
-    if (not self_.enemy_bots):
+    if not self_.enemy_bots:
         return TaskRejected("no enemy builder in vision")
     my_pos = self_.my_pos
     target: Position | None = None

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 def quadrant(p):
     match p:
         case (0, 0):
@@ -10,6 +11,7 @@ def quadrant(p):
             return "x-axis"
         case _:
             return "elsewhere"
+
 
 print(quadrant((0, 0)))
 print(quadrant((0, 5)))

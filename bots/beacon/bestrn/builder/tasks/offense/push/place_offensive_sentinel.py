@@ -5,20 +5,24 @@ Drop a sentinel on a dangling end whose attack ray reaches a valuable
 enemy structure. Candidates come from `dangling_set` (chain tips, never
 existing conveyors).
 """
+
 from __future__ import annotations
 
 from cambc import Direction, EntityType
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position
 if TYPE_CHECKING:
     from builder import Builder
 from builder.helpers import can_afford, make_move, move_random, try_place
 from builder.tasks.rejected import TaskRejected
+
 if TYPE_CHECKING:
     from builder.tasks.rejected import TaskResult
 from util.constants import MAX_WIDTH
 from util.directions import DIR8
+
 
 def is_enemy_valuable(self_, pos):
     """Sentinel-worthy enemy targets."""
@@ -30,7 +34,18 @@ def is_enemy_valuable(self_, pos):
         return False
     if kind == EntityType.HARVESTER:
         return False
-    return (kind == EntityType.CONVEYOR or kind == EntityType.ARMOURED_CONVEYOR or kind == EntityType.SPLITTER or kind == EntityType.BRIDGE or kind == EntityType.CORE or kind == EntityType.GUNNER or kind == EntityType.SENTINEL or kind == EntityType.BREACH or kind == EntityType.LAUNCHER)
+    return (
+        kind == EntityType.CONVEYOR
+        or kind == EntityType.ARMOURED_CONVEYOR
+        or kind == EntityType.SPLITTER
+        or kind == EntityType.BRIDGE
+        or kind == EntityType.CORE
+        or kind == EntityType.GUNNER
+        or kind == EntityType.SENTINEL
+        or kind == EntityType.BREACH
+        or kind == EntityType.LAUNCHER
+    )
+
 
 def delivers_ammo(self_, pos, side):
     """
@@ -38,9 +53,13 @@ def delivers_ammo(self_, pos, side):
     feeder of `pos` or a friendly harvester.
     """
     in_edges = self_.in_edges[int(pos.y) * 50 + int(pos.x)]
-    if (side in in_edges):
+    if side in in_edges:
         return True
-    return self_.building_kind[self_.idx(side)] == EntityType.HARVESTER and self_.building_team[self_.idx(side)] == self_.my_team
+    return (
+        self_.building_kind[self_.idx(side)] == EntityType.HARVESTER
+        and self_.building_team[self_.idx(side)] == self_.my_team
+    )
+
 
 def sentinel_facing(self_, ct, pos):
     """
@@ -57,6 +76,7 @@ def sentinel_facing(self_, ct, pos):
             if is_enemy_valuable(self_, t):
                 return d
     return None
+
 
 def place_offensive_sentinel(self_, ct):
     if not can_afford(self_, EntityType.SENTINEL):

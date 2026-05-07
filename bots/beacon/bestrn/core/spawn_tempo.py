@@ -10,12 +10,14 @@ should this map spawn") and folded through the affine transform
 `tempo = 1.0 + (rating - 3.0) * 0.15`, so the model maps features
 directly to a tempo multiplier centred on 1.0.
 """
+
 from __future__ import annotations
 
 from typing import Final
 
 from cambc import Environment, Position
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi
 BIAS: Final[float] = 1.6306
@@ -28,6 +30,7 @@ W_NEAREST_TI_D2: Final[float] = -0.0109
 W_NEAREST_WALL_D2: Final[float] = -0.0015
 CORE_VISION_R2: Final[int] = 36
 INNER_R2: Final[int] = 8
+
 
 def compute_spawn_tempo(width, height, ct):
     """
@@ -83,4 +86,16 @@ def compute_spawn_tempo(width, height, ct):
                 nearest_ti_d2 = d2
     inner_wall_density = float(inner_walls) / float(max(inner_total, 1))
     outer_wall_density = float(outer_walls) / float(max(outer_total, 1))
-    return (-0.0109 * float(nearest_ti_d2) + (-0.2340 * outer_wall_density + (-0.2698 * inner_wall_density + (-0.0114 * float(cardinal_exits) + (-0.0143 * float(edge_dist) + (-0.5978 * eccentricity + 1.6306)))))) + -0.0015 * float(nearest_wall_d2)
+    return (
+        -0.0109 * float(nearest_ti_d2)
+        + (
+            -0.2340 * outer_wall_density
+            + (
+                -0.2698 * inner_wall_density
+                + (
+                    -0.0114 * float(cardinal_exits)
+                    + (-0.0143 * float(edge_dist) + (-0.5978 * eccentricity + 1.6306))
+                )
+            )
+        )
+    ) + -0.0015 * float(nearest_wall_d2)

@@ -1,13 +1,17 @@
 """Translation of `bots/intgrah/v54.7.9/util/metrics.py`."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Position
+
 
 def manhattan(p1, p2):
     """L-1 distance."""
     return abs(p1.x - p2.x) + abs(p1.y - p2.y)
+
 
 def euclidean_sq(p1, p2):
     """L-2 distance, squared."""
@@ -15,11 +19,13 @@ def euclidean_sq(p1, p2):
     dy = p1.y - p2.y
     return dx * dx + dy * dy
 
+
 def chebyshev(p1, p2):
     """L-infinity distance."""
     dx = abs(p1.x - p2.x)
     dy = abs(p1.y - p2.y)
     return dx if dx > dy else dy
+
 
 def reachable_path_end(path, current_pos, max_range):
     """
@@ -33,6 +39,7 @@ def reachable_path_end(path, current_pos, max_range):
             return pos
     return current_pos
 
+
 def closest(target, positions):
     """
     Returns the position in `positions` closest to `target` (by squared
@@ -40,7 +47,12 @@ def closest(target, positions):
     broken by `(y, x)` lex order so the result is deterministic
     regardless of the iterator's source ordering.
     """
-    return (min(positions, key=lambda p: (euclidean_sq(target, p), p.y, p.x)) if positions else None)
+    return (
+        min(positions, key=lambda p: (euclidean_sq(target, p), p.y, p.x))
+        if positions
+        else None
+    )
+
 
 def claims_by_proximity(my_pos, my_id, target, friendlies):
     """

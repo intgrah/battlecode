@@ -1,4 +1,5 @@
 """Translation of `bots/intgrah/v54.7.9/sentinel/__init__.py`."""
+
 from __future__ import annotations
 
 from typing import Final
@@ -6,16 +7,32 @@ from typing import Final
 from unit import in_bounds
 from cambc import Direction, EntityType, GameConstants
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from cambc import Controller, ControllerApi, Position, Team
 from unit import UnitState
+
 SELF_DESTRUCT_THRESHOLD: Final[int] = 16
 
+
 def is_enemy_combat(et):
-    return (et == EntityType.CORE or et == EntityType.BREACH or et == EntityType.SENTINEL or et == EntityType.GUNNER or et == EntityType.LAUNCHER)
+    return (
+        et == EntityType.CORE
+        or et == EntityType.BREACH
+        or et == EntityType.SENTINEL
+        or et == EntityType.GUNNER
+        or et == EntityType.LAUNCHER
+    )
+
 
 def is_transport(et):
-    return (et == EntityType.CONVEYOR or et == EntityType.ARMOURED_CONVEYOR or et == EntityType.SPLITTER or et == EntityType.BRIDGE)
+    return (
+        et == EntityType.CONVEYOR
+        or et == EntityType.ARMOURED_CONVEYOR
+        or et == EntityType.SPLITTER
+        or et == EntityType.BRIDGE
+    )
+
 
 def priority(et):
     match et:
@@ -40,6 +57,7 @@ def priority(et):
         case _:
             return 0
 
+
 def rotate_right(d):
     match d:
         case Direction.NORTH:
@@ -60,6 +78,7 @@ def rotate_right(d):
             return Direction.NORTH
         case Direction.CENTRE:
             return Direction.CENTRE
+
 
 def rotate_left(d):
     match d:
@@ -82,6 +101,7 @@ def rotate_left(d):
         case Direction.CENTRE:
             return Direction.CENTRE
 
+
 def _builder_score(hp):
     if hp <= GameConstants.SENTINEL_DAMAGE:
         return 15
@@ -89,13 +109,19 @@ def _builder_score(hp):
         return 7
     return 5
 
+
 def _transport_outputs(ct, bid, pos, etype):
     if etype == EntityType.BRIDGE:
         return [ct.get_bridge_target(bid)]
     d = ct.get_direction(bid)
     if etype == EntityType.SPLITTER:
-        return [pos.add(d), pos.add(rotate_right(rotate_right(d))), pos.add(rotate_left(rotate_left(d)))]
+        return [
+            pos.add(d),
+            pos.add(rotate_right(rotate_right(d))),
+            pos.add(rotate_left(rotate_left(d))),
+        ]
     return [pos.add(d)]
+
 
 def _feeds_enemy_combat(ct, my_team, outputs):
     for out in outputs:
@@ -109,6 +135,7 @@ def _feeds_enemy_combat(ct, my_team, outputs):
         if is_enemy_combat(ct.get_entity_type(out_bid)):
             return True
     return False
+
 
 class Sentinel:
     state: UnitState
@@ -147,14 +174,14 @@ class Sentinel:
         for tile in attackable:
             bid = ct.get_tile_building_id(tile)
             uid = self.state.all_bots.get(tile)
-            if (tile in self.state.enemy_bots):
+            if tile in self.state.enemy_bots:
                 hp = ct.get_hp(uid)
                 score = _builder_score(hp)
                 if score > best_score:
                     best_score = score
                     best_target = tile
                 continue
-            if (tile in self.state.friendly_bots):
+            if tile in self.state.friendly_bots:
                 continue
             bid = bid
             if bid is None:
@@ -162,7 +189,7 @@ class Sentinel:
             if ct.get_team(bid) == my_team:
                 continue
             etype = ct.get_entity_type(bid)
-            if (etype == EntityType.MARKER or etype == EntityType.HARVESTER):
+            if etype == EntityType.MARKER or etype == EntityType.HARVESTER:
                 continue
             score = priority(etype)
             if is_transport(etype):

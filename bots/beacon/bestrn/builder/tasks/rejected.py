@@ -7,7 +7,9 @@ Failure model is Option-shape, not Result: `None` = task fired,
 propagated mid-turn) and matches the pyrust DSL `try_!` macro for
 early propagation.
 """
+
 from __future__ import annotations
+
 
 class TaskRejected:
     reason: str
@@ -25,4 +27,6 @@ class TaskRejected:
 
     def fmt(self, f):
         return f.write_str(self.reason)
+
+
 type TaskResult = TaskRejected | None

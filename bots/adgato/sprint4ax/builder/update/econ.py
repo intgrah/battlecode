@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from building import BuildingArmouredConveyor, BuildingConveyor, BuildingHarvester, BuildingFoundry
+from building import (
+    BuildingArmouredConveyor,
+    BuildingConveyor,
+    BuildingHarvester,
+    BuildingFoundry,
+)
 from cambc import Controller, Environment
 from config import DEBUG_TIMING
 from util import DIR8, DIR4
@@ -34,6 +39,7 @@ _TRANSITION: dict[Role, dict[Role, int]] = {
 
 _REASSIGN_PERIOD = 150
 _REASSIGN_AFTER = 200
+
 
 def _pick_initial_role(self: Builder, ct: Controller) -> Role:
     if self.rnd > 10:
@@ -95,7 +101,7 @@ def _update_dangling(self: Builder, ct: Controller) -> None:
         self, ct, self.dangling_output
     ):
         self.dangling_output = find_dangling(self, ct)
-    
+
     # update dangling flow
     if self.dangling_output >= 0:
         ti = 0
@@ -120,6 +126,7 @@ def _update_dangling(self: Builder, ct: Controller) -> None:
                     ax += 0 if ti_ore else 1
 
         self.dangling_flow = FlowValue(ti, ax, rax)
+
 
 def _update_ore_target(self: Builder, ct: Controller) -> None:
     candidate_ore = pick_ore_target(self, ct)

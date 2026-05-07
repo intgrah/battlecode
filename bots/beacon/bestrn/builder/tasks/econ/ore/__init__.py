@@ -7,5 +7,5 @@ build harvester. Three fine-grained phases instead of one monolithic
 shared across Ti / Ax / offensive ore claims and across already-built
 harvesters.
 """
-from __future__ import annotations
 
+from __future__ import annotations
