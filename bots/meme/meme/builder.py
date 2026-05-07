@@ -33,11 +33,11 @@ class Builder(Unit):
                 g.game_map.tile(0, 1).builder_bot = self.my_id
                 me.base.position = Position(0, 1)
 
-                dir = Direction.NORTH
-                for i in range(8):
-                    if ct.can_build_sentinel(Position(1, 0), dir):
-                        sent_id = ct.build_sentinel(Position(1, 0), dir)
-                        dir = dir.rotate_right()
+                d = Direction.NORTH
+                for _ in range(8):
+                    if ct.can_build_sentinel(Position(1, 0), d):
+                        sent_id = ct.build_sentinel(Position(1, 0), d)
+                        d = d.rotate_right()
 
                         me = g.entities[self.my_id].as_variant
                         assert isinstance(me, EntityBuilderBot)

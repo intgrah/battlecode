@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Final
 
 from rust.base import U8, U64, Inner, RustStruct
-from rust.game_diff import GameDiff, _TAG_FIRE_TURRET
+from rust.game_diff import _TAG_FIRE_TURRET, GameDiff
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
