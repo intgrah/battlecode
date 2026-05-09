@@ -5,12 +5,8 @@ from typing import TYPE_CHECKING, Final
 from cambc import Environment
 
 from rust.base import U8, U64, Inner, RustStruct
-<<<<<<< HEAD
-from rust.game_diff import _TAG_FIRE_TURRET, GameDiff
-=======
 from rust.game_diff import GameDiff, _TAG_FIRE_TURRET, _TAG_MOVE_BUILDER_BOT
 from rust.tile import _ENV_FROM_INT, _ENV_TO_INT
->>>>>>> d1d24f9e (backup)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

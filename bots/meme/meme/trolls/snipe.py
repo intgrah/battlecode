@@ -30,5 +30,3 @@ def snipe(p: Player) -> Generator:
     yield
     GodMode.attack(p, target_pos)
     yield
-    GodMode.attack(p, target_pos)
-    yield
