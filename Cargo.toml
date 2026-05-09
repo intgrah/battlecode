@@ -25,9 +25,6 @@ members = [
     "bots/rs/nothing/*",
     "bots/rs/drewfett/v1000",
     "bots/rs/drewfett/v1001",
-    "bots/elf/nothing",
-    "crates/cambc-next-engine",
-    "crates/cambc-next-sdk",
 ]
 exclude = ["crates/pyrust-runner"]
 
