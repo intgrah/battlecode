@@ -19,6 +19,7 @@ members = [
     "crates/libre",
     "crates/cambc",
     "crates/pong_sim",
+    "crates/pong_sa",
     "bots/rs/v55",
     "bots/rs/v56",
     "bots/rs/nothing/*",
@@ -31,6 +32,8 @@ exclude = ["crates/pyrust/runner"]
 
 [workspace.dependencies.libre-engine]
 path = "crates/libre-engine"
+[workspace.dependencies.pong_sa]
+path = "crates/pong_sa"
 [workspace.dependencies.libre-replay]
 path = "crates/libre-replay"
 [workspace.dependencies.cambc]

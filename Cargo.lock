@@ -3703,6 +3703,15 @@ version = "0.1.0"
 dependencies = [
  "libre-engine",
  "libre-replay",
+ "pong_sa",
+]
+
+[[package]]
+name = "pong_sa"
+version = "0.1.0"
+dependencies = [
+ "rand 0.10.1",
+ "rustc-hash 2.1.2",
 ]
 
 [[package]]

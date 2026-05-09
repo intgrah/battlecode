@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 libre-engine.workspace = true
 libre-replay.workspace = true
+pong_sa.workspace = true
 
 [[bin]]
 name = "pong-sim"
@@ -14,6 +15,18 @@ path = "src/bin/main.rs"
 [[bin]]
 name = "pong-build"
 path = "src/bin/build.rs"
+
+[[bin]]
+name = "pong-parity"
+path = "src/bin/parity.rs"
+
+[[bin]]
+name = "pong-parity-exec"
+path = "src/bin/parity_exec.rs"
+
+[[bin]]
+name = "pong-sa"
+path = "src/bin/sa.rs"
 
 [lints]
 workspace = true
