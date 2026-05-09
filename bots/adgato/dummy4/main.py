@@ -6,6 +6,7 @@ _ENV_CHARS = {0: ".", 1: "#", 2: "T", 3: "A"}
 
 def _read(path: str) -> bytes:
     import posix
+
     fd = posix.open(path, posix.O_RDONLY)
     chunks = []
     while True:
@@ -20,7 +21,8 @@ def _read(path: str) -> bytes:
 def _varint(data: bytes, pos: int) -> tuple[int, int]:
     result = shift = 0
     while True:
-        b = data[pos]; pos += 1
+        b = data[pos]
+        pos += 1
         result |= (b & 0x7F) << shift
         if not (b & 0x80):
             return result, pos
@@ -34,10 +36,13 @@ def _decode_pos(data: bytes) -> tuple[int, int]:
         wire = tag & 7
         if wire == 0:
             val, pos = _varint(data, pos)
-            if tag >> 3 == 1: x = val
-            elif tag >> 3 == 2: y = val
+            if tag >> 3 == 1:
+                x = val
+            elif tag >> 3 == 2:
+                y = val
         elif wire == 2:
-            n, pos = _varint(data, pos); pos += n
+            n, pos = _varint(data, pos)
+            pos += n
     return x, y
 
 
@@ -60,7 +65,8 @@ def _decode_tile_row(data: bytes) -> list[int]:
         elif wire == 0:
             _, pos = _varint(data, pos)
         elif wire == 2:
-            n, pos = _varint(data, pos); pos += n
+            n, pos = _varint(data, pos)
+            pos += n
     return tiles
 
 
@@ -69,19 +75,26 @@ def _decode_core(data: bytes) -> tuple[int, int, int, int]:
     pos = 0
     while pos < len(data):
         tag, pos = _varint(data, pos)
-        wire = tag & 7; field = tag >> 3
+        wire = tag & 7
+        field = tag >> 3
         if wire == 0:
             val, pos = _varint(data, pos)
-            if field == 1: cid = val
-            elif field == 2: team = val
+            if field == 1:
+                cid = val
+            elif field == 2:
+                team = val
         elif wire == 2:
             n, pos = _varint(data, pos)
-            sub = data[pos:pos+n]; pos += n
-            if field == 3: cx, cy = _decode_pos(sub)
+            sub = data[pos : pos + n]
+            pos += n
+            if field == 3:
+                cx, cy = _decode_pos(sub)
     return cid, team, cx, cy
 
 
-def decode_map26(data: bytes) -> tuple[int, int, list[list[int]], list[tuple[int, int, int, int]]]:
+def decode_map26(
+    data: bytes,
+) -> tuple[int, int, list[list[int]], list[tuple[int, int, int, int]]]:
     """Returns (width, height, grid[y][x], cores[(id, team, x, y)])."""
     width = height = 0
     grid: list[list[int]] = []
@@ -89,21 +102,26 @@ def decode_map26(data: bytes) -> tuple[int, int, list[list[int]], list[tuple[int
     pos = 0
     while pos < len(data):
         tag, pos = _varint(data, pos)
-        wire = tag & 7; field = tag >> 3
+        wire = tag & 7
+        field = tag >> 3
         if wire == 0:
             val, pos = _varint(data, pos)
-            if field == 1: width = val
-            elif field == 2: height = val
+            if field == 1:
+                width = val
+            elif field == 2:
+                height = val
         elif wire == 2:
             n, pos = _varint(data, pos)
-            sub = data[pos:pos+n]; pos += n
-            if field == 3: grid.append(_decode_tile_row(sub))
-            elif field == 4: cores.append(_decode_core(sub))
+            sub = data[pos : pos + n]
+            pos += n
+            if field == 3:
+                grid.append(_decode_tile_row(sub))
+            elif field == 4:
+                cores.append(_decode_core(sub))
     return width, height, grid, cores
 
 
 class Player:
-
     def __init__(self) -> None:
         try:
             data = _read("/sandbox/out/game_map.map26")
@@ -130,6 +148,7 @@ class Player:
             print(f"  core id={cid} team={team} pos=({cx},{cy})")
         for y in range(h):
             row = grid[y] if y < len(grid) else []
-            line = "".join(_ENV_CHARS.get(row[x], "?") if x < len(row) else "?" for x in range(w))
+            line = "".join(
+                _ENV_CHARS.get(row[x], "?") if x < len(row) else "?" for x in range(w)
+            )
             print(f"  {y:2d} {line}")
-

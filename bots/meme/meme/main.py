@@ -1,28 +1,35 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generator
-
+import random
 from collections import deque
+from typing import TYPE_CHECKING
 
-from cambc import EntityType, Position, Team, Direction, ResourceType
-from rust import Game, RawMem, EntityBuilderBot, EntitySentinel, EntityBridge, GameDiffMoveBuilderBot
+from apsp import apsp, pnb
+from cambc import Direction, EntityType, Position, Team
+from ct_hash import ct_changed
 from god_mode import GodMode
 from map26 import Map26
-from apsp import pnb, apsp
-import random
-from ct_hash import ct_changed
-from trolls.emergency import win_without_ct
-from trolls.surround_map import surround_map
-from trolls.long_bridge import long_bridge
-from trolls.draw_pentagram import draw_pentagram
-from trolls.gg import write_gg
-from trolls.snipe import snipe
+from rust import (
+    EntityBuilderBot,
+    EntitySentinel,
+    Game,
+    RawMem,
+)
 from snake import Snake
+from trolls.draw_pentagram import draw_pentagram
+from trolls.emergency import win_without_ct
+from trolls.gg import write_gg
+from trolls.long_bridge import long_bridge
+from trolls.snipe import snipe
+from trolls.surround_map import surround_map
 
 INF = 1_000_000_000
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from cambc import Controller
+
 
 class Player:
     def __init__(self) -> None:
@@ -58,13 +65,13 @@ class Player:
         me = self.g.entities[self.builder_id].as_variant
         assert isinstance(me, EntityBuilderBot)
         return me
-    
+
     def turret(self) -> EntitySentinel:
         assert self.turret_id is not None
         me = self.g.entities[self.turret_id].as_variant
         assert isinstance(me, EntitySentinel)
         return me
-    
+
     def give_order(self, bid: int) -> None:
         assert self.core is not None
         for i in range(len(self.g.unit_order)):
@@ -72,7 +79,7 @@ class Player:
             if uid == bid:
                 self.g.unit_order[i] = self.core
                 break
-    
+
     def print(self, message: object) -> None:
         self.log += str(message) + "\n"
 
@@ -80,7 +87,7 @@ class Player:
 
         if self.won_without_ct:
             return
-        
+
         if ct_changed(ct) or self.pnb is None:
             print("don't call ct methods!")
             g = Game.open(RawMem(), ct)
@@ -88,12 +95,12 @@ class Player:
             write_gg(g, self.map)
             self.won_without_ct = True
             return
-        
+
         if ct.get_entity_type() != EntityType.CORE:
             ct.resign("non core got a turn")
             return
-        
-        if self.raw_mem == None:
+
+        if self.raw_mem is None:
             self.raw_mem = RawMem()
 
         self.ct = ct
@@ -113,7 +120,7 @@ class Player:
         if self.turn_work is None:
             print(self.log)
             return
-        
+
         Exception = BaseException
         try:
             while ct.get_cpu_time_elapsed() < 1500:
@@ -134,18 +141,15 @@ class Player:
         del self.ct
 
         print(self.log)
-            
 
     def run_turn_section(self) -> Generator:
 
-        
         if self.team is None or self.enemy_team is None:
             self.team = self.ct.get_team()
             self.enemy_team = Team.A if self.team == Team.B else Team.B
 
         if self.core is None:
             self.core = self.ct.get_id()
-
 
         player = self.g.player(self.ct.get_team())
         player.titanium = INF
@@ -168,7 +172,7 @@ class Player:
 
         core_pos = self.ct.get_position()
 
-        #for i in range(len(self.g.unit_order)):
+        # for i in range(len(self.g.unit_order)):
         #    self.g.unit_order[i] = self.core
 
         if self.builder_id is None:
@@ -178,12 +182,14 @@ class Player:
             self.give_order(self.builder_id)
 
         if self.turret_id is None:
-            self.turret_id = GodMode.build(self, EntityType.SENTINEL, Position(0, 0), Direction.SOUTH)
+            self.turret_id = GodMode.build(
+                self, EntityType.SENTINEL, Position(0, 0), Direction.SOUTH
+            )
             assert self.turret_id is not None
             self.g.entities[self.turret_id].base.hp = INF
             GodMode.hide_last(self.g, self.core)
             self.give_order(self.turret_id)
-        
+
         for i in range(self.workers_built, 10):
             cont = GodMode.build(self, EntityType.LAUNCHER, Position(0, 0), silent=True)
             assert cont is not None, "cont is none"
@@ -193,13 +199,19 @@ class Player:
             yield
 
         core_pos = [Position(core.x, core.y) for core in self.map.cores]
-        friendly_core = core_pos[0] if self.map.cores[0].team == self.team else core_pos[1]
+        friendly_core = (
+            core_pos[0] if self.map.cores[0].team == self.team else core_pos[1]
+        )
 
-        adj = friendly_core.add(random.choice([Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST]))
+        adj = friendly_core.add(
+            random.choice(
+                [Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST]
+            )
+        )
         if core_pos != adj:
             self.print("move in replay")
             GodMode.move_in_replay(self, self.core, adj)
-            
+
         self.print("surround map")
         yield from surround_map(self)
 

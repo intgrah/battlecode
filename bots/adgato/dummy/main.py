@@ -8,8 +8,8 @@ Py_TPFLAGS_IMMUTABLETYPE: Final = 1 << 8
 TP_FLAGS_OFFSET: Final = 168
 
 
-#def make_type_immutable(cls: type) -> None:
-#    import ctypes  # noqa: PLC0415
+# def make_type_immutable(cls: type) -> None:
+#    import ctypes
 #
 #    addr = id(cls)
 #    class_ptr = ctypes.cast(addr, ctypes.POINTER(ctypes.c_ssize_t))
@@ -18,7 +18,7 @@ TP_FLAGS_OFFSET: Final = 168
 #    class_ptr[tp_flags_offset] = current_flags | Py_TPFLAGS_IMMUTABLETYPE
 #
 #
-#make_type_immutable(Controller)
+# make_type_immutable(Controller)
 
 
 class Player:

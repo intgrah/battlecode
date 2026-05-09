@@ -3,10 +3,8 @@ from __future__ import annotations
 from typing import Final
 
 from cambc import ResourceType
-
 from rust.base import I32, OptionU8, Pos
 from rust.entity.variant import EntityVariant
-from enum import Enum
 
 
 class EntityBridge(EntityVariant):
@@ -35,6 +33,6 @@ class EntityBridge(EntityVariant):
             f"target={self.target} "
             f"stored={s.name if s else None} stored_resource_id={self.stored_resource_id})"
         )
-    
-    def set_stored_raw(self, val: int):
+
+    def set_stored_raw(self, val: int) -> None:
         self._raw.write_u8(self._addr + 28, val)
