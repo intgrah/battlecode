@@ -8,17 +8,17 @@ Py_TPFLAGS_IMMUTABLETYPE: Final = 1 << 8
 TP_FLAGS_OFFSET: Final = 168
 
 
-def make_type_immutable(cls: type) -> None:
-    import ctypes  # noqa: PLC0415
-
-    addr = id(cls)
-    class_ptr = ctypes.cast(addr, ctypes.POINTER(ctypes.c_ssize_t))
-    tp_flags_offset = 21
-    current_flags = class_ptr[tp_flags_offset]
-    class_ptr[tp_flags_offset] = current_flags | Py_TPFLAGS_IMMUTABLETYPE
-
-
-make_type_immutable(Controller)
+#def make_type_immutable(cls: type) -> None:
+#    import ctypes  # noqa: PLC0415
+#
+#    addr = id(cls)
+#    class_ptr = ctypes.cast(addr, ctypes.POINTER(ctypes.c_ssize_t))
+#    tp_flags_offset = 21
+#    current_flags = class_ptr[tp_flags_offset]
+#    class_ptr[tp_flags_offset] = current_flags | Py_TPFLAGS_IMMUTABLETYPE
+#
+#
+#make_type_immutable(Controller)
 
 
 class Player:
@@ -27,6 +27,7 @@ class Player:
 
     def run(self, ct: Controller) -> None:
         if not self._done:
+            self._done = True
             _sentinel = object()
             _repr_addr = int(repr(_sentinel).split("0x")[-1].rstrip(">"), 16)
             xor: Final[int] = _repr_addr ^ id(_sentinel)

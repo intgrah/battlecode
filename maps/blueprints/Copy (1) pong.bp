@@ -1,0 +1,16 @@
+PYTHONHOME=/root/.local/share/uv/python/cpython-3.12.13-linux-aarch64-gnu \
+PYTHONPATH=/root/.local/share/uv/python/cpython-3.12.13-linux-aarch64-gnu/lib/python3.12/site-packages \
+LD_LIBRARY_PATH=/root/.local/share/uv/python/cpython-3.12.13-linux-aarch64-gnu/lib \
+/root/titan_runner --player-a /root/bots/adgato/dummy2/main.py --player-b /root/bots/meme/meme/main.py --map /root/maps/blank51.map26 --replay /tmp/out.replay26
+
+
+scp archive/titan_runner-1.7.1 root@178.105.76.209:/root/titan_runner
+rsync -az bots/ root@178.105.76.209:/root/bots/
+rsync -az maps/ root@178.105.76.209:/root/maps/
+
+ssh root@178.105.76.209
+chmod +x /root/titan_runner
+
+PqjsxPrEjAX9
+
+PYTHONHOME=/root/.local/share/uv/python/cpython-3.12.13-linux-aarch64-gnu PYTHONPATH=/root/.local/share/uv/python/cpython-3.12.13-linux-aarch64-gnu/lib/python3.12/site-packages LD_LIBRARY_PATH=/root/.local/share/uv/python/cpython-3.12.13-linux-aarch64-gnu/lib /root/titan_runner --player-a /root/bots/adgato/dummy2/main.py --player-b /root/bots/meme/meme/main.py --map /root/maps/labyrinth.map26--replay /tmp/out.replay26

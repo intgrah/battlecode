@@ -397,6 +397,10 @@ def _connect_daemon(ip: str) -> tuple[subprocess.Popen[bytes], socket.socket]:
             f"{local_port}:127.0.0.1:9876",
             "-o",
             "StrictHostKeyChecking=accept-new",
+            "-o",
+            "ServerAliveInterval=30",
+            "-o",
+            "ServerAliveCountMax=6",
             f"root@{ip}",
         ],
     )

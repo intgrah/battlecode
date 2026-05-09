@@ -487,10 +487,173 @@ impl GameRunner {
             // active so __init__ imports still work via in-memory sources.
             if self.bot_sources.is_some() {
                 py.run(c"
-import sys, os, builtins
+import sys, types as _types
 
-# Remove builtins.open — prevents file reads (source is in memory)
-del builtins.open
+class _NoOpLock:
+    __slots__ = ()
+    def acquire(self, blocking=True, timeout=-1): return True
+    def release(self): pass
+    def locked(self): return False
+    def __enter__(self): return self
+    def __exit__(self, *a): pass
+    def __repr__(self): return '<_NoOpLock>'
+
+class _NoOpCondition:
+    __slots__ = ('_lock',)
+    def __init__(self, lock=None): self._lock = lock or _NoOpLock()
+    def acquire(self, *a, **kw): return self._lock.acquire(*a, **kw)
+    def release(self): self._lock.release()
+    def wait(self, timeout=None): return True
+    def wait_for(self, predicate, timeout=None): return predicate()
+    def notify(self, n=1): pass
+    def notify_all(self): pass
+    notifyAll = notify_all
+    def __enter__(self): self._lock.acquire(); return self
+    def __exit__(self, *a): self._lock.release()
+
+class _NoOpEvent:
+    __slots__ = ('_flag',)
+    def __init__(self): self._flag = False
+    def is_set(self): return self._flag
+    isSet = is_set
+    def set(self): self._flag = True
+    def clear(self): self._flag = False
+    def wait(self, timeout=None): return self._flag
+
+_real_thread = __import__('_thread')
+_fake_thread = _types.ModuleType('_thread')
+_fake_thread.LockType = _NoOpLock
+_fake_thread.allocate_lock = _NoOpLock
+_fake_thread.get_ident = _real_thread.get_ident
+_fake_thread._count = _real_thread._count
+sys.modules['_thread'] = _fake_thread
+
+_fake_threading = _types.ModuleType('threading')
+_fake_threading._shutdown = lambda: None
+_fake_threading.Lock = _NoOpLock
+_fake_threading.RLock = _NoOpLock
+_fake_threading.Condition = _NoOpCondition
+_fake_threading.Event = _NoOpEvent
+_fake_threading.get_ident = _real_thread.get_ident
+_fake_threading.current_thread = lambda: type('_T', (), {
+    'name': 'MainThread', 'ident': 1, 'daemon': False,
+    'is_alive': lambda self: True})()
+sys.modules['threading'] = _fake_threading
+
+del _types, _NoOpLock, _NoOpCondition, _NoOpEvent
+del _real_thread, _fake_thread, _fake_threading
+
+import builtins, gc
+
+# Mask id() so module-level `iden = id` captures the masked version.
+# XOR with a random mask â bijective, so id() still returns unique values
+# (needed by copy.deepcopy etc.), but real addresses are hidden.
+import os as _os
+_real_id = builtins.id
+_xor_mask = int.from_bytes(_os.urandom(8), 'little')
+builtins.id = lambda x, _rid=_real_id, _m=_xor_mask: _rid(x) ^ _m
+del _real_id, _xor_mask, _os
+
+# Remove gc introspection â blocks heap enumeration via
+# gc.get_objects(), gc.get_referrers(), gc.get_referents().
+for _a in ('get_objects', 'get_referrers', 'get_referents'):
+    if hasattr(gc, _a): delattr(gc, _a)
+del _a
+
+import sys, os, builtins, time as _time, datetime as _dt
+
+# Lock down _thread/threading in sys.modules â prevent bots from restoring
+# real modules. Done AFTER bot loading because wrapping sys.modules in a dict
+# subclass breaks CPython's internal import machinery during module loading.
+class _ProtectedModules(dict):
+    _locked = frozenset({'_thread', 'threading'})
+    def __delitem__(self, key):
+        if key in self._locked: return
+        super().__delitem__(key)
+    def __setitem__(self, key, value):
+        if key in self._locked: return
+        super().__setitem__(key, value)
+    def pop(self, key, *args):
+        if key in self._locked: return self.get(key)
+        return super().pop(key, *args)
+sys.modules = _ProtectedModules(sys.modules)
+
+# Remove importlib.reload to prevent restoring the real _thread module
+import importlib as _il
+if hasattr(_il, 'reload'): del _il.reload
+
+# Patch BuiltinImporter.find_spec AND _imp.create_builtin to block
+# _thread recovery via alternative import paths.
+import importlib.machinery as _im
+_bi_orig = _im.BuiltinImporter.find_spec.__func__
+@classmethod
+def _bi_safe(cls, name, path=None, target=None, _orig=_bi_orig):
+    if name == '_thread': return None
+    return _orig(cls, name, path, target)
+_im.BuiltinImporter.find_spec = _bi_safe
+import _imp as _imp_mod
+_imp_orig = _imp_mod.create_builtin
+def _imp_safe(spec, _orig=_imp_orig):
+    if spec.name == '_thread': raise ImportError('_thread is blocked')
+    return _orig(spec)
+_imp_mod.create_builtin = _imp_safe
+
+# Clear sys.argv so bots can't read replay paths or other CLI args
+sys.argv = []
+
+# builtins.open, builtins.memoryview, id() masking, and gc introspection
+# are already removed in the pre-load hardening block (before bot module
+# execution). Guard with hasattr to stay idempotent.
+if hasattr(builtins, 'open'): del builtins.open
+if hasattr(builtins, 'memoryview'): del builtins.memoryview
+if not hasattr(builtins.id, '__wrapped__'):
+    _real_id = builtins.id
+    _xor_mask = int.from_bytes(os.urandom(8), 'little')
+    builtins.id = lambda x, _rid=_real_id, _m=_xor_mask: _rid(x) ^ _m
+    builtins.id.__wrapped__ = True
+    del _real_id, _xor_mask
+
+# Freeze time to a fixed point so bots cannot use datetime/time to detect
+# how old a submission is (strategy-hiding exploit: only play real strategy
+# for N minutes after submission, then do nothing). Fixed to 2076-03-16
+# 14:00:00 UTC (lore: the year the game is set in, competition launch date).
+_FAKE_EPOCH = 3351592800.0  # 2076-03-16 14:00:00 UTC
+_time.time = lambda _f=_FAKE_EPOCH: _f
+_time.time_ns = lambda _f=int(_FAKE_EPOCH * 1e9): _f
+_time.monotonic = lambda: 0.0
+_time.monotonic_ns = lambda: 0
+_time.perf_counter = lambda: 0.0
+_time.perf_counter_ns = lambda: 0
+_time.process_time = lambda: 0.0
+_time.process_time_ns = lambda: 0
+_time.thread_time = lambda: 0.0
+_time.thread_time_ns = lambda: 0
+if hasattr(_time, 'clock_gettime'):
+    _time.clock_gettime = lambda _clk, _f=_FAKE_EPOCH: _f
+if hasattr(_time, 'clock_gettime_ns'):
+    _time.clock_gettime_ns = lambda _clk, _f=int(_FAKE_EPOCH * 1e9): _f
+_orig_localtime = _time.localtime
+_time.localtime = lambda _s=None, _f=_FAKE_EPOCH, _o=_orig_localtime: _o(_f)
+_time.gmtime = lambda _s=None, _f=_FAKE_EPOCH, _o=_orig_localtime: _o(_f)
+_orig_strftime = _time.strftime
+_time.strftime = lambda fmt, t=None, _f=_FAKE_EPOCH, _ol=_orig_localtime, _os=_orig_strftime: _os(fmt, _ol(_f))
+class _FakeDatetime(_dt.datetime):
+    @classmethod
+    def now(cls, tz=None, _new=_dt.datetime.__new__):
+        return _new(cls, 2076, 3, 16, 14, 0, 0, tzinfo=tz)
+    @classmethod
+    def utcnow(cls, _new=_dt.datetime.__new__):
+        return _new(cls, 2076, 3, 16, 14, 0, 0)
+    @classmethod
+    def today(cls, _new=_dt.datetime.__new__):
+        return _new(cls, 2076, 3, 16, 14, 0, 0)
+_dt.datetime = _FakeDatetime
+class _FakeDate(_dt.date):
+    @classmethod
+    def today(cls, _new=_dt.date.__new__):
+        return _new(cls, 2076, 3, 16)
+_dt.date = _FakeDate
+del _time, _dt, _FAKE_EPOCH, _orig_localtime, _orig_strftime, _FakeDatetime, _FakeDate
 
 # Remove dangerous os functions (keep os.path for bot convenience)
 for _a in ('system','popen','exec','execl','execle','execlp','execlpe',
@@ -508,38 +671,6 @@ import gc
 for _a in ('get_objects','get_referrers','get_referents'):
     if hasattr(gc, _a): delattr(gc, _a)
 
-# Neuter _thread: replace with a fake module so import _thread gives a
-# module without start_new_thread. The watchdog thread is already running.
-import types as _types
-_fake_thread = _types.ModuleType('_thread')
-_fake_thread.LockType = type(__import__('_thread').allocate_lock())
-_fake_thread.allocate_lock = __import__('_thread').allocate_lock
-_fake_thread.get_ident = __import__('_thread').get_ident
-_fake_thread._count = __import__('_thread')._count
-# start_new_thread deliberately NOT copied
-sys.modules['_thread'] = _fake_thread
-sys.modules['threading'] = None  # block threading import entirely
-
-# Prevent removing our fake _thread from sys.modules by wrapping it
-# in a dict subclass that blocks deletion/replacement of protected keys.
-class _ProtectedModules(dict):
-    _locked = frozenset({'_thread', 'threading'})
-    def __delitem__(self, key):
-        if key in self._locked: return
-        super().__delitem__(key)
-    def __setitem__(self, key, value):
-        if key in self._locked: return
-        super().__setitem__(key, value)
-    def pop(self, key, *args):
-        if key in self._locked: return self.get(key)
-        return super().pop(key, *args)
-_pm = _ProtectedModules(sys.modules)
-sys.modules = _pm
-
-# Remove importlib.reload to prevent restoring the real _thread module
-import importlib as _il
-if hasattr(_il, 'reload'): del _il.reload
-
 # Remove other dangerous modules
 for _m in ('subprocess','socket','signal','_posixsubprocess',
            'ctypes','_ctypes',
@@ -548,7 +679,8 @@ for _m in ('subprocess','socket','signal','_posixsubprocess',
            'select','readline','termios','syslog','grp'):
     sys.modules.pop(_m, None)
 
-del _a, _m, _types, _fake_thread, _il, _pm, _ProtectedModules
+del _a, _m, _ProtectedModules
+del _il, _im, _bi_orig, _bi_safe, _imp_mod, _imp_orig, _imp_safe
 ", None, None)?;
             }
 
@@ -886,10 +1018,9 @@ fn check_except_handlers(py: Python, main_py_path: &str) -> PyResult<()> {
     globals.set_item("main_py_path", main_py_path)?;
     py.run(
         c"
-import ast, os
+import ast
 
 ALLOWED = {
-    # All builtin exceptions minus BaseException, SystemExit, KeyboardInterrupt
     'ArithmeticError', 'AssertionError', 'AttributeError',
     'BaseExceptionGroup', 'BlockingIOError', 'BrokenPipeError', 'BufferError',
     'BytesWarning', 'ChildProcessError', 'ConnectionAbortedError',
@@ -908,40 +1039,32 @@ ALLOWED = {
     'UnboundLocalError', 'UnicodeDecodeError', 'UnicodeEncodeError',
     'UnicodeError', 'UnicodeTranslateError', 'UnicodeWarning', 'UserWarning',
     'ValueError', 'Warning', 'ZeroDivisionError',
-    # Game-specific
     'GameError',
 }
 
-bot_dir = os.path.dirname(os.path.abspath(main_py_path))
-
-for root, dirs, files in os.walk(bot_dir):
-    for fname in files:
-        if not fname.endswith('.py'):
+for mod_name, source in sources.items():
+    fpath = f'<bot>/{mod_name.replace(\".\", \"/\")}.py'
+    tree = ast.parse(source, filename=fpath)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Try) and node.finalbody:
+            raise ValueError(f'{fpath}:{node.finalbody[0].lineno}: `finally` blocks are not allowed')
+        if not isinstance(node, ast.ExceptHandler):
             continue
-        fpath = os.path.join(root, fname)
-        with open(fpath, encoding='utf-8') as f:
-            source = f.read()
-        tree = ast.parse(source, filename=fpath)
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ExceptHandler):
-                continue
-            lineno = node.lineno
-            ty = node.type
-            if ty is None:
-                raise ValueError(f'{fpath}:{lineno}: bare `except:` is not allowed; use a specific exception type')
-            # Only Name or Tuple-of-Names are permitted — anything else
-            # (Attribute, Call, Constant, List, etc.) is rejected.
-            if isinstance(ty, ast.Name):
-                names = [ty.id]
-            elif isinstance(ty, ast.Tuple):
-                if not all(isinstance(e, ast.Name) for e in ty.elts):
-                    raise ValueError(f'{fpath}:{lineno}: except handler types must be plain names')
-                names = [e.id for e in ty.elts]
-            else:
+        lineno = node.lineno
+        ty = node.type
+        if ty is None:
+            raise ValueError(f'{fpath}:{lineno}: bare `except:` is not allowed; use a specific exception type')
+        if isinstance(ty, ast.Name):
+            names = [ty.id]
+        elif isinstance(ty, ast.Tuple):
+            if not all(isinstance(e, ast.Name) for e in ty.elts):
                 raise ValueError(f'{fpath}:{lineno}: except handler types must be plain names')
-            for name in names:
-                if name not in ALLOWED:
-                    raise ValueError(f'{fpath}:{lineno}: `{name}` is not an allowed exception type')
+            names = [e.id for e in ty.elts]
+        else:
+            raise ValueError(f'{fpath}:{lineno}: except handler types must be plain names')
+        for name in names:
+            if name not in ALLOWED:
+                raise ValueError(f'{fpath}:{lineno}: `{name}` is not an allowed exception type')
 ",
         Some(&globals),
         Some(&globals),
@@ -987,45 +1110,90 @@ fn load_player_class_from_memory(py: Python, sources: &BotSources) -> PyResult<P
     globals.set_item("_sources", py_sources)?;
     py.run(
         c"
-import sys, types, importlib.abc, importlib.machinery
+import marshal
+with open(_path, 'rb') as _f:
+    _raw = marshal.load(_f)
+# Re-marshal each code object to bytes so Rust can store Vec<u8>.
+_result = {name: marshal.dumps(code) for name, code in _raw.items()}
 
-class _MemoryFinder(importlib.abc.MetaPathFinder):
-    def __init__(self, sources):
-        self.sources = sources
+import builtins, gc, os as _os
+_real_id = builtins.id
+_xor_mask = int.from_bytes(_os.urandom(8), 'little')
+builtins.id = lambda x, _rid=_real_id, _m=_xor_mask: _rid(x) ^ _m
+del _real_id, _xor_mask, _os
+for _a in ('get_objects', 'get_referrers', 'get_referents'):
+    if hasattr(gc, _a): delattr(gc, _a)
+del _a
+
+import sys, types, importlib.abc, importlib.machinery, marshal
+
+class _BytecodeFinder(importlib.abc.MetaPathFinder):
+    def __init__(self, bytecodes):
+        self.bytecodes = bytecodes
     def find_spec(self, name, path, target=None):
-        if name in self.sources:
-            is_pkg = any(k.startswith(name + '.') for k in self.sources)
+        if name in self.bytecodes:
+            is_pkg = any(k.startswith(name + '.') for k in self.bytecodes)
             spec = importlib.machinery.ModuleSpec(
-                name, _MemoryLoader(self.sources[name], name),
+                name, _BytecodeLoader(self.bytecodes[name], name),
                 origin='<bot>/' + name.replace('.', '/') + '.py',
                 is_package=is_pkg,
             )
             if is_pkg:
                 spec.submodule_search_locations = ['<bot>/' + name.replace('.', '/')]
             return spec
+        # Implicit namespace package: directory has submodules but no __init__.py
+        _prefix = name + '.'
+        if any(k.startswith(_prefix) for k in self.bytecodes):
+            spec = importlib.machinery.ModuleSpec(
+                name, _NamespaceLoader(),
+                origin='<bot>/' + name.replace('.', '/'),
+                is_package=True,
+            )
+            spec.submodule_search_locations = ['<bot>/' + name.replace('.', '/')]
+            return spec
         return None
 
-class _MemoryLoader(importlib.abc.Loader):
-    def __init__(self, source, name):
-        self.source = source
+class _NamespaceLoader(importlib.abc.Loader):
+    def create_module(self, spec):
+        return None
+    def exec_module(self, module):
+        pass
+
+class _BytecodeLoader(importlib.abc.Loader):
+    def __init__(self, bytecode, name):
+        self.bytecode = bytecode
         self.name = name
     def create_module(self, spec):
         return None
     def exec_module(self, module):
-        code = compile(self.source, spec_origin(module), 'exec')
+        code = marshal.loads(self.bytecode)
         exec(code, module.__dict__)
 
-def spec_origin(module):
-    s = getattr(module, '__spec__', None)
-    return s.origin if s else '<bot>/' + module.__name__ + '.py'
-
-_finder = _MemoryFinder(_sources)
+_finder = _BytecodeFinder(_bytecodes)
 sys.meta_path.insert(0, _finder)
 
 # Load the main module
 import importlib
 _player_mod = importlib.import_module('main')
 _Player = _player_mod.Player
+
+# Clear bytecode references from loaders â defense in depth
+for _mod in list(sys.modules.values()):
+    _spec = getattr(_mod, '__spec__', None)
+    if _spec and hasattr(getattr(_spec, 'loader', None), 'bytecode'):
+        _spec.loader.bytecode = None
+_finder.bytecodes = {}
+del _bytecodes, _mod, _spec
+
+import traceback, linecache, tokenize, reprlib, random
+import math, cmath, heapq, collections, functools, itertools
+import json, struct, hashlib, time, datetime, enum, re, copy
+import base64, zlib, binascii, array, bisect, pickle, csv
+import dataclasses, typing, operator, io, codecs, encodings
+import decimal, fractions, statistics, unicodedata
+import string, textwrap, numbers, pprint, pathlib
+import os.path, logging, contextlib, abc, weakref, types
+import inspect, warnings
 ",
         Some(&globals),
         Some(&globals),
