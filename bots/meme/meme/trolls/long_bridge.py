@@ -33,7 +33,8 @@ def long_bridge(p: Player) -> Generator:
                 target = Position(enemy_core.x + random.randint(-1, 1), enemy_core.y + random.randint(-1, 1))
                 bridge.target = target
                 GodMode.draw_line(p, bridge.base.position, target)
-                GodMode.attack(p, enemy_core)
+                if random.randint(1, 4) == 1:
+                    GodMode.attack(p, enemy_core)
 
             new_queue.append((bid, new_age))
         elif new_age == 2:

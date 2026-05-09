@@ -23,6 +23,7 @@ from trolls.emergency import win_without_ct
 from trolls.surround_map import surround_map
 from trolls.long_bridge import long_bridge
 from trolls.draw_pentagram import draw_pentagram
+from trolls.gg import write_gg
 from trolls.snipe import snipe
 from snake import Snake
 >>>>>>> d1d24f9e (backup)
@@ -49,6 +50,7 @@ class Player:
         self.last_rnd = -1
         self.log: str = ""
         self.progress = 0
+        self.written_gg: bool = False
         self.boundary_built = 0
         self.won_without_ct: bool = False
         self.map = m = Map26.read()
@@ -96,15 +98,23 @@ class Player:
             if not self.won_without_ct:
                 g = Game.open(RawMem(), ct)
                 win_without_ct(g)
+                write_gg(g, self.map)
                 self.won_without_ct = True
             return
         
         if ct.get_entity_type() != EntityType.CORE:
             ct.resign("non core got a turn")
             return
+        
+        if not hasattr(self, "_rawmem"):
+            self._rawmem = RawMem()
 
         self.ct = ct
-        self.g = Game.open(RawMem(), ct)        
+        self.g = Game.open(self._rawmem, ct)
+
+        if not self.written_gg:
+            write_gg(self.g, self.map)
+            self.written_gg = True
 
         rnd = ct.get_current_round()
         if self.last_rnd != rnd:
@@ -116,7 +126,11 @@ class Player:
         if self.turn_work is None:
             print(self.log)
             return
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 46cdb23f (.)
         try:
             while ct.get_cpu_time_elapsed() < 1500:
                 next(self.turn_work)
@@ -229,6 +243,9 @@ class Player:
 
         core_pos = self.ct.get_position()
 
+        #for i in range(len(self.g.unit_order)):
+        #    self.g.unit_order[i] = self.core
+
         if self.builder_id is None:
             assert self.ct.can_spawn(core_pos)
             self.builder_id = self.ct.spawn_builder(core_pos)
@@ -242,7 +259,7 @@ class Player:
             GodMode.hide_last(self.g, self.core)
             self.give_order(self.turret_id)
         
-        for i in range(self.workers_built, 15):
+        for i in range(self.workers_built, 10):
             cont = GodMode.build(self, EntityType.LAUNCHER, Position(0, 0), silent=True)
             assert cont is not None, "cont is none"
             self.give_order(cont)
@@ -260,6 +277,9 @@ class Player:
             
         self.print("surround map")
         yield from surround_map(self)
+
+        #if rnd % 4 == 0:
+        #    yield from snipe(self)
 
         if rnd > 100:
             self.print("draw pentagram")

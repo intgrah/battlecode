@@ -1,8 +1,12 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 from cambc import Direction, EntityType, Environment, Position, ResourceType, Team
 from main import Player
 from rust import Game, GameDiffFireTurret, GameDiffPlaceEntity
 =======
+=======
+from __future__ import annotations
+>>>>>>> 46cdb23f (.)
 from typing import TYPE_CHECKING
 
 from cambc import Position, Environment, EntityType, Team, ResourceType, Direction
@@ -297,16 +301,25 @@ class GodMode:
         me.ammo_type = ResourceType.TITANIUM
         me.ammo_amount = INF
 
+<<<<<<< HEAD
         if not p.ct.can_fire(Position(0, 1)):
             return
 
         p.ct.fire(Position(0, 1))
+=======
+        if p.ct.can_fire(Position(0, 1)):
+            p.ct.fire(Position(0, 1))
+>>>>>>> 46cdb23f (.)
 
-        last_fire = p.g.replay_recorder.last_fire_turret.as_variant
-        assert isinstance(last_fire, GameDiffFireTurret)
+            last_fire = p.g.replay_recorder.last_fire_turret.as_variant
+            assert isinstance(last_fire, GameDiffFireTurret)
 
-        last_fire.from_ = from_pos
-        last_fire.to = to_pos
+            last_fire.from_ = from_pos
+            last_fire.to = to_pos
 
+<<<<<<< HEAD
         old_id = p.ct.get_id()
         p.g.possess(old_id)
+=======
+        p.g.possess(old_id)
+>>>>>>> 46cdb23f (.)
