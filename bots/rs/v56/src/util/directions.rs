@@ -22,7 +22,7 @@ pub const DIR4: [Direction; 4] = [
 ];
 
 /// True for the four cardinal directions (N/E/S/W). Mirrors the Rust
-/// `Direction::is_cardinal()` helper from `libre-engine`, which has no
+/// `Direction::is_cardinal()` helper from `cambc-libre-engine`, which has no
 /// Python counterpart on `cambc.Direction`.
 #[must_use]
 pub const fn is_cardinal(d: Direction) -> bool {

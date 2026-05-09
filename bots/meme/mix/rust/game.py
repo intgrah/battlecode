@@ -92,7 +92,7 @@ class Game(RustStruct):
         """Overwrite the `Controller`'s `unit: i32` (offset +8) with
         `unit_id`, returning the previous value. Only valid for `Game`
         instances created via `open()`."""
-        self._raw.write_u32(self._ct_addr + 8, unit_id & 0xFFFF_FFFF)
+        self._raw.write_u32(self._ct_addr + 8, unit_id)
 
     def player(self, team: Team) -> PlayerState:
         return PlayerState(

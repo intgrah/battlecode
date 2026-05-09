@@ -5,14 +5,14 @@
 //! pyrust-translated bots emit Python that imports the same names from
 //! `cambc`, where `Controller` is the runtime `PyO3` wrapper.
 
-pub use libre_engine::common::{
+pub use cambc_libre_engine::common::{
     Direction, EntityType, Environment, Pos as Position, ResourceType, Team,
     game_constants as GameConstants,
 };
-pub use libre_engine::controller::{
+pub use cambc_libre_engine::controller::{
     BuildExtra, Controller as ControllerApi, GameError, Result, UnitView as Controller,
 };
-pub use libre_engine::game_map::{
+pub use cambc_libre_engine::game_map::{
     ArmouredConveyor, Barrier, Breach, Bridge, BuilderBot, Conveyor, Core, Entity, Foundry, Gunner,
     Harvester, Launcher, Marker, PlayerState, Road, Sentinel, Splitter, Tile,
 };
@@ -46,7 +46,7 @@ pub mod ffi {
     pub const CREATE_NAME: &[u8] = b"__cambc_create_bot";
     /// Calls `Player::run(controller)`. `view` is `*mut UnitView<'_>` cast
     /// to `*mut c_void`. Both engine and bot must have the SAME compiled
-    /// `libre-engine` for the layout to match — Cargo workspace ensures
+    /// `cambc-libre-engine` for the layout to match — Cargo workspace ensures
     /// this when both are built from the same source.
     pub const RUN_NAME: &[u8] = b"__cambc_run_bot";
     /// Drops the `Box<dyn Player>`. Called when the unit dies or the

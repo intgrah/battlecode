@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use libre_engine::common::{Direction, Pos};
+use cambc_libre_engine::common::{Direction, Pos};
 
 use crate::blueprint::Kind;
 

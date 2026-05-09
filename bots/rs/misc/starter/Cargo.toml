@@ -11,4 +11,4 @@ path = "src/lib.rs"
 
 [dependencies]
 cambc = { path = "../../../../crates/cambc" }
-pyrust = { path = "../../../../crates/pyrust/shim" }
+pyrust = { path = "../../../../crates/pyrust-shim" }

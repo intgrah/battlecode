@@ -2,7 +2,7 @@ use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use libre_engine::common::{Environment, Pos, ResourceType, Team};
+use cambc_libre_engine::common::{Environment, Pos, ResourceType, Team};
 use pong_sim::analyze;
 use pong_sim::blueprint;
 use pong_sim::flow;
@@ -84,7 +84,7 @@ fn print_flow_summary(
     map_path: &std::path::Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let placements = blueprint::load(bp_path)?;
-    let (env, cores) = libre_replay::load_map(map_path.to_str().ok_or("non-utf8")?)?;
+    let (env, cores) = cambc_libre_replay::load_map(map_path.to_str().ok_or("non-utf8")?)?;
     let height = env.len() as i32;
     let width = env.first().map(|r| r.len() as i32).unwrap_or(0);
     let team_a_cores: Vec<Pos> = cores

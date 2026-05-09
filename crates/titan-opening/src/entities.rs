@@ -4,9 +4,9 @@
 use std::collections::HashMap;
 
 use eframe::egui;
-use libre_engine::common::{Direction, ResourceType, Team};
-use libre_engine::game::Game;
-use libre_engine::game_map::Entity;
+use cambc_libre_engine::common::{Direction, ResourceType, Team};
+use cambc_libre_engine::game::Game;
+use cambc_libre_engine::game_map::Entity;
 use titan_core::SpriteSet;
 use titan_core::connected::{
     CARDINALS, bridge_base_sprite_name as connected_bridge_base, conveyor_sprite_name,
@@ -205,7 +205,7 @@ fn paint_entity(
 
 // ── Connected-texture helpers ────────────────────────────────────
 // Same logic the replay viewer uses (`titan-replay/src/map.rs`),
-// retargeted at libre-engine's `Entity` enum. A conveyor / armoured
+// retargeted at cambc-libre-engine's `Entity` enum. A conveyor / armoured
 // conveyor's sprite encodes (out direction, set of feeding inputs);
 // a bridge's base encodes (set of openings).
 

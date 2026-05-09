@@ -491,7 +491,7 @@ impl State {
     }
 
     pub fn distribute_resources(&mut self) {
-        // Mirrors libre-engine/src/game/distribute.rs exactly.
+        // Mirrors cambc-libre-engine/src/game/distribute.rs exactly.
         #[derive(Clone, Debug)]
         struct Edge { priority: f64, source: Pos, sink: Pos }
         impl Eq for Edge {}

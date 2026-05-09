@@ -8,7 +8,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use libre_engine::common::Pos;
+use cambc_libre_engine::common::Pos;
 use pong_sim::solver::{
     Map, Network, place_foundry, place_harvester_with_route, render_bp, route_foundry_to_core,
 };

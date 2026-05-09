@@ -1,4 +1,4 @@
-//! Engine-driven simulator for the opening editor. Wraps `libre_engine::Game`
+//! Engine-driven simulator for the opening editor. Wraps `cambc_libre_engine::Game`
 //! and feeds it scripted actions through `UnitView` (the engine's bot-side
 //! `Controller`). Resimulates from turn 0 on every edit — short openings
 //! make this trivial.
@@ -6,10 +6,10 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use libre_engine::common::{Direction, Pos, Team};
-use libre_engine::controller::{Controller, UnitView};
-use libre_engine::game::Game;
-use libre_engine::game_map::Entity;
+use cambc_libre_engine::common::{Direction, Pos, Team};
+use cambc_libre_engine::controller::{Controller, UnitView};
+use cambc_libre_engine::game::Game;
+use cambc_libre_engine::game_map::Entity;
 
 use crate::opening::{Action, Opening};
 
@@ -49,7 +49,7 @@ impl Sim {
             .to_str()
             .ok_or_else(|| "non-UTF8 map path".to_string())?;
         let (env, cores) =
-            libre_replay::map_loader::load_map(path_str).map_err(|e| format!("load map: {e}"))?;
+            cambc_libre_replay::map_loader::load_map(path_str).map_err(|e| format!("load map: {e}"))?;
         let game = Game::new(env, cores, 0, true);
         let turn_units = game.unit_order.clone();
 
@@ -150,8 +150,8 @@ impl Sim {
         self.game.distribute_resources();
         self.game.update_cooldowns();
         const PASSIVE_INTERVAL: i32 =
-            libre_engine::common::game_constants::PASSIVE_TITANIUM_INTERVAL;
-        const PASSIVE_AMOUNT: i32 = libre_engine::common::game_constants::PASSIVE_TITANIUM_AMOUNT;
+            cambc_libre_engine::common::game_constants::PASSIVE_TITANIUM_INTERVAL;
+        const PASSIVE_AMOUNT: i32 = cambc_libre_engine::common::game_constants::PASSIVE_TITANIUM_AMOUNT;
         if (self.game.turn + 1) % PASSIVE_INTERVAL == 0 {
             for p in &mut self.game.players {
                 p.titanium += PASSIVE_AMOUNT;

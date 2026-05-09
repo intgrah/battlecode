@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use libre_engine::common::{Direction, Pos};
+use cambc_libre_engine::common::{Direction, Pos};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {

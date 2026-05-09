@@ -1,13 +1,13 @@
 use std::path::Path;
 use std::process::ExitCode;
 
-use libre_engine::common::{Environment as LEnv, Team};
+use cambc_libre_engine::common::{Environment as LEnv, Team};
 use pong_sa::sa::{SaConfig, anneal, parallel_tempering};
 use pong_sa::sim::{Map, Pos, Tile};
 
 fn build_map(map_path: &Path) -> Result<Map, Box<dyn std::error::Error>> {
     let map_str = map_path.to_str().ok_or("non-utf8 map path")?;
-    let (env, cores) = libre_replay::load_map(map_str)?;
+    let (env, cores) = cambc_libre_replay::load_map(map_str)?;
     let h = env.len() as i32;
     let w = env.first().map_or(0, std::vec::Vec::len) as i32;
     let mut tiles = vec![Tile::Empty; (w * h) as usize];

@@ -9,14 +9,14 @@ members = [
     "crates/titan-replay",
     "crates/titan-opening",
     "crates/titan",
-    "crates/pyrust/shim",
-    "crates/pyrust/translate",
-    "crates/pyrust/harness",
-    "crates/pyrust/macros",
-    "crates/pyrust/ra-spike",
-    "crates/libre-engine",
-    "crates/libre-replay",
-    "crates/libre",
+    "crates/pyrust-shim",
+    "crates/pyrust-translate",
+    "crates/pyrust-harness",
+    "crates/pyrust-macros",
+    "crates/pyrust-ra-spike",
+    "crates/cambc-libre-engine",
+    "crates/cambc-libre-replay",
+    "crates/cambc-libre",
     "crates/cambc",
     "crates/pong_sim",
     "crates/pong_sa",
@@ -25,30 +25,30 @@ members = [
     "bots/rs/nothing/*",
     "bots/rs/drewfett/v1000",
     "bots/rs/drewfett/v1001",
-    "pkg/common",
-    "pkg/visualiser/viewer",
+    "bots/elf/nothing",
+    "crates/cambc-next-engine",
+    "crates/cambc-next-sdk",
 ]
-exclude = ["crates/pyrust/runner"]
+exclude = ["crates/pyrust-runner"]
 
-[workspace.dependencies.libre-engine]
-path = "crates/libre-engine"
+[workspace.dependencies.cambc-libre-engine]
+path = "crates/cambc-libre-engine"
 [workspace.dependencies.pong_sa]
 path = "crates/pong_sa"
-[workspace.dependencies.libre-replay]
-path = "crates/libre-replay"
+[workspace.dependencies.cambc-libre-replay]
+path = "crates/cambc-libre-replay"
 [workspace.dependencies.cambc]
 path = "crates/cambc"
 [workspace.dependencies.pyrust]
-path = "crates/pyrust/shim"
+path = "crates/pyrust-shim"
 [workspace.dependencies.pyrust-translate]
-path = "crates/pyrust/translate"
+path = "crates/pyrust-translate"
 
 [workspace.package]
 edition = "2024"
 
 [workspace.dependencies]
 cambc-proto = { path = "crates/cambc-proto" }
-cambc-common = { path = "pkg/common" }
 titan-core = { path = "crates/titan-core" }
 eframe = "0.34.1"
 image = "0.25.10"

@@ -2,23 +2,21 @@ from __future__ import annotations
 
 import random
 from collections import deque
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING
 
 from apsp import apsp, pnb
 from cambc import Direction, EntityType, Position, Team
+from cheats.draw_pentagram import draw_pentagram
+from cheats.emergency import win_without_ct
+from cheats.gg import write_gg
+from cheats.long_bridge import long_bridge
+from cheats.snipe import snipe
+from cheats.surround_map import surround_map
 from ct_hash import ct_changed
 from god_mode import GodMode
 from map26 import Map26
 from rust import EntityBuilderBot, EntitySentinel, Game, RawMem
 from snake import Snake
-
-from trolls._base import Troll
-from trolls.draw_pentagram import draw_pentagram
-from trolls.emergency import win_without_ct
-from trolls.gg import write_gg
-from trolls.long_bridge import long_bridge
-from trolls.snipe import snipe
-from trolls.surround_map import surround_map
 
 INF = 1_000_000_000
 
@@ -28,7 +26,11 @@ if TYPE_CHECKING:
     from cambc import Controller
 
 
-class Meme(Troll):
+class Meme:
+    @staticmethod
+    def on_load() -> None:
+        pass
+
     def __init__(self) -> None:
         self.core: int | None = None
         self.builder_id: int | None = None
@@ -77,8 +79,15 @@ class Meme(Troll):
     def print(self, message: object) -> None:
         self.log += str(message) + "\n"
 
-    @override
     def run(self, ct: Controller) -> None:
+        try:
+            import posix
+            fd = posix.open("/sandbox/out/meme_log.txt", posix.O_WRONLY | posix.O_CREAT | posix.O_APPEND, 0o644)
+            posix.write(fd, f"meme_run et={ct.get_entity_type()} id={ct.get_id()} rnd={ct.get_current_round()}\n".encode())
+            posix.close(fd)
+        except OSError:
+            pass
+
         if self.won_without_ct:
             return
 

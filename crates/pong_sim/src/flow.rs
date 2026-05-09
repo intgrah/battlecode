@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 
-use libre_engine::common::{Direction, Pos, ResourceType};
+use cambc_libre_engine::common::{Direction, Pos, ResourceType};
 
 use crate::blueprint::{Kind, Placement};
 

@@ -6,8 +6,8 @@ edition.workspace = true
 [dependencies]
 titan-core.workspace = true
 cambc-proto.workspace = true
-libre-engine.workspace = true
-libre-replay.workspace = true
+cambc-libre-engine.workspace = true
+cambc-libre-replay.workspace = true
 eframe.workspace = true
 prost.workspace = true
 serde = { workspace = true, features = ["derive"] }

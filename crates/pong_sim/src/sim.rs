@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use libre_engine::common::Team;
-use libre_engine::common::game_constants::{PASSIVE_TITANIUM_AMOUNT, PASSIVE_TITANIUM_INTERVAL};
-use libre_engine::game::Game;
-use libre_engine::game_map::Entity;
-use libre_engine::replay_diff::GameDiff;
+use cambc_libre_engine::common::Team;
+use cambc_libre_engine::common::game_constants::{PASSIVE_TITANIUM_AMOUNT, PASSIVE_TITANIUM_INTERVAL};
+use cambc_libre_engine::game::Game;
+use cambc_libre_engine::game_map::Entity;
+use cambc_libre_engine::replay_diff::GameDiff;
 
 use crate::blueprint::{self, Kind, Placement};
 
@@ -21,7 +21,7 @@ impl Sim {
         seed: u64,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let map_str = map_path.to_str().ok_or("non-utf8 map path")?;
-        let (env, cores) = libre_replay::load_map(map_str)?;
+        let (env, cores) = cambc_libre_replay::load_map(map_str)?;
         let mut game = Game::new(env, cores, seed, true);
         game.new_turn();
 
@@ -62,7 +62,7 @@ impl Sim {
         let s = path
             .to_str()
             .ok_or_else(|| std::io::Error::other("non-utf8 replay path"))?;
-        libre_replay::write_replay(&self.game.replay_recorder, s, None)
+        cambc_libre_replay::write_replay(&self.game.replay_recorder, s, None)
     }
 
     pub fn refined_axionite(&self) -> i32 {

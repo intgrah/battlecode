@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::process::ExitCode;
 
-use libre_engine::common::{Direction as LDirection, Environment as LEnv, Pos as LPos};
+use cambc_libre_engine::common::{Direction as LDirection, Environment as LEnv, Pos as LPos};
 use pong_sa::sim::{BuildKind, Direction, Map, Pos, State, Tile};
 use pong_sim::sim::Sim;
 use pong_sim::blueprint::{Kind, load as load_bp};
@@ -35,7 +35,7 @@ fn map_kind(k: Kind) -> BuildKind {
 
 fn build_my_state(map_path: &Path, bp_path: &Path, seed: u64) -> Result<State, Box<dyn std::error::Error>> {
     let map_str = map_path.to_str().ok_or("non-utf8 map path")?;
-    let (env, cores) = libre_replay::load_map(map_str)?;
+    let (env, cores) = cambc_libre_replay::load_map(map_str)?;
     let h = env.len() as i32;
     let w = env.first().map_or(0, std::vec::Vec::len) as i32;
     let mut tiles = vec![Tile::Empty; (w * h) as usize];
@@ -50,7 +50,7 @@ fn build_my_state(map_path: &Path, bp_path: &Path, seed: u64) -> Result<State, B
             tiles[(y * w + x) as usize] = t;
         }
     }
-    let core = cores.iter().find(|(_, t)| matches!(t, libre_engine::common::Team::A)).expect("no team A core");
+    let core = cores.iter().find(|(_, t)| matches!(t, cambc_libre_engine::common::Team::A)).expect("no team A core");
     let map = Map { width: w, height: h, tiles, core: Pos::new(core.0.x, core.0.y) };
     let mut state = State::new(map, seed);
     for p in load_bp(bp_path)? {

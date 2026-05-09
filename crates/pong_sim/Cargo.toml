@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-libre-engine.workspace = true
-libre-replay.workspace = true
+cambc-libre-engine.workspace = true
+cambc-libre-replay.workspace = true
 pong_sa.workspace = true
 
 [[bin]]

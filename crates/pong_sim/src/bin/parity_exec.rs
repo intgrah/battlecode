@@ -1,15 +1,15 @@
 use std::path::Path;
 use std::process::ExitCode;
 
-use libre_engine::common::{Direction as LDir, Environment as LEnv, Pos as LPos, Team};
-use libre_engine::game::Game;
-use libre_engine::game_map::Entity;
+use cambc_libre_engine::common::{Direction as LDir, Environment as LEnv, Pos as LPos, Team};
+use cambc_libre_engine::game::Game;
+use cambc_libre_engine::game_map::Entity;
 use pong_sa::plan::{Build, CoreAction, Plan, TurnAction};
 use pong_sa::sim::{BuildKind, Direction, Map, Pos, State, Tile};
 
 fn build_my_state(map_path: &Path, seed: u64, turns: i32, n_builders: usize) -> Result<(State, Plan), Box<dyn std::error::Error>> {
     let map_str = map_path.to_str().ok_or("non-utf8 map path")?;
-    let (env, cores) = libre_replay::load_map(map_str)?;
+    let (env, cores) = cambc_libre_replay::load_map(map_str)?;
     let h = env.len() as i32;
     let w = env.first().map_or(0, std::vec::Vec::len) as i32;
     let mut tiles = vec![Tile::Empty; (w * h) as usize];
@@ -31,7 +31,7 @@ fn build_my_state(map_path: &Path, seed: u64, turns: i32, n_builders: usize) -> 
 
 fn build_libre(map_path: &Path, seed: u64) -> Result<Game, Box<dyn std::error::Error>> {
     let map_str = map_path.to_str().ok_or("non-utf8 map path")?;
-    let (env, cores) = libre_replay::load_map(map_str)?;
+    let (env, cores) = cambc_libre_replay::load_map(map_str)?;
     let mut game = Game::new(env, cores, seed, true);
     game.new_turn();
     Ok(game)
@@ -82,7 +82,7 @@ fn apply_libre_turn(
         let core_e = game.entities.get(&core_id).expect("core missing");
         if let Entity::Core(c) = core_e {
             if c.action_cooldown == 0 {
-                let cost = game.scaled_cost(Team::A, libre_engine::common::game_constants::BUILDER_BOT_BASE_COST);
+                let cost = game.scaled_cost(Team::A, cambc_libre_engine::common::game_constants::BUILDER_BOT_BASE_COST);
                 let p = &game.players[Team::A.index()];
                 if p.titanium >= cost.0 && p.axionite >= cost.1 {
                     let id = game.spawn_builder(core_id, pos_to_libre(sp));
@@ -156,7 +156,7 @@ fn apply_libre_build(game: &mut Game, bot_id: i32, b: Build) {
 }
 
 fn base_cost(k: BuildKind) -> (i32, i32) {
-    use libre_engine::common::game_constants::*;
+    use cambc_libre_engine::common::game_constants::*;
     match k {
         BuildKind::Conveyor => CONVEYOR_BASE_COST,
         BuildKind::Splitter => SPLITTER_BASE_COST,
@@ -200,7 +200,7 @@ fn apply_libre_move(game: &mut Game, bot_id: i32, d: Direction) {
 fn step_libre(game: &mut Game) {
     game.distribute_resources();
     game.update_cooldowns();
-    use libre_engine::common::game_constants::{PASSIVE_TITANIUM_AMOUNT, PASSIVE_TITANIUM_INTERVAL};
+    use cambc_libre_engine::common::game_constants::{PASSIVE_TITANIUM_AMOUNT, PASSIVE_TITANIUM_INTERVAL};
     if (game.turn + 1) % PASSIVE_TITANIUM_INTERVAL == 0 {
         for p in &mut game.players {
             p.titanium += PASSIVE_TITANIUM_AMOUNT;

@@ -419,7 +419,7 @@ impl App {
         let Some(e) = self.sim.game.entities.get(&uid) else {
             return;
         };
-        if !matches!(e, libre_engine::game_map::Entity::BuilderBot(_)) {
+        if !matches!(e, cambc_libre_engine::game_map::Entity::BuilderBot(_)) {
             self.last_event = Some("shift+RMB: only builders can move".into());
             return;
         }
@@ -474,7 +474,7 @@ impl App {
         let Some(e) = self.sim.game.entities.get(&uid) else {
             return;
         };
-        if !matches!(e, libre_engine::game_map::Entity::BuilderBot(_)) {
+        if !matches!(e, cambc_libre_engine::game_map::Entity::BuilderBot(_)) {
             self.last_event = Some("shift+MMB: only builders can destroy".into());
             return;
         }
@@ -483,7 +483,7 @@ impl App {
             ent.position.x == gx
                 && ent.position.y == gy
                 && ent.team == e.team
-                && !matches!(ent, libre_engine::game_map::Entity::BuilderBot(_))
+                && !matches!(ent, cambc_libre_engine::game_map::Entity::BuilderBot(_))
         });
         if !has_friendly_building {
             self.last_event = Some(format!("shift+MMB: no building at ({gx},{gy})"));
@@ -581,8 +581,8 @@ impl App {
             return;
         };
         let action = match e {
-            libre_engine::game_map::Entity::BuilderBot(_) => crate::opening::Action::Move { dir },
-            libre_engine::game_map::Entity::Core(_) => crate::opening::Action::Spawn { dir },
+            cambc_libre_engine::game_map::Entity::BuilderBot(_) => crate::opening::Action::Move { dir },
+            cambc_libre_engine::game_map::Entity::Core(_) => crate::opening::Action::Spawn { dir },
             _ => return,
         };
         self.append_tracked(opening_id, self.edit_turn, action);
@@ -811,7 +811,7 @@ impl App {
             .game
             .entities
             .iter()
-            .filter(|(_, e)| matches!(e, libre_engine::game_map::Entity::BuilderBot(_)))
+            .filter(|(_, e)| matches!(e, cambc_libre_engine::game_map::Entity::BuilderBot(_)))
             .map(|(&id, _)| id)
             .collect();
 
@@ -870,12 +870,12 @@ impl App {
     /// If multiple authored units share the tile (e.g. a builder
     /// standing on its own road), the builder takes priority.
     fn entity_at(&self, x: i32, y: i32) -> Option<i32> {
-        use libre_engine::game_map::Entity;
+        use cambc_libre_engine::game_map::Entity;
         let mut hit_id: Option<i32> = None;
         for (&id, e) in &self.sim.game.entities {
             // Player-team only. Team B isn't represented in the
             // opening, so its entities aren't selectable.
-            if !matches!(e.team, libre_engine::common::Team::A) {
+            if !matches!(e.team, cambc_libre_engine::common::Team::A) {
                 continue;
             }
             let p = e.position;
@@ -1287,8 +1287,8 @@ impl App {
     /// per-building scaled cost table. Order mirrors the replay
     /// viewer's stats panel for consistency.
     fn render_left_panel(&mut self, ui: &mut egui::Ui) {
-        use libre_engine::common::Team;
-        use libre_engine::common::game_constants as gc;
+        use cambc_libre_engine::common::Team;
+        use cambc_libre_engine::common::game_constants as gc;
 
         let p = &self.sim.game.players[0];
         let ti = p.titanium;
@@ -2168,7 +2168,7 @@ impl App {
         {
             let p = e.position;
             let r = match e {
-                libre_engine::game_map::Entity::Core(_) => egui::Rect::from_min_size(
+                cambc_libre_engine::game_map::Entity::Core(_) => egui::Rect::from_min_size(
                     tile_rect(p.x - 1, p.y - 1, ts, origin, self.zoom).min,
                     egui::Vec2::splat(ts * self.zoom * 3.0),
                 ),
@@ -2261,8 +2261,8 @@ fn parse_marker_value(s: &str) -> Result<u32, String> {
 /// - **Builder**: full build / destroy / marker set.
 /// - **Core**: Spawn (own 3x3 only) and Marker (5x5 perimeter only).
 /// - **Turret / Launcher**: Marker (8 neighbours).
-fn wheel_options_for(e: &libre_engine::game_map::Entity) -> Vec<Pending> {
-    use libre_engine::game_map::Entity;
+fn wheel_options_for(e: &cambc_libre_engine::game_map::Entity) -> Vec<Pending> {
+    use cambc_libre_engine::game_map::Entity;
     match e {
         Entity::BuilderBot(_) => vec![
             Pending::BuildConveyor,
@@ -2305,8 +2305,8 @@ const fn directional_kind_for(p: Pending) -> Option<DirectionalAction> {
 /// True if a builder can stand on this entity (per Battlecode rules:
 /// conveyors, armoured conveyors, splitters, bridges, roads, allied
 /// core).
-const fn is_walkable_building(e: &libre_engine::game_map::Entity) -> bool {
-    use libre_engine::game_map::Entity;
+const fn is_walkable_building(e: &cambc_libre_engine::game_map::Entity) -> bool {
+    use cambc_libre_engine::game_map::Entity;
     matches!(
         e,
         Entity::Conveyor(_)
@@ -2469,12 +2469,12 @@ fn unit_label(sim: &Sim, opening: &Opening, uid: i32) -> String {
     let plan = opening_id.and_then(|oid| opening.team.units.get(&oid));
     let kind = plan.map_or_else(
         || match e {
-            libre_engine::game_map::Entity::Core(_) => "core".to_string(),
-            libre_engine::game_map::Entity::BuilderBot(_) => "builder".to_string(),
-            libre_engine::game_map::Entity::Gunner(_) => "gunner".to_string(),
-            libre_engine::game_map::Entity::Sentinel(_) => "sentinel".to_string(),
-            libre_engine::game_map::Entity::Breach(_) => "breach".to_string(),
-            libre_engine::game_map::Entity::Launcher(_) => "launcher".to_string(),
+            cambc_libre_engine::game_map::Entity::Core(_) => "core".to_string(),
+            cambc_libre_engine::game_map::Entity::BuilderBot(_) => "builder".to_string(),
+            cambc_libre_engine::game_map::Entity::Gunner(_) => "gunner".to_string(),
+            cambc_libre_engine::game_map::Entity::Sentinel(_) => "sentinel".to_string(),
+            cambc_libre_engine::game_map::Entity::Breach(_) => "breach".to_string(),
+            cambc_libre_engine::game_map::Entity::Launcher(_) => "launcher".to_string(),
             _ => format!("uid {uid}"),
         },
         |p| p.kind.label().to_string(),

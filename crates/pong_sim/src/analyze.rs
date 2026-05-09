@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use libre_engine::common::{Direction, Pos, ResourceType, Team};
-use libre_engine::game::Game;
-use libre_engine::game_map::Entity;
-use libre_engine::replay_diff::GameDiff;
+use cambc_libre_engine::common::{Direction, Pos, ResourceType, Team};
+use cambc_libre_engine::game::Game;
+use cambc_libre_engine::game_map::Entity;
+use cambc_libre_engine::replay_diff::GameDiff;
 
 #[derive(Debug, Clone)]
 pub struct HarvesterStats {

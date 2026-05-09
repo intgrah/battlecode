@@ -257,7 +257,7 @@ pub struct TurnActions {
 }
 
 /// Editor-side action representation. All positions are absolute tile
-/// coordinates; directions use the same encoding as `libre_engine::Direction`
+/// coordinates; directions use the same encoding as `cambc_libre_engine::Direction`
 /// (0=N, 1=NE, 2=E, 3=SE, 4=S, 5=SW, 6=W, 7=NW, 8=Centre).
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub enum Action {

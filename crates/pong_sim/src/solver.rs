@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 
-use libre_engine::common::{Direction, Environment, Pos, ResourceType, Team};
+use cambc_libre_engine::common::{Direction, Environment, Pos, ResourceType, Team};
 
 use crate::blueprint::{Kind, Placement};
 use crate::flow::CarriedType;
@@ -45,7 +45,7 @@ pub struct Map {
 impl Map {
     pub fn load(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         let s = path.to_str().ok_or("non-utf8 map path")?;
-        let (env, cores) = libre_replay::load_map(s)?;
+        let (env, cores) = cambc_libre_replay::load_map(s)?;
         let height = env.len() as i32;
         let width = env.first().map(|r| r.len() as i32).unwrap_or(0);
         let mut cells = Vec::with_capacity((width * height) as usize);
