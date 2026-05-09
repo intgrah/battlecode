@@ -1,11 +1,31 @@
 from __future__ import annotations
 
+<<<<<<< HEAD
 import random
 from typing import TYPE_CHECKING
 
 from cambc import Direction, EntityType, Position, Team
 from god_mode import GodMode
 from rust import EntityBuilderBot, EntitySentinel, Game, RawMem
+=======
+from typing import TYPE_CHECKING, Generator
+
+from collections import deque
+
+from cambc import EntityType, Position, Team, Direction, ResourceType
+from rust import Game, RawMem, EntityBuilderBot, EntitySentinel, EntityBridge, GameDiffMoveBuilderBot
+from god_mode import GodMode
+from map26 import Map26
+from apsp import pnb, apsp
+import random
+from ct_hash import ct_changed
+from trolls.emergency import win_without_ct
+from trolls.surround_map import surround_map
+from trolls.long_bridge import long_bridge
+from trolls.draw_pentagram import draw_pentagram
+from trolls.snipe import snipe
+from snake import Snake
+>>>>>>> d1d24f9e (backup)
 
 INF = 1_000_000_000
 
@@ -22,6 +42,7 @@ class Player:
         self.turret_id: int | None = None
         self.team: Team | None = None
         self.enemy_team: Team | None = None
+        self.snake: Snake = Snake(16)
         self.workers_built: int = 0
         self.built = False
         self.turn_work: Generator | None = None
@@ -31,6 +52,9 @@ class Player:
         self.boundary_built = 0
         self.won_without_ct: bool = False
         self.map = m = Map26.read()
+        self.bridge_queue: deque[tuple[int, int]] = deque()
+        self.bridge_pos_idx: int = 0
+
         if m.width <= 50 and m.height <= 50:
             self.pnb = pnb(m)
             self.apsp = apsp(m, self.pnb)
@@ -49,7 +73,19 @@ class Player:
         me = self.g.entities[self.turret_id].as_variant
         assert isinstance(me, EntitySentinel)
         return me
+<<<<<<< HEAD
 
+=======
+    
+    def give_order(self, bid: int) -> None:
+        assert self.core is not None
+        for i in range(len(self.g.unit_order)):
+            uid = self.g.unit_order[i]
+            if uid == bid:
+                self.g.unit_order[i] = self.core
+                break
+    
+>>>>>>> d1d24f9e (backup)
     def print(self, message: object) -> None:
         self.log += str(message) + "\n"
 
@@ -110,9 +146,13 @@ class Player:
         if self.core is None:
             self.core = self.ct.get_id()
 
-        self.g.player(self.ct.get_team()).titanium = INF
+
+        player = self.g.player(self.ct.get_team())
+        player.titanium = INF
+        player.scale_milli = 0
         self.g.entities[self.core].base.hp = INF
 
+<<<<<<< HEAD
         if self.builder_id is None:
             assert self.ct.can_spawn(self.ct.get_position())
             self.builder_id = self.ct.spawn_builder(self.ct.get_position())
@@ -171,25 +211,66 @@ class Player:
             Position(0, self.ct.get_map_height() - 1),
         )
 
+=======
+>>>>>>> d1d24f9e (backup)
         rnd = self.ct.get_current_round()
 
         zero_like = -10 if rnd % 4 == 3 else 0
 
         team_state = self.g.player(self.team)
-        team_state.titanium = zero_like
-        team_state.axionite = 0
         team_state.titanium_collected = 0
         team_state.axionite_collected = -1
-
         enemy_ax = random.randint(-INF, INF) if rnd < 1999 else random.randint(-INF, -2)
-
         enemy_state = self.g.player(self.enemy_team)
-        enemy_state.titanium = INF + zero_like
-        enemy_state.titanium_collected = 0
         enemy_state.axionite = enemy_ax
         enemy_state.axionite_collected = enemy_ax
+        enemy_state.titanium = INF + zero_like
+        enemy_state.titanium_collected = 0
 
-        # busy work
-        #for i in range(100000):
-        #    self.progress = i
-        #    yield
+        core_pos = self.ct.get_position()
+
+        if self.builder_id is None:
+            assert self.ct.can_spawn(core_pos)
+            self.builder_id = self.ct.spawn_builder(core_pos)
+            self.g.entities[self.builder_id].base.hp = INF
+            self.give_order(self.builder_id)
+
+        if self.turret_id is None:
+            self.turret_id = GodMode.build(self, EntityType.SENTINEL, Position(0, 0), Direction.SOUTH)
+            assert self.turret_id is not None
+            self.g.entities[self.turret_id].base.hp = INF
+            GodMode.hide_last(self.g, self.core)
+            self.give_order(self.turret_id)
+        
+        for i in range(self.workers_built, 15):
+            cont = GodMode.build(self, EntityType.LAUNCHER, Position(0, 0), silent=True)
+            assert cont is not None, "cont is none"
+            self.give_order(cont)
+            GodMode.destroy(self, cont)
+            self.workers_built = i + 1
+            yield
+
+        core_pos = [Position(core.x, core.y) for core in self.map.cores]
+        friendly_core = core_pos[0] if self.map.cores[0].team == self.team else core_pos[1]
+
+        adj = friendly_core.add(random.choice([Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST]))
+        if core_pos != adj:
+            self.print("move in replay")
+            GodMode.move_in_replay(self, self.core, adj)
+            
+        self.print("surround map")
+        yield from surround_map(self)
+
+        if rnd > 100:
+            self.print("draw pentagram")
+            yield from draw_pentagram(self, adj, 5, rnd * 5)
+
+            self.print("long bridge")
+            yield from long_bridge(self)
+
+        self.print("snake update")
+        yield from self.snake.update(self)
+
+        team_state = self.g.player(self.team)
+        team_state.titanium = zero_like
+        team_state.axionite = 0

@@ -1,6 +1,18 @@
+<<<<<<< HEAD
 from cambc import Direction, EntityType, Environment, Position, ResourceType, Team
 from main import Player
 from rust import Game, GameDiffFireTurret, GameDiffPlaceEntity
+=======
+from typing import TYPE_CHECKING
+
+from cambc import Position, Environment, EntityType, Team, ResourceType, Direction
+from rust import GameDiff, GameDiffPlaceEntity, GameDiffFireTurret, GameDiffMoveBuilderBot
+
+if TYPE_CHECKING:
+    from cambc import Controller
+    from main import Player
+    from rust import Game
+>>>>>>> d1d24f9e (backup)
 
 INF = 1_000_000_000
 
@@ -29,8 +41,8 @@ class GodMode:
 
         me.base.team = entity.team
 
-        assert p.ct.can_destroy(pos), "should be able to destroy"
-        p.ct.destroy(pos)
+        if p.ct.can_destroy(pos):
+            p.ct.destroy(pos)
 
         if bid != old_bid:
             tile.building = old_bid
@@ -50,9 +62,15 @@ class GodMode:
         enemy_team: bool = False,
         silent: bool = False,
     ) -> int | None:
+<<<<<<< HEAD
         assert p.builder_id is not None
         assert etype not in (EntityType.BUILDER_BOT, EntityType.CORE)
 
+=======
+        assert p.builder_id is not None, "bid none"
+        assert etype != EntityType.BUILDER_BOT and etype != EntityType.CORE, "bad etype"
+        
+>>>>>>> d1d24f9e (backup)
         old_id = p.ct.get_id()
         p.g.possess(p.builder_id)
 
@@ -63,8 +81,6 @@ class GodMode:
         me.base.position = pos
         me.action_cooldown = 0
 
-        assert p.ct.get_action_cooldown() == 0
-
         tile = p.g.game_map.tile(pos.x, pos.y)
         old_bid = tile.building
         old_bbid = tile.builder_bot
@@ -72,13 +88,22 @@ class GodMode:
 
         tile.builder_bot = None
         tile.building = None
+<<<<<<< HEAD
         tile.environment = Environment.ORE_TITANIUM
 
         if not p.ct.can_build(etype, pos, extra):
             return None
 
         bid = p.ct.build(etype, pos, extra)
+=======
+        tile.environment = Environment.ORE_AXIONITE
+        
+        bid = None
+        if p.ct.can_build(etype, pos, extra):
+            bid = p.ct.build(etype, pos, extra)
+>>>>>>> d1d24f9e (backup)
 
+        tile = p.g.game_map.tile(pos.x, pos.y)
         if silent:
             tile.building = old_bid
         tile.builder_bot = old_bbid
@@ -90,6 +115,46 @@ class GodMode:
 
         p.g.possess(old_id)
         return bid
+<<<<<<< HEAD
+=======
+    
+
+    @staticmethod
+    def gen_move(
+        p: Player
+    ) -> None:
+        assert p.builder_id is not None, "bid none"
+
+        old_id = p.ct.get_id()
+        p.g.possess(p.builder_id)
+
+        me = p.builder()
+        me.base.position = Position(0, 1)
+        me.move_cooldown = 0
+
+        tile = p.g.game_map.tile(0, 0)
+        old_bid = tile.building
+        old_bbid = tile.builder_bot
+        old_env = tile.environment
+
+        tile.builder_bot = None
+        tile.building = p.core
+        tile.environment = Environment.ORE_AXIONITE
+
+        can = p.ct.can_move(Direction.NORTH)
+        if can:
+            p.ct.move(Direction.NORTH)
+
+        tile = p.g.game_map.tile(0, 0)
+        tile.building = old_bid
+        tile.builder_bot = old_bbid
+        tile.environment = old_env
+
+        p.g.possess(old_id)
+    
+    @staticmethod
+    def hide_last(g: Game, subsitute_bid: int):
+>>>>>>> d1d24f9e (backup)
 
     @staticmethod
     def hide_last(g: Game, subsitute_bid: int) -> None:
@@ -124,8 +189,9 @@ class GodMode:
         p.g.game_map.tile(from_pos.x, from_pos.y).building = None
         p.g.game_map.tile(to_pos.x, to_pos.y).building = bid
         p.g.entities[bid].base.position = to_pos
-
+    
     @staticmethod
+<<<<<<< HEAD
     def move_in_replay(p: Player, bid: int, to_pos: Position) -> None:
         if bid not in p.g.entities:
             return
@@ -141,6 +207,16 @@ class GodMode:
         assert isinstance(place_diff, GameDiffPlaceEntity)
         p.g._raw.write_bytes(place_diff._addr, entity_bytes)
         place_diff.entity.base.position = to_pos
+=======
+    def move_in_replay(p: Player, bid: int, to_pos: Position):
+        GodMode.gen_move(p)
+        move_diff = p.g.replay_recorder.last_move_builder_bot
+        move = move_diff.as_variant
+        assert isinstance(move, GameDiffMoveBuilderBot), f"wrong variant {type(move)}"
+        move.id = bid
+        move.to = to_pos
+
+>>>>>>> d1d24f9e (backup)
         
     @staticmethod
     def clone_in_replay(p: Player, bid: int, new_pos: Position) -> int | None:
@@ -164,20 +240,49 @@ class GodMode:
         return new_id
     
     @staticmethod
+<<<<<<< HEAD
     def move_last_in_replay(p: Player, to_pos: Position) -> None:
+=======
+    def attack(p: Player, target: Position) -> None:
+        assert p.turret_id is not None
+>>>>>>> d1d24f9e (backup)
 
-        place_diff = p.g.replay_recorder.last_place_entity.as_variant
-        assert isinstance(place_diff, GameDiffPlaceEntity)
-        bid = place_diff.entity.base.id
+        if target.x - 1 >= 0:
+            adj = Position(target.x - 1, target.y)
+            direction = Direction.EAST
+        else:
+            adj = Position(target.x + 1, target.y)
+            direction = Direction.WEST
 
+<<<<<<< HEAD
         if bid not in p.g.entities:
             return
 
         entity = p.g.entities[bid]
         entity_bytes = p.g._raw.read_bytes(entity._addr + 8, 64)
+=======
+        old_id = p.ct.get_id()
+        p.g.possess(p.turret_id)
+        me = p.turret()
+>>>>>>> d1d24f9e (backup)
 
-        p.g._raw.write_bytes(place_diff._addr, entity_bytes)
-        place_diff.entity.base.position = to_pos
+        old_pos = me.base.position
+        old_dir = me.direction
+
+        me.base.position = adj
+        me.direction = direction
+        me.action_cooldown = 0
+        me.ammo_type = ResourceType.TITANIUM
+        me.ammo_amount = INF
+
+        if p.ct.can_fire(target):
+            p.ct.fire(target)
+
+        me = p.turret()
+        me.base.position = old_pos
+        me.direction = old_dir
+
+        p.g.possess(old_id)
 
     @staticmethod
     def draw_line(p: Player, from_pos: Position, to_pos: Position) -> None:
@@ -191,8 +296,6 @@ class GodMode:
         me.action_cooldown = 0
         me.ammo_type = ResourceType.TITANIUM
         me.ammo_amount = INF
-
-        assert p.ct.get_action_cooldown() == 0
 
         if not p.ct.can_fire(Position(0, 1)):
             return

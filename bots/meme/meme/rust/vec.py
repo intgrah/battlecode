@@ -47,3 +47,8 @@ class Vec(RustStruct):
         ptr = self.ptr
         for i in range(self.len):
             yield self._read(ptr + i * Vec._ELEM_SIZE)
+
+    def __reversed__(self) -> Iterator[int]:
+        ptr = self.ptr
+        for i in range(self.len - 1, -1, -1):
+            yield self._read(ptr + i * Vec._ELEM_SIZE)

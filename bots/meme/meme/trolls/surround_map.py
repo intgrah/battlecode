@@ -34,23 +34,23 @@ def surround_map(p: Player) -> Generator:
     assert p.boundary_built >= 0
     offset = p.boundary_built
     for x in range(offset, w):
-        build_sentinel(Position(x, h), Direction.SOUTH)
+        build_sentinel(Position(x, h), Direction.NORTH)
         yield
 
     assert p.boundary_built >= w
     offset = p.boundary_built - w
     for x in range(offset, w):
-        build_sentinel(Position(x, -1), Direction.NORTH)
+        build_sentinel(Position(x, -1), Direction.SOUTH)
         yield
         
     assert p.boundary_built >= 2 * w
     offset = p.boundary_built - 2 * w
     for y in range(offset, h):
-        build_sentinel(Position(w, y), Direction.EAST)
+        build_sentinel(Position(w, y), Direction.WEST)
         yield
 
     assert p.boundary_built >= 2 * w + h
     offset = p.boundary_built - 2 * w - h
     for y in range(offset, h):
-        build_sentinel(Position(-1, y), Direction.WEST)
+        build_sentinel(Position(-1, y), Direction.EAST)
         yield

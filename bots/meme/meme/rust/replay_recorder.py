@@ -2,8 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final
 
+from cambc import Environment
+
 from rust.base import U8, U64, Inner, RustStruct
+<<<<<<< HEAD
 from rust.game_diff import _TAG_FIRE_TURRET, GameDiff
+=======
+from rust.game_diff import GameDiff, _TAG_FIRE_TURRET, _TAG_MOVE_BUILDER_BOT
+from rust.tile import _ENV_FROM_INT, _ENV_TO_INT
+>>>>>>> d1d24f9e (backup)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -15,6 +22,74 @@ _VEC_SIZE: Final = 24
 _VEC_CAP_OFF: Final = 0
 _VEC_PTR_OFF: Final = 8
 _VEC_LEN_OFF: Final = 16
+
+
+class EnvRow(RustStruct):
+    """
+    `Vec<Environment>` (24 B): one row, indexed by x, typed as `Environment`.
+
+      +0   8  cap  usize
+      +8   8  ptr  *u8
+      +16  8  len  usize (= map width)
+    """
+
+    cap = U64(_VEC_CAP_OFF)
+    ptr = U64(_VEC_PTR_OFF)
+    len = U64(_VEC_LEN_OFF)
+
+    def __len__(self) -> int:
+        return self.len
+
+    def __getitem__(self, x: int) -> Environment:
+        n = self.len
+        if x < 0:
+            x += n
+        if x < 0 or x >= n:
+            raise IndexError(x)
+        return _ENV_FROM_INT[self._raw.read_u8(self.ptr + x)]
+
+    def __setitem__(self, x: int, val: Environment) -> None:
+        n = self.len
+        if x < 0:
+            x += n
+        if x < 0 or x >= n:
+            raise IndexError(x)
+        self._raw.write_u8(self.ptr + x, _ENV_TO_INT[val])
+
+    def __iter__(self) -> Iterator[Environment]:
+        ptr = self.ptr
+        for i in range(self.len):
+            yield _ENV_FROM_INT[self._raw.read_u8(ptr + i)]
+
+
+class EnvGrid(RustStruct):
+    """
+    `Vec<Vec<Environment>>` (24 B): outer vector indexed by y.
+
+      +0   8  cap  usize
+      +8   8  ptr  *Vec<Environment>
+      +16  8  len  usize (= map height)
+    """
+
+    cap = U64(_VEC_CAP_OFF)
+    ptr = U64(_VEC_PTR_OFF)
+    len = U64(_VEC_LEN_OFF)
+
+    def __len__(self) -> int:
+        return self.len
+
+    def __getitem__(self, y: int) -> EnvRow:
+        n = self.len
+        if y < 0:
+            y += n
+        if y < 0 or y >= n:
+            raise IndexError(y)
+        return EnvRow(self._raw, self.ptr + y * _VEC_SIZE)
+
+    def __iter__(self) -> Iterator[EnvRow]:
+        ptr = self.ptr
+        for i in range(self.len):
+            yield EnvRow(self._raw, ptr + i * _VEC_SIZE)
 
 
 class TurnDiffs(RustStruct):
@@ -84,13 +159,16 @@ class ReplayRecorder(RustStruct):
 
     The first two fields are both 24 B Vec triples; the disassembly of
     `append` only fingerprints `diffs` (at +48) and `suppress_indicators`
-    (at +72), so we don't expose the other two.
+    (at +72). `cores` (+24) is not exposed; `environment` (+0) is exposed
+    as `EnvGrid` (writable `Vec<Vec<u8>>` indexed [y][x]).
     """
 
     SIZE: Final = 80
+    _ENV_OFF: Final = 0
     _DIFFS_OFF: Final = 48
     _SUPPRESS_OFF: Final = 72
 
+    environment = Inner(_ENV_OFF, EnvGrid)
     suppress_indicators = U8(_SUPPRESS_OFF)
     diffs = Inner(_DIFFS_OFF, Diffs)
 
@@ -140,4 +218,16 @@ class ReplayRecorder(RustStruct):
             if d.tag == _TAG_FIRE_TURRET:
                 return d
         msg = f"no FireTurret diff (tag={_TAG_FIRE_TURRET}) in current turn"
+        raise LookupError(msg)
+
+    @property
+    def last_move_builder_bot(self) -> GameDiff:
+        """The most recent MoveBuilderBot diff in the current turn (tag == 1)."""
+        turn = self.current_turn
+        tags = [d.tag for d in turn]
+        for i in range(len(turn) - 1, -1, -1):
+            d = turn[i]
+            if d.tag == _TAG_MOVE_BUILDER_BOT:
+                return d
+        msg = f"no MoveBuilderBot diff (tag={_TAG_MOVE_BUILDER_BOT}) in current turn"
         raise LookupError(msg)
